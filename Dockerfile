@@ -1,8 +1,3 @@
-FROM ubuntu:latest
-LABEL authors="batman"
-
-ENTRYPOINT ["top", "-b"]
-
 # Multi-stage build for production optimization
 FROM python:3.9-slim as builder
 
@@ -31,8 +26,11 @@ ENV POETRY_NO_INTERACTION=1 \
 # Set work directory
 WORKDIR /app
 
-# Copy poetry files
-COPY pyproject.toml poetry.lock* ./
+# Copy poetry files and README.md
+COPY pyproject.toml poetry.lock* README.md ./
+
+# Copy source code
+COPY src/ ./src/
 
 # Install dependencies
 RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
@@ -79,13 +77,27 @@ CMD ["uvicorn", "src.network_security_suite.main:app", "--host", "0.0.0.0", "--p
 FROM builder as development
 
 # Install development dependencies
-RUN poetry install
+RUN poetry install --with dev,test
+
+# Create non-root user for development
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy all files for development
-COPY . .
+COPY --chown=app:app . .
 
 # Switch to non-root user
 USER app
+
+# Expose port
+EXPOSE 8000
 
 # Default command for development
 CMD ["uvicorn", "src.network_security_suite.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

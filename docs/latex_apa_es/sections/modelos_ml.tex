@@ -1,0 +1,316 @@
+\subsection{Visión General del Aprendizaje Automático}
+La Suite de Seguridad de Red incorpora capacidades de aprendizaje automático para mejorar la detección de amenazas más allá de los enfoques tradicionales basados en reglas. El subsistema de ML está diseñado para identificar comportamientos anómalos en la red y clasificar patrones de ataque conocidos, proporcionando una capa adicional de seguridad.
+
+\subsection{Arquitectura de ML}
+El subsistema de aprendizaje automático consta de varios componentes:
+
+\begin{itemize}
+    \item \textbf{Preprocesamiento de Datos}: Transforma datos brutos de paquetes en vectores de características adecuados para algoritmos de ML
+    \item \textbf{Extracción de Características}: Extrae características relevantes del tráfico de red
+    \item \textbf{Entrenamiento de Modelos}: Entrena modelos de ML con datos históricos
+    \item \textbf{Motor de Inferencia}: Aplica modelos entrenados a nuevos datos para predicción
+    \item \textbf{Gestión de Modelos}: Maneja el versionado, almacenamiento y despliegue de modelos
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+
+    \caption{Arquitectura del Subsistema de Aprendizaje Automático}
+    \label{fig:ml_architecture}
+\end{figure}
+
+\subsection{Ingeniería de Características}
+La efectividad de los modelos de aprendizaje automático depende en gran medida de la calidad de las características extraídas del tráfico de red. La Suite de Seguridad de Red extrae los siguientes tipos de características:
+
+\subsubsection{Características a Nivel de Paquete}
+Características extraídas de paquetes individuales:
+
+\begin{itemize}
+    \item Tipo de protocolo (TCP, UDP, ICMP, etc.)
+    \item Tamaño del paquete
+    \item Campos de cabecera (banderas, opciones, etc.)
+    \item Tiempo de vida (TTL)
+    \item Información de fragmentación
+\end{itemize}
+
+\subsubsection{Características a Nivel de Flujo}
+Características extraídas de flujos de red (secuencias de paquetes entre el mismo origen y destino):
+
+\begin{itemize}
+    \item Duración del flujo
+    \item Recuento de paquetes
+    \item Bytes transferidos
+    \item Estadísticas de tamaño de paquetes (media, varianza, etc.)
+    \item Estadísticas de tiempo entre llegadas
+    \item Distribución de banderas TCP
+\end{itemize}
+
+\subsubsection{Características Basadas en Tiempo}
+Características que capturan patrones temporales:
+
+\begin{itemize}
+    \item Volumen de tráfico a lo largo del tiempo
+    \item Tasa de conexión
+    \item Patrones de comportamiento periódico
+    \item Patrones según la hora del día
+\end{itemize}
+
+\subsubsection{Características Basadas en Host}
+Características relacionadas con hosts específicos:
+
+\begin{itemize}
+    \item Recuento de conexiones
+    \item Diversidad de uso de puertos
+    \item Intentos de conexión fallidos
+    \item Patrones de acceso a servicios
+\end{itemize}
+
+\subsection{Modelos de Aprendizaje Automático}
+La Suite de Seguridad de Red emplea varios tipos de modelos de aprendizaje automático para diferentes tareas:
+
+\subsubsection{Modelos de Detección de Anomalías}
+Estos modelos identifican comportamientos inusuales en la red que pueden indicar amenazas de seguridad:
+
+\begin{itemize}
+    \item \textbf{Isolation Forest}: Un método de conjunto que aísla explícitamente anomalías seleccionando aleatoriamente una característica y luego seleccionando aleatoriamente un valor de división entre los valores máximo y mínimo de la característica seleccionada.
+    
+    \item \textbf{One-Class SVM}: Una variante de máquina de vectores de soporte que aprende un límite alrededor de puntos de datos normales y clasifica los puntos fuera de este límite como anomalías.
+    
+    \item \textbf{Local Outlier Factor (LOF)}: Un algoritmo basado en densidad que compara la densidad local de un punto con las densidades locales de sus vecinos para identificar regiones de densidad similar y puntos que tienen una densidad sustancialmente menor que sus vecinos.
+    
+    \item \textbf{Autoencoder}: Una arquitectura de red neuronal que aprende a comprimir y reconstruir datos normales. Las anomalías se identifican por un alto error de reconstrucción.
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Implementación de Isolation Forest]
+from sklearn.ensemble import IsolationForest
+import numpy as np
+
+class AnomalyDetector:
+    def __init__(self, contamination=0.01):
+        self.model = IsolationForest(
+            n_estimators=100,
+            max_samples='auto',
+            contamination=contamination,
+            random_state=42
+        )
+        
+    def train(self, X):
+        """Entrenar el modelo de detección de anomalías."""
+        self.model.fit(X)
+        
+    def predict(self, X):
+        """
+        Predecir anomalías.
+        Devuelve 1 para puntos normales y -1 para anomalías.
+        """
+        return self.model.predict(X)
+        
+    def anomaly_score(self, X):
+        """
+        Calcular puntuaciones de anomalía.
+        Una puntuación más alta (más cercana a 0) indica más anómalo.
+        """
+        raw_scores = self.model.decision_function(X)
+        # Convertir al rango [0, 1] donde 1 es más anómalo
+        return 1 - (raw_scores - np.min(raw_scores)) / (np.max(raw_scores) - np.min(raw_scores))
+\end{lstlisting}
+
+\subsubsection{Modelos de Clasificación}
+Estos modelos clasifican el tráfico de red en categorías conocidas, incluidos tipos específicos de ataques:
+
+\begin{itemize}
+    \item \textbf{Random Forest}: Un método de aprendizaje de conjunto que construye múltiples árboles de decisión durante el entrenamiento y produce la clase que es el modo de las clases de los árboles individuales.
+    
+    \item \textbf{Gradient Boosting}: Una técnica de aprendizaje automático que produce un modelo de predicción en forma de un conjunto de modelos de predicción débiles, típicamente árboles de decisión.
+    
+    \item \textbf{Support Vector Machine (SVM)}: Un modelo de aprendizaje supervisado que analiza datos para clasificación y análisis de regresión.
+    
+    \item \textbf{Red Neuronal Profunda}: Una red neuronal con múltiples capas ocultas que puede aprender patrones complejos en los datos.
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Implementación de Clasificador Random Forest]
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+
+class AttackClassifier:
+    def __init__(self, n_estimators=100):
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=None,
+            min_samples_split=2,
+            random_state=42
+        )
+        
+    def train(self, X, y):
+        """Entrenar el modelo de clasificación."""
+        self.model.fit(X, y)
+        
+    def predict(self, X):
+        """Predecir clases de ataque."""
+        return self.model.predict(X)
+        
+    def predict_proba(self, X):
+        """Predecir probabilidades de clase."""
+        return self.model.predict_proba(X)
+        
+    def evaluate(self, X_test, y_test):
+        """Evaluar el rendimiento del modelo."""
+        y_pred = self.predict(X_test)
+        return classification_report(y_test, y_pred)
+\end{lstlisting}
+
+\subsubsection{Modelos de Agrupamiento}
+Estos modelos agrupan patrones similares de tráfico de red:
+
+\begin{itemize}
+    \item \textbf{K-Means}: Un algoritmo de agrupamiento que particiona observaciones en k grupos en los que cada observación pertenece al grupo con la media más cercana.
+    
+    \item \textbf{DBSCAN}: Un algoritmo de agrupamiento basado en densidad que agrupa puntos que están estrechamente empaquetados, marcando como valores atípicos los puntos que se encuentran solos en regiones de baja densidad.
+    
+    \item \textbf{Agrupamiento Jerárquico}: Un método que construye grupos anidados fusionándolos o dividiéndolos sucesivamente.
+\end{itemize}
+
+\subsection{Entrenamiento de Modelos}
+Los modelos de aprendizaje automático se entrenan utilizando datos históricos de tráfico de red:
+
+\subsubsection{Datos de Entrenamiento}
+Los datos de entrenamiento consisten en:
+
+\begin{itemize}
+    \item Tráfico de red normal recopilado del entorno de producción
+    \item Datos de ataque sintéticos generados utilizando herramientas de prueba de seguridad
+    \item Datos de ataque etiquetados de conjuntos de datos públicos
+    \item Datos históricos de ataques de incidentes anteriores
+\end{itemize}
+
+\subsubsection{Proceso de Entrenamiento}
+El proceso de entrenamiento implica:
+
+\begin{enumerate}
+    \item Recopilación y preprocesamiento de datos
+    \item Extracción y selección de características
+    \item Selección de modelos y ajuste de hiperparámetros
+    \item Entrenamiento y validación de modelos
+    \item Evaluación de modelos utilizando datos de prueba
+    \item Despliegue de modelos en producción
+\end{enumerate}
+
+\begin{lstlisting}[language=Python, caption=Pipeline de Entrenamiento de Modelos]
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+
+def train_model(X, y, model_type='random_forest'):
+    # Dividir datos en conjuntos de entrenamiento y prueba
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    
+    # Crear pipeline de preprocesamiento y modelo
+    if model_type == 'random_forest':
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', RandomForestClassifier(random_state=42))
+        ])
+        
+        # Definir cuadrícula de hiperparámetros
+        param_grid = {
+            'classifier__n_estimators': [50, 100, 200],
+            'classifier__max_depth': [None, 10, 20, 30],
+            'classifier__min_samples_split': [2, 5, 10]
+        }
+    
+    # Realizar búsqueda en cuadrícula para ajuste de hiperparámetros
+    grid_search = GridSearchCV(
+        pipeline, param_grid, cv=5, scoring='f1_weighted'
+    )
+    grid_search.fit(X_train, y_train)
+    
+    # Obtener el mejor modelo
+    best_model = grid_search.best_estimator_
+    
+    # Evaluar en conjunto de prueba
+    y_pred = best_model.predict(X_test)
+    report = classification_report(y_test, y_pred)
+    
+    return best_model, report
+\end{lstlisting}
+
+\subsection{Evaluación de Modelos}
+El rendimiento de los modelos de aprendizaje automático se evalúa utilizando varias métricas:
+
+\subsubsection{Métricas de Detección de Anomalías}
+\begin{itemize}
+    \item Precisión
+    \item Exhaustividad (Recall)
+    \item Puntuación F1
+    \item Área Bajo la Curva ROC (AUC-ROC)
+    \item Área Bajo la Curva Precisión-Exhaustividad (AUC-PR)
+\end{itemize}
+
+\subsubsection{Métricas de Clasificación}
+\begin{itemize}
+    \item Exactitud
+    \item Precisión
+    \item Exhaustividad (Recall)
+    \item Puntuación F1
+    \item Matriz de confusión
+    \item Informe de clasificación
+\end{itemize}
+
+\subsection{Despliegue de Modelos}
+Los modelos entrenados se despliegan en el entorno de producción:
+
+\subsubsection{Serialización de Modelos}
+Los modelos se serializan utilizando pickle o joblib y se almacenan en el repositorio de modelos:
+
+\begin{lstlisting}[language=Python, caption=Serialización de Modelos]
+import joblib
+
+def save_model(model, model_path):
+    """Guardar modelo en disco."""
+    joblib.dump(model, model_path)
+    
+def load_model(model_path):
+    """Cargar modelo desde disco."""
+    return joblib.load(model_path)
+\end{lstlisting}
+
+\subsubsection{Versionado de Modelos}
+El sistema mantiene múltiples versiones de cada modelo:
+
+\begin{itemize}
+    \item Modelo actual de producción
+    \item Modelos anteriores de producción
+    \item Modelos candidatos para evaluación
+\end{itemize}
+
+\subsubsection{Servicio de Modelos}
+Los modelos se sirven a través del motor de inferencia, que:
+
+\begin{itemize}
+    \item Carga el modelo actual de producción
+    \item Preprocesa los datos entrantes
+    \item Aplica el modelo para generar predicciones
+    \item Devuelve resultados de predicción
+\end{itemize}
+
+\subsection{Aprendizaje Continuo}
+El subsistema de aprendizaje automático implementa aprendizaje continuo para adaptarse a patrones de red en evolución:
+
+\begin{itemize}
+    \item \textbf{Reentrenamiento Periódico}: Los modelos se reentrenan periódicamente con nuevos datos
+    \item \textbf{Ciclo de Retroalimentación}: La retroalimentación de los analistas sobre falsos positivos/negativos se incorpora al entrenamiento
+    \item \textbf{Detección de Deriva Conceptual}: El sistema monitorea cambios en la distribución de datos que pueden afectar el rendimiento del modelo
+    \item \textbf{Umbrales Adaptativos}: Los umbrales de detección de anomalías se ajustan según las condiciones actuales de la red
+\end{itemize}
+
+\subsection{Explicabilidad}
+El sistema proporciona explicaciones para las predicciones del modelo para ayudar a los analistas a entender por qué cierto tráfico fue marcado:
+
+\begin{itemize}
+    \item \textbf{Importancia de Características}: Identifica qué características contribuyeron más a una predicción
+    \item \textbf{Explicaciones Locales}: Explica predicciones individuales utilizando técnicas como SHAP (SHapley Additive exPlanations)
+    \item \textbf{Visualización de Ruta de Decisión}: Para modelos basados en árboles, muestra la ruta de decisión que llevó a una predicción
+    \item \textbf{Casos Similares}: Proporciona ejemplos de patrones de tráfico similares de datos históricos
+\end{itemize}
