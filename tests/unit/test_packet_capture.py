@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from scapy.layers.inet import ICMP, IP
 
-from src.network_security_suite.models.data_structures import ICMPPacketModel
+from src.network_security_suite.models.data_structures import Packet, PacketLayer
 from src.network_security_suite.sniffer.packet_capture import PacketCapture
 
 
@@ -46,6 +46,8 @@ class TestPacketCapture:
         mock_packet = MagicMock()
         mock_packet.haslayer.side_effect = lambda x: x in [IP, ICMP]
         mock_packet.__getitem__.side_effect = lambda x: MagicMock()
+        mock_packet.time = 1234567890.0
+        mock_packet.__len__.return_value = 100
 
         mock_sniff.return_value = [mock_packet]
 
@@ -54,19 +56,20 @@ class TestPacketCapture:
 
         # Verify packet was processed
         assert len(packet_capture.packets) == 1
-        assert isinstance(packet_capture.packets[0], ICMPPacketModel)
+        assert isinstance(packet_capture.packets[0], Packet)
+
+        # Verify the packet has ICMP layer
+        assert packet_capture.packets[0].has_layer("ICMP")
 
     def test_show_packets(self, packet_capture: PacketCapture) -> None:
         """Test showing captured packets"""
-        # Create mock packet with show method
-        mock_packet = MagicMock()
-        packet_capture.packets = [mock_packet]
+        # Create a packet with layers
+        layer = PacketLayer(layer_name="Test", fields={"field1": "value1", "field2": "value2"})
+        packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
+        packet_capture.packets = [packet]
 
-        # Call show_packets
+        # Call show_packets (this just prints to console, so we're just testing it doesn't raise exceptions)
         packet_capture.show_packets()
-
-        # Verify show was called on the packet
-        mock_packet.show.assert_called_once()
 
 
 if __name__ == "__main__":
