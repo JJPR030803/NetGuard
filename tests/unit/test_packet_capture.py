@@ -1,6 +1,7 @@
 """
 Unit tests for the PacketCapture class
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -64,7 +65,9 @@ class TestPacketCapture:
     def test_show_packets(self, packet_capture: PacketCapture) -> None:
         """Test showing captured packets"""
         # Create a packet with layers
-        layer = PacketLayer(layer_name="Test", fields={"field1": "value1", "field2": "value2"})
+        layer = PacketLayer(
+            layer_name="Test", fields={"field1": "value1", "field2": "value2"}
+        )
         packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
         packet_capture.packets = [packet]
 

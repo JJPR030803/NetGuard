@@ -35,11 +35,22 @@ test-integration: ## Run integration tests only
 
 lint: ## Run all linting tools
 	@echo "$(BLUE)Running linting tools...$(NC)"
-	poetry run flake8 src/
+	poetry run ruff check src/
 	poetry run pylint src/
 
-format: ## Format code with black and isort
+enforce-lint:
+	@echo "$(BLUE) Enforcing linting tools...$(NC)"
+	poetry run ruff check --fix src/
+	poetry run pylint src/
+
+enforce-format:
+	@echo "$(BLUE)Enforcing format...$(NC)"
+	poetry run ruff format src/ tests/
+	poetry run black src/ tests/
+	poetry run isort src/ tests/
+format: ## Format code with ruff, black and isort
 	@echo "$(BLUE)Formatting code...$(NC)"
+	poetry run ruff format src/ tests/
 	poetry run black src/ tests/
 	poetry run isort src/ tests/
 
@@ -50,9 +61,11 @@ type-check: ## Run type checking with mypy
 security: ## Run security checks
 	@echo "$(BLUE)Running security checks...$(NC)"
 	poetry run bandit -r src/
-	poetry run safety check
+	poetry run pip freeze | poetry run safety check --stdin
 
 quality: format lint type-check security ## Run all code quality checks
+
+enforce-quality: enforce-format enforce-lint type-check security
 
 pre-commit: ## Run pre-commit hooks on all files
 	@echo "$(BLUE)Running pre-commit hooks...$(NC)"

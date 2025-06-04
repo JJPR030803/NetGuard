@@ -1,6 +1,16 @@
+"""
+interfaces.py
+This module contains the Interface class for detecting and managing network interfaces.
+Compatible with multiple operating systems.
+"""
+
 import platform
-import re
-import subprocess
+import shutil
+
+# B404: We need to use subprocess for system commands, but we've implemented
+# security measures to mitigate risks (full paths, no shell=True, input validation)
+import subprocess  # nosec B404
+from pathlib import Path
 from typing import Dict, List
 
 import netifaces  # You'll need to add this to your poetry dependencies
@@ -19,7 +29,12 @@ class Interface:
         interfaces (dict): A dictionary of detected network interfaces and their properties.
     """
 
-    def __init__(self):
+    # Valid characters for interface names (alphanumeric, dash, underscore, dot, colon)
+    VALID_IFACE_CHARS = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+"
+    )
+
+    def __init__(self) -> None:
         """
         Initialize the Interface class.
 
@@ -45,12 +60,11 @@ class Interface:
         """
         if self.os_type == "linux":
             return self._get_linux_interfaces()
-        elif self.os_type == "darwin":  # macOS
+        if self.os_type == "darwin":  # macOS
             return self._get_macos_interfaces()
-        elif self.os_type == "windows":
+        if self.os_type == "windows":
             return self._get_windows_interfaces()
-        else:
-            raise NotImplementedError(f"Operating system {self.os_type} not supported")
+        raise NotImplementedError(f"Operating system {self.os_type} not supported")
 
     def _get_linux_interfaces(self) -> Dict[str, dict]:
         """
@@ -78,17 +92,29 @@ class Interface:
                     "name": iface,
                     "mac": addrs.get(netifaces.AF_LINK, [{"addr": None}])[0]["addr"],
                     "ipv4": addrs.get(netifaces.AF_INET, [{"addr": None}])[0]["addr"],
-                    "ipv6": addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
-                    if netifaces.AF_INET6 in addrs
-                    else None,
+                    "ipv6": (
+                        addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
+                        if netifaces.AF_INET6 in addrs
+                        else None
+                    ),
                     "type": self._detect_interface_type(iface),
                 }
                 interfaces[iface] = interface_info
 
             # Additional Linux-specific information
-            if subprocess.getoutput("which ip"):
+            ip_path = shutil.which("ip")
+            if ip_path:
                 try:
-                    ip_link = subprocess.check_output(["ip", "link", "show"]).decode()
+                    # B603: This subprocess call is safe because:
+                    # 1. We use the full path to the executable (ip_path from shutil.which)
+                    # 2. We use a fixed list of arguments with no user input
+                    # 3. We don't use shell=True
+                    ip_link = subprocess.run(  # nosec B603
+                        [ip_path, "link", "show"],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    ).stdout
                     for line in ip_link.split("\n"):
                         if ":" in line:
                             iface_name = line.split(":")[1].strip()
@@ -129,19 +155,34 @@ class Interface:
                     "name": iface,
                     "mac": addrs.get(netifaces.AF_LINK, [{"addr": None}])[0]["addr"],
                     "ipv4": addrs.get(netifaces.AF_INET, [{"addr": None}])[0]["addr"],
-                    "ipv6": addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
-                    if netifaces.AF_INET6 in addrs
-                    else None,
+                    "ipv6": (
+                        addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
+                        if netifaces.AF_INET6 in addrs
+                        else None
+                    ),
                     "type": self._detect_interface_type(iface),
                 }
 
                 # Additional macOS specific information using ifconfig
-                try:
-                    ifconfig = subprocess.check_output(["ifconfig", iface]).decode()
-                    interface_info["state"] = (
-                        "UP" if "status: active" in ifconfig.lower() else "DOWN"
-                    )
-                except subprocess.CalledProcessError:
+                ifconfig_path = shutil.which("ifconfig")
+                if ifconfig_path and self._is_valid_interface_name(iface):
+                    try:
+                        # B603: This subprocess call is safe because:
+                        # 1. We use the full path to the executable (ifconfig_path from shutil.which)
+                        # 2. We validate the interface name with _is_valid_interface_name()
+                        # 3. We don't use shell=True
+                        ifconfig = subprocess.run(  # nosec B603
+                            [ifconfig_path, iface],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        ).stdout
+                        interface_info["state"] = (
+                            "UP" if "status: active" in ifconfig.lower() else "DOWN"
+                        )
+                    except subprocess.CalledProcessError:
+                        interface_info["state"] = "UNKNOWN"
+                else:
                     interface_info["state"] = "UNKNOWN"
 
                 interfaces[iface] = interface_info
@@ -171,9 +212,45 @@ class Interface:
         interfaces = {}
         try:
             # Using Windows specific commands
-            netsh_output = subprocess.check_output("ipconfig /all", shell=True).decode(
-                "utf-8"
-            )
+            # On Windows, we need to use the full path to ipconfig.exe
+            try:
+                ipconfig_path = Path(r"C:\Windows\System32\ipconfig.exe")
+
+                # Use the safer subprocess.run instead of check_output
+                if ipconfig_path.exists():
+                    # B603: This subprocess call is safe because:
+                    # 1. We use the full path to the executable (hardcoded Windows system path)
+                    # 2. We use a fixed list of arguments with no user input
+                    # 3. We explicitly set shell=False for security
+                    netsh_output = subprocess.run(  # nosec B603
+                        [str(ipconfig_path), "/all"],
+                        capture_output=True,
+                        text=True,
+                        shell=False,  # Explicitly set shell=False for security
+                        check=True,
+                    ).stdout
+                else:
+                    # Fallback to PATH-based execution if the hardcoded path doesn't exist
+                    ipconfig_path_str = shutil.which("ipconfig")
+                    if not ipconfig_path_str:
+                        print("ipconfig command not found")
+                        return {}  # Return empty dict if ipconfig is not found
+                    ipconfig_path = Path(ipconfig_path_str)
+
+                    # B603: This subprocess call is safe because:
+                    # 1. We use the full path to the executable (ipconfig_path from shutil.which)
+                    # 2. We use a fixed list of arguments with no user input
+                    # 3. We explicitly set shell=False for security
+                    netsh_output = subprocess.run(  # nosec B603
+                        [ipconfig_path, "/all"],
+                        capture_output=True,
+                        text=True,
+                        shell=False,  # Explicitly set shell=False for security
+                        check=True,
+                    ).stdout
+            except subprocess.CalledProcessError as e:
+                print(f"Error running ipconfig: {e}")
+                return {}
             current_interface = None
             interface_info = {}
 
@@ -213,6 +290,25 @@ class Interface:
             print(f"Error getting Windows interfaces: {e}")
         return interfaces
 
+    def _is_valid_interface_name(self, iface: str) -> bool:
+        """
+        Validate that an interface name contains only allowed characters.
+
+        This is a security measure to prevent command injection when using
+        interface names in subprocess calls.
+
+        Args:
+            iface (str): The interface name to validate
+
+        Returns:
+            bool: True if the interface name is valid, False otherwise
+        """
+        if not iface:
+            return False
+
+        # Check that all characters in the interface name are valid
+        return all(c in self.VALID_IFACE_CHARS for c in iface)
+
     def _detect_interface_type(self, iface: str) -> str:
         """
         Detect the type of network interface based on its name.
@@ -233,20 +329,19 @@ class Interface:
                 - 'unknown': If the type cannot be determined
         """
         iface = iface.lower()
-        if iface == "lo" or iface == "loopback":
+        if iface in ("lo", "loopback"):
             return "loopback"
-        elif iface.startswith(("eth", "en", "eno")):
+        if iface.startswith(("eth", "en", "eno")):
             return "ethernet"
-        elif iface.startswith(("wlan", "wifi", "wl")):
+        if iface.startswith(("wlan", "wifi", "wl")):
             return "wireless"
-        elif iface.startswith(("docker", "br-")):
+        if iface.startswith(("docker", "br-")):
             return "docker"
-        elif iface.startswith("veth"):
+        if iface.startswith("veth"):
             return "virtual"
-        elif iface.startswith("tun") or iface.startswith("tap"):
+        if iface.startswith(("tun", "tap")):
             return "vpn"
-        else:
-            return "unknown"
+        return "unknown"
 
     def show_available_interfaces(self) -> None:
         """

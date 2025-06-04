@@ -6,7 +6,7 @@ for representing network packets, database schemas, and other data entities. The
 ensure type safety, validation, and serialization/deserialization capabilities.
 
 Components:
-    data_structures.py: Defines Pydantic models for network packets and related data
+    packet_data_structures.py: Defines Pydantic models for network packets and related data
     database_schemas.py: Defines SQLAlchemy ORM models for database persistence
 
 Classes:
@@ -20,7 +20,8 @@ Classes:
     TCPPacketModel: Model for TCP protocol packets
     UDPPacketModel: Model for UDP protocol packets
 """
-from .data_structures import (
+
+from .packet_data_structures import (
     ARPPacketModel,
     EthernetPacketModel,
     ICMPPacketModel,

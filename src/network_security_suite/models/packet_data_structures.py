@@ -1,8 +1,17 @@
+"""
+Data structures for network packet representation and processing.
+
+This module defines Pydantic models for representing network packets and their layers,
+providing structured data models with validation and serialization capabilities.
+It includes models for various packet types (Ethernet, IP, TCP, UDP, ICMP, ARP, STP)
+and utilities for converting packets to different formats (JSON, pandas, polars).
+"""
+
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import pydantic as pyd
-from pydantic import IPvAnyAddress, BaseModel
+from pydantic import BaseModel, IPvAnyAddress
 from pydantic_extra_types.mac_address import MacAddress
 
 # Try to import polars, but don't fail if it's not installed
@@ -25,10 +34,11 @@ class PacketLayer(BaseModel):
         layer_name (str): The name of the layer (e.g., "Ethernet", "IP", "TCP").
         fields (dict[str, Any]): A dictionary of fields specific to the layer.
     """
+
     layer_name: str  # "Ethernet", "IP", "TCP", etc.
     fields: dict[str, Any]
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the layer information in a human-readable format.
         """
@@ -49,6 +59,7 @@ class Packet(BaseModel):
         layers (List[PacketLayer]): List of protocol layers in the packet.
         raw_size (int): The raw size of the packet in bytes.
     """
+
     timestamp: float
     layers: List[PacketLayer]
     raw_size: int
@@ -80,13 +91,13 @@ class Packet(BaseModel):
                 return layer
         return None
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """
         Convert the packet to a JSON representation.
         """
         return self.model_dump()
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
         """
@@ -136,7 +147,7 @@ class NetworkPacketModel(pyd.BaseModel):
         """
         return pd.DataFrame([self.to_json()])
 
-    def to_polars(self):
+    def to_polars(self) -> pl.DataFrame:
         """
         Convert the packet model to a polars DataFrame.
 
@@ -158,11 +169,10 @@ class NetworkPacketModel(pyd.BaseModel):
 
             # Pre-process special fields
             for key, value in data.items():
-                # Convert IP addresses to strings
-                if isinstance(value, IPvAnyAddress):
-                    data[key] = str(value)
-                # Convert MAC addresses to strings
-                elif isinstance(value, MacAddress):
+                # Convert IP addresses and MAC addresses to strings
+                if hasattr(value, "__str__") and (
+                    type(value).__name__ in ("IPvAnyAddress", "MacAddress")
+                ):
                     data[key] = str(value)
                 # Convert bytes to hex strings
                 elif isinstance(value, bytes):
@@ -176,7 +186,7 @@ class NetworkPacketModel(pyd.BaseModel):
 
         except Exception as e:
             print(f"Error converting model to Polars DataFrame: {e}")
-            return None
+            return pl.DataFrame()
 
 
 class ARPPacketModel(NetworkPacketModel):
@@ -208,7 +218,7 @@ class ARPPacketModel(NetworkPacketModel):
     target_ip: Optional[IPvAnyAddress] = None
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "ARPPacketModel":
         """
         Create a new ARPPacketModel instance from keyword arguments.
 
@@ -218,9 +228,9 @@ class ARPPacketModel(NetworkPacketModel):
         Returns:
             ARPPacketModel: A new instance of the ARPPacketModel.
         """
-        return cls(**data)
+        return ARPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -269,15 +279,15 @@ class STPPacketModel(NetworkPacketModel):
     sender_bridge_id: Optional[str] = None
     root_path_cost: Optional[int] = None
     port_id: Optional[int] = None  # ID del puerto emisor
-    message_age: Optional[
-        int
-    ] = None  # Tiempo de vida del mensaje desde que fue generado
+    message_age: Optional[int] = (
+        None  # Tiempo de vida del mensaje desde que fue generado
+    )
     max_age: Optional[int] = None  # Tiempo de vida maximo del mensaje
     hello_time: Optional[int] = None  # Intervalo entre BPDUs
     forward_delay: Optional[int] = None  # Tiempo de espera antes del forwarding
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "STPPacketModel":
         """
         Create a new STPPacketModel instance from keyword arguments.
 
@@ -287,9 +297,9 @@ class STPPacketModel(NetworkPacketModel):
         Returns:
             STPPacketModel: A new instance of the STPPacketModel.
         """
-        return cls(**data)
+        return STPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -300,7 +310,7 @@ class STPPacketModel(NetworkPacketModel):
         print(f"  Protocol ID: {self.protocol_id}")
         print(f"  Version: {self.version}")
         print(f"  BPDU Type: {self.bpdutype}")
-        print(f"  Flags: {self.flags}")
+        print(f"  Flags: {self.flags!r}")
         print(f"  Root Bridge ID: {self.root_bridge_id}")
         print(f"  Sender Bridge ID: {self.sender_bridge_id}")
         print(f"  Root Path Cost: {self.root_path_cost}")
@@ -335,7 +345,7 @@ class EthernetPacketModel(NetworkPacketModel):
     crc: Optional[str] = None  # checksum de la trama
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "EthernetPacketModel":
         """
         Create a new EthernetPacketModel instance from keyword arguments.
 
@@ -345,9 +355,9 @@ class EthernetPacketModel(NetworkPacketModel):
         Returns:
             EthernetPacketModel: A new instance of the EthernetPacketModel.
         """
-        return cls(**data)
+        return EthernetPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -401,7 +411,7 @@ class IPPacketModel(NetworkPacketModel):
     options: Optional[List[dict]] = None  # Options
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "IPPacketModel":
         """
         Create a new IPPacketModel instance from keyword arguments.
 
@@ -411,9 +421,9 @@ class IPPacketModel(NetworkPacketModel):
         Returns:
             IPPacketModel: A new instance of the IPPacketModel.
         """
-        return cls(**data)
+        return IPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -461,7 +471,7 @@ class ICMPPacketModel(NetworkPacketModel):
     data: Optional[bytes] = None  # Data
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "ICMPPacketModel":
         """
         Create a new ICMPPacketModel instance from keyword arguments.
 
@@ -471,9 +481,9 @@ class ICMPPacketModel(NetworkPacketModel):
         Returns:
             ICMPPacketModel: A new instance of the ICMPPacketModel.
         """
-        return cls(**data)
+        return ICMPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -486,7 +496,7 @@ class ICMPPacketModel(NetworkPacketModel):
         print(f"  Checksum: {self.chksum}")
         print(f"  Identifier: {self.id}")
         print(f"  Sequence Number: {self.seq}")
-        print(f"  Data: {self.data}")
+        print(f"  Data: {self.data!r}")
         print(f"  Source IP: {self.src_ip}")
         print(f"  Destination IP: {self.dst_ip}")
         print(f"  Timestamp: {self.timestamp}")
@@ -526,7 +536,7 @@ class TCPPacketModel(NetworkPacketModel):
     options: Optional[List[tuple]] = None  # Options
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "TCPPacketModel":
         """
         Create a new TCPPacketModel instance from keyword arguments.
 
@@ -536,9 +546,9 @@ class TCPPacketModel(NetworkPacketModel):
         Returns:
             TCPPacketModel: A new instance of the TCPPacketModel.
         """
-        return cls(**data)
+        return TCPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 
@@ -582,7 +592,7 @@ class UDPPacketModel(NetworkPacketModel):
     chksum: Optional[int] = None  # Checksum
 
     @classmethod
-    def new(cls, **data):
+    def new(cls, **data: Any) -> "UDPPacketModel":
         """
         Create a new UDPPacketModel instance from keyword arguments.
 
@@ -592,9 +602,9 @@ class UDPPacketModel(NetworkPacketModel):
         Returns:
             UDPPacketModel: A new instance of the UDPPacketModel.
         """
-        return cls(**data)
+        return UDPPacketModel(**data)
 
-    def show(self):
+    def show(self) -> None:
         """
         Display the packet information in a human-readable format.
 

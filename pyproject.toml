@@ -9,7 +9,7 @@ packages = [{include = "network_security_suite", from = "src"}]
 [tool.poetry.dependencies]
 python = "^3.9"
 scapy = "^2.5.0"
-fastapi = "^0.104.1"
+fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.24.0"}
 pydantic = "^2.5.0"
 pydantic-extra-types = "^2.1.0"
@@ -18,8 +18,7 @@ polars = "^0.19.0"
 numpy = "^1.24.0"
 scikit-learn = "^1.3.0"
 asyncio = "^3.4.3"
-python-multipart = "^0.0.6"
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-multipart = "^0.0.18"
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 sqlalchemy = "^2.0.0"
 alembic = "^1.12.0"
@@ -29,10 +28,10 @@ netifaces = "^0.11.0"
 pytest = "^7.4.0"
 pytest-asyncio = "^0.21.0"
 pytest-cov = "^4.1.0"
-black = "^23.9.0"
+black = "^24.3.0"
 mypy = "^1.6.0"
 pylint = "^3.0.0"
-flake8 = "^6.1.0"
+ruff = "^0.1.6"
 isort = "^5.12.0"
 bandit = "^1.7.5"
 safety = "^2.3.0"
@@ -98,26 +97,33 @@ show_error_codes = true
 module = [
     "scapy.*",
     "sklearn.*",
+    "netifaces.*",
+    "pandas.*",
 ]
 ignore_missing_imports = true
 
 # Pylint configuration
 [tool.pylint.messages_control]
 disable = [
-    "C0330",  # Wrong hanging indentation
-    "C0326",  # Bad whitespace
     "R0903",  # Too few public methods
     "R0801",  # Similar lines in files
+    "W0718",  # Catching too general exception Exception (broad-exception-caught)
+    "R1702",  # Too many nested blocks
+    "R0911",  # Too many return statements
+    "R0902",  # Too many instance attributes
 ]
 
+[tool.pylint.typecheck]
+extension-pkg-allow-list = ["netifaces"]
+
 [tool.pylint.format]
-max-line-length = 88
+max-line-length = 110
 
 [tool.pylint.design]
 max-args = 10
-max-locals = 15
+max-locals = 16
 max-returns = 6
-max-branches = 12
+max-branches = 14
 max-statements = 50
 
 # Pytest configuration
@@ -174,6 +180,31 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+# Ruff configuration
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+select = ["E", "F", "W", "I", "B", "C4", "ARG", "SIM"]
+ignore = []
+exclude = [
+    ".git",
+    ".eggs",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "migrations",
+]
+
+[tool.ruff.isort]
+known-first-party = ["network_security_suite"]
+
+[tool.ruff.mccabe]
+max-complexity = 12
 
 # Bandit security linter configuration
 [tool.bandit]

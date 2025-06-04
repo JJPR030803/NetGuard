@@ -1,24 +1,25 @@
-from scapy.all import *
+"""
+Network packet capture and processing module.
+
+This module provides functionality for capturing network packets from specified interfaces,
+processing them into structured data models, and converting them to various formats
+including JSON, pandas DataFrames, and Polars DataFrames.
+"""
+
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
+import polars as pl
+from scapy.all import Packet as ScapyPacket
+from scapy.all import sniff
 from scapy.layers.inet import ICMP, IP, TCP, UDP
 from scapy.layers.l2 import ARP, STP, Ether
-import polars as pl
-import pandas as pd
-import time
-from src.network_security_suite.models.data_structures import (
-    ARPPacketModel,
-    EthernetPacketModel,
-    ICMPPacketModel,
-    IPPacketModel,
-    NetworkPacketModel,
+
+from network_security_suite.models.packet_data_structures import (
+    POLARS_AVAILABLE,
     Packet,
     PacketLayer,
-    STPPacketModel,
-    TCPPacketModel,
-    UDPPacketModel, POLARS_AVAILABLE,
 )
-from src.network_security_suite.sniffer.packet import ARPPacket, NetworkPacket
-
-# TODO crear clases para capturar paquetes
 
 
 class PacketCapture:
@@ -43,7 +44,7 @@ class PacketCapture:
         self.interface = interface
         self.packets: list[Packet] = []
 
-    def process_packet_layers(self, packet) -> Packet:
+    def process_packet_layers(self, packet: ScapyPacket) -> Packet:
         """
         Process all layers of a packet and return a Packet instance with PacketLayers.
 
@@ -65,14 +66,13 @@ class PacketCapture:
         # Process Ethernet layer if present
         if packet.haslayer(Ether):
             ethernet_fields = {
-                'dst_mac': packet[Ether].dst,
-                'src_mac': packet[Ether].src,
-                'type': packet[Ether].type,
+                "dst_mac": packet[Ether].dst,
+                "src_mac": packet[Ether].src,
+                "type": packet[Ether].type,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="Ethernet",
-                fields=ethernet_fields
-            ))
+            packet_layers.append(
+                PacketLayer(layer_name="Ethernet", fields=ethernet_fields)
+            )
 
         # Process IP layer if present
         if packet.haslayer(IP):
@@ -80,127 +80,111 @@ class PacketCapture:
             ip_flags = int(packet[IP].flags) if packet[IP].flags is not None else None
 
             ip_fields = {
-                'version': packet[IP].version,
-                'ihl': packet[IP].ihl,
-                'tos': packet[IP].tos,
-                'len': packet[IP].len,
-                'id': packet[IP].id,
-                'flags': ip_flags,
-                'frag': packet[IP].frag,
-                'ttl': packet[IP].ttl,
-                'proto': packet[IP].proto,
-                'chksum': packet[IP].chksum,
-                'src': packet[IP].src,
-                'dst': packet[IP].dst,
-                'options': packet[IP].options if hasattr(packet[IP], "options") else None,
-                'src_ip': packet[IP].src,
-                'dst_ip': packet[IP].dst,
+                "version": packet[IP].version,
+                "ihl": packet[IP].ihl,
+                "tos": packet[IP].tos,
+                "len": packet[IP].len,
+                "id": packet[IP].id,
+                "flags": ip_flags,
+                "frag": packet[IP].frag,
+                "ttl": packet[IP].ttl,
+                "proto": packet[IP].proto,
+                "chksum": packet[IP].chksum,
+                "src": packet[IP].src,
+                "dst": packet[IP].dst,
+                "options": (
+                    packet[IP].options if hasattr(packet[IP], "options") else None
+                ),
+                "src_ip": packet[IP].src,
+                "dst_ip": packet[IP].dst,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="IP",
-                fields=ip_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="IP", fields=ip_fields))
 
         # Process TCP layer if present
         if packet.haslayer(TCP):
             tcp_fields = {
-                'sport': packet[TCP].sport,
-                'dport': packet[TCP].dport,
-                'seq': packet[TCP].seq,
-                'ack': packet[TCP].ack,
-                'dataofs': packet[TCP].dataofs,
-                'reserved': packet[TCP].reserved,
-                'flags': str(packet[TCP].flags),
-                'window': packet[TCP].window,
-                'chksum': packet[TCP].chksum,
-                'urgptr': packet[TCP].urgptr,
-                'options': [(opt[0], opt[1]) for opt in packet[TCP].options] if packet[TCP].options else None,
-                'src_ip': packet[IP].src if packet.haslayer(IP) else None,
-                'dst_ip': packet[IP].dst if packet.haslayer(IP) else None,
+                "sport": packet[TCP].sport,
+                "dport": packet[TCP].dport,
+                "seq": packet[TCP].seq,
+                "ack": packet[TCP].ack,
+                "dataofs": packet[TCP].dataofs,
+                "reserved": packet[TCP].reserved,
+                "flags": str(packet[TCP].flags),
+                "window": packet[TCP].window,
+                "chksum": packet[TCP].chksum,
+                "urgptr": packet[TCP].urgptr,
+                "options": (
+                    [(opt[0], opt[1]) for opt in packet[TCP].options]
+                    if packet[TCP].options
+                    else None
+                ),
+                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
+                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="TCP",
-                fields=tcp_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="TCP", fields=tcp_fields))
 
         # Process UDP layer if present
         if packet.haslayer(UDP):
             udp_fields = {
-                'sport': packet[UDP].sport,
-                'dport': packet[UDP].dport,
-                'len': packet[UDP].len,
-                'chksum': packet[UDP].chksum,
-                'src_ip': packet[IP].src if packet.haslayer(IP) else None,
-                'dst_ip': packet[IP].dst if packet.haslayer(IP) else None,
+                "sport": packet[UDP].sport,
+                "dport": packet[UDP].dport,
+                "len": packet[UDP].len,
+                "chksum": packet[UDP].chksum,
+                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
+                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="UDP",
-                fields=udp_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="UDP", fields=udp_fields))
 
         # Process ICMP layer if present
         if packet.haslayer(ICMP):
             icmp_fields = {
-                'type': packet[ICMP].type,
-                'code': packet[ICMP].code,
-                'chksum': packet[ICMP].chksum,
-                'id': packet[ICMP].id if hasattr(packet[ICMP], "id") else None,
-                'seq': packet[ICMP].seq if hasattr(packet[ICMP], "seq") else None,
-                'src_ip': packet[IP].src if packet.haslayer(IP) else None,
-                'dst_ip': packet[IP].dst if packet.haslayer(IP) else None,
+                "type": packet[ICMP].type,
+                "code": packet[ICMP].code,
+                "chksum": packet[ICMP].chksum,
+                "id": packet[ICMP].id if hasattr(packet[ICMP], "id") else None,
+                "seq": packet[ICMP].seq if hasattr(packet[ICMP], "seq") else None,
+                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
+                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="ICMP",
-                fields=icmp_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="ICMP", fields=icmp_fields))
 
         # Process ARP layer if present
         if packet.haslayer(ARP):
             arp_fields = {
-                'hw_type': packet[ARP].hwtype,
-                'proto_type': packet[ARP].ptype,
-                'hw_len': packet[ARP].hwlen,
-                'proto_len': packet[ARP].plen,
-                'opcode': packet[ARP].op,
-                'sender_mac': packet[ARP].hwsrc,
-                'sender_ip': packet[ARP].psrc,
-                'target_mac': packet[ARP].hwdst,
-                'target_ip': packet[ARP].pdst,
+                "hw_type": packet[ARP].hwtype,
+                "proto_type": packet[ARP].ptype,
+                "hw_len": packet[ARP].hwlen,
+                "proto_len": packet[ARP].plen,
+                "opcode": packet[ARP].op,
+                "sender_mac": packet[ARP].hwsrc,
+                "sender_ip": packet[ARP].psrc,
+                "target_mac": packet[ARP].hwdst,
+                "target_ip": packet[ARP].pdst,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="ARP",
-                fields=arp_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="ARP", fields=arp_fields))
 
         # Process STP layer if present
         if packet.haslayer(STP):
             stp_fields = {
-                'protocol_id': packet[STP].proto,
-                'version': packet[STP].version,
-                'bpdutype': packet[STP].bpdutype,
-                'flags': packet[STP].flags,
-                'root_bridge_id': f"{packet[STP].rootid}",
-                'sender_bridge_id': f"{packet[STP].bridgeid}",
-                'root_path_cost': packet[STP].rootcost,
-                'port_id': packet[STP].portid,
-                'message_age': packet[STP].age,
-                'max_age': packet[STP].maxage,
-                'hello_time': packet[STP].hellotime,
-                'forward_delay': packet[STP].fwddelay,
+                "protocol_id": packet[STP].proto,
+                "version": packet[STP].version,
+                "bpdutype": packet[STP].bpdutype,
+                "flags": packet[STP].flags,
+                "root_bridge_id": f"{packet[STP].rootid}",
+                "sender_bridge_id": f"{packet[STP].bridgeid}",
+                "root_path_cost": packet[STP].rootcost,
+                "port_id": packet[STP].portid,
+                "message_age": packet[STP].age,
+                "max_age": packet[STP].maxage,
+                "hello_time": packet[STP].hellotime,
+                "forward_delay": packet[STP].fwddelay,
             }
-            packet_layers.append(PacketLayer(
-                layer_name="STP",
-                fields=stp_fields
-            ))
+            packet_layers.append(PacketLayer(layer_name="STP", fields=stp_fields))
 
         # Create and return the Packet instance with all layers
-        return Packet(
-            timestamp=timestamp,
-            layers=packet_layers,
-            raw_size=raw_size
-        )
+        return Packet(timestamp=timestamp, layers=packet_layers, raw_size=raw_size)
 
-    def capture(self, max_packets: int = 10000, verbose: bool = False):
+    def capture(self, max_packets: int = 10000, verbose: bool = False) -> None:
         """
         Capture network packets from the specified interface.
 
@@ -226,7 +210,7 @@ class PacketCapture:
         except Exception as e:
             print(f"Error capturing packets: {e}")
 
-    def show_packets(self):
+    def show_packets(self) -> None:
         """
         Display information about all captured packets.
 
@@ -245,21 +229,21 @@ class PacketCapture:
                     print(f"    {field_name}: {field_value}")
             print("-" * 50)
 
-    def packets_to_json(self):
+    def packets_to_json(self) -> List[Dict[str, Any]]:
         """
         Convert captured packets to JSON format.
 
         Returns:
-            list: List of packet data in JSON format.
+            List[Dict[str, Any]]: List of packet data in JSON format.
         """
         return [packet.to_json() for packet in self.packets]
 
-    def packets_to_polars(self):
+    def packets_to_polars(self) -> List[pl.DataFrame]:
         """
         Convert captured packets to Polars DataFrame format.
 
         Returns:
-            list: List of packet data as Polars DataFrames.
+            List[pl.DataFrame]: List of packet data as Polars DataFrames.
         """
         if not POLARS_AVAILABLE:
             raise ImportError(
@@ -270,14 +254,13 @@ class PacketCapture:
         result = []
         for packet in self.packets:
             # Create a dictionary with basic packet info
-            packet_data = {
-                'timestamp': packet.timestamp,
-                'raw_size': packet.raw_size
-            }
+            packet_data = {"timestamp": packet.timestamp, "raw_size": packet.raw_size}
 
             # Add layer information
             for layer in packet.layers:
-                layer_data = {f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()}
+                layer_data = {
+                    f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()
+                }
                 packet_data.update(layer_data)
 
             # Convert to Polars DataFrame
@@ -286,24 +269,23 @@ class PacketCapture:
 
         return result
 
-    def packets_to_pandas(self):
+    def packets_to_pandas(self) -> List[pd.DataFrame]:
         """
         Convert captured packets to Pandas DataFrame format.
 
         Returns:
-            list: List of packet data as Pandas DataFrames.
+            List[pd.DataFrame]: List of packet data as Pandas DataFrames.
         """
         result = []
         for packet in self.packets:
             # Create a dictionary with basic packet info
-            packet_data = {
-                'timestamp': packet.timestamp,
-                'raw_size': packet.raw_size
-            }
+            packet_data = {"timestamp": packet.timestamp, "raw_size": packet.raw_size}
 
             # Add layer information
             for layer in packet.layers:
-                layer_data = {f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()}
+                layer_data = {
+                    f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()
+                }
                 packet_data.update(layer_data)
 
             # Convert to Pandas DataFrame
@@ -312,12 +294,12 @@ class PacketCapture:
 
         return result
 
-    def to_json(self):
+    def to_json(self) -> Dict[str, Any]:
         """
         Convert all captured packets to a single JSON object.
 
         Returns:
-            dict: A dictionary containing all captured packets data.
+            Dict[str, Any]: A dictionary containing all captured packets data.
         """
         if not self.packets:
             return {}
@@ -326,13 +308,13 @@ class PacketCapture:
             # Convert all packets to a single JSON object with an array of packets
             return {
                 "packets": [packet.to_json() for packet in self.packets],
-                "total_packets": len(self.packets)
+                "total_packets": len(self.packets),
             }
         except Exception as e:
             print(f"Error converting packets to JSON: {e}")
             return {}
 
-    def to_pandas_df(self):
+    def to_pandas_df(self) -> pd.DataFrame:
         """
         Convert all captured packets to a single pandas DataFrame.
 
@@ -349,8 +331,8 @@ class PacketCapture:
             for packet in self.packets:
                 # Start with basic packet info
                 packet_data = {
-                    'timestamp': packet.timestamp,
-                    'raw_size': packet.raw_size
+                    "timestamp": packet.timestamp,
+                    "raw_size": packet.raw_size,
                 }
 
                 # Add layer information
@@ -370,7 +352,7 @@ class PacketCapture:
             print(f"Error converting packets to pandas DataFrame: {e}")
             return pd.DataFrame()
 
-    def to_polars_df(self):
+    def to_polars_df(self) -> pl.DataFrame:
         """
         Convert all captured packets to a single Polars DataFrame.
 
@@ -389,51 +371,53 @@ class PacketCapture:
         if not self.packets:
             return pl.DataFrame()
 
-        def convert_to_string(value):
+        def convert_to_string(value: Any) -> Optional[str]:
             """Helper function to convert any value to a string representation."""
             if value is None:
                 return None
-            elif isinstance(value, (str, int, float, bool)):
+            if isinstance(value, (str, int, float, bool)):
                 return str(value)
-            elif isinstance(value, bytes):
+            if isinstance(value, bytes):
                 return value.hex()
-            elif isinstance(value, (list, tuple)):
+            if isinstance(value, (list, tuple)):
                 return str([convert_to_string(item) for item in value])
-            elif isinstance(value, dict):
+            if isinstance(value, dict):
                 return str({k: convert_to_string(v) for k, v in value.items()})
-            else:
-                return str(value)
+            return str(value)
 
         try:
             # Create a list to store flattened packet data
             flattened_packets = []
 
             # First pass: collect all possible columns
-            columns = set(['timestamp', 'raw_size'])
+            columns = {"timestamp", "raw_size"}
             for packet in self.packets:
                 for layer in packet.layers:
-                    for field_name in layer.fields.keys():
+                    for field_name in layer.fields:
                         columns.add(f"{layer.layer_name}_{field_name}")
 
             # Second pass: create flattened packet data
             for packet in self.packets:
                 # Start with basic packet info
                 packet_data = {
-                    'timestamp': str(packet.timestamp),
-                    'raw_size': str(packet.raw_size)
+                    "timestamp": str(packet.timestamp),
+                    "raw_size": str(packet.raw_size),
                 }
 
-                # Initialize all columns with None
+                # Initialize all columns with empty string
                 for col in columns:
                     if col not in packet_data:
-                        packet_data[col] = None
+                        packet_data[col] = ""
 
                 # Add layer information
                 for layer in packet.layers:
                     layer_prefix = f"{layer.layer_name}_"
                     for field_name, field_value in layer.fields.items():
                         column_name = f"{layer_prefix}{field_name}"
-                        packet_data[column_name] = convert_to_string(field_value)
+                        converted_value = convert_to_string(field_value)
+                        packet_data[column_name] = (
+                            converted_value if converted_value is not None else ""
+                        )
 
                 flattened_packets.append(packet_data)
 
@@ -441,10 +425,7 @@ class PacketCapture:
             schema = {col: pl.Utf8 for col in columns}
 
             # Use pl.DataFrame constructor
-            df = pl.DataFrame(
-                flattened_packets,
-                schema=schema
-            )
+            df = pl.DataFrame(flattened_packets, schema=schema)
             return df
 
         except Exception as e:
