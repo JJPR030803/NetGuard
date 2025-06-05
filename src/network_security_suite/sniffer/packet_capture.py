@@ -6,6 +6,10 @@ processing them into structured data models, and converting them to various form
 including JSON, pandas DataFrames, and Polars DataFrames.
 """
 
+import gc
+from queue import Empty, Queue
+from threading import Lock, Thread
+from time import time
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -34,157 +38,236 @@ class PacketCapture:
         packets (list[Packet]): A list of captured packet objects.
     """
 
-    def __init__(self, interface: str):
+    def __init__(self, interface: str, max_memory_packets: int = 10000):
         """
         Initialize a new PacketCapture instance.
 
         Args:
             interface (str): The name of the network interface to capture packets from.
         """
+        if max_memory_packets < 100:
+            raise ValueError("max_memory_packets must be at least 100")
+        if max_memory_packets % 10 != 0:
+            raise ValueError(
+                "max_memory_packets must be multiple of 10 for faster processing"
+            )
         self.interface = interface
         self.packets: list[Packet] = []
+        self.packet_queue: Queue[list[Packet]] = Queue()
+        self.is_running: bool = False
+        self.max_memory_packets = max_memory_packets
+        self.max_processing_batch = self.max_memory_packets // 10
+        self.stats_lock = Lock()
+        self.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+    def update_stats(self, processing_time: float, batch_size: int) -> None:
+        with self.stats_lock:
+            self.stats["processed_packets"] += batch_size
+            self.stats["processing_time"] += processing_time
+            self.stats["batch_count"] += 1
+
+    def process_queue(self) -> None:
+        """Process packets in batches."""
+        while self.is_running or not self.packet_queue.empty():
+            try:
+                batch = self.packet_queue.get(timeout=1)  # Get the batch
+                start_time = time()
+                for packet in batch:  # Process each packet in the batch
+                    try:
+                        processed_packet = self.process_packet_layers(packet)
+                        self.packets.append(processed_packet)
+                    except Exception as e:
+                        print(
+                            f"Error processing packet: {e}: packet_capture.py/process_queue"
+                        )
+                end_time = time()
+                processing_time = end_time - start_time
+                self.update_stats(processing_time, len(batch))
+                self.packet_queue.task_done()
+            except Empty:
+                continue
 
     def process_packet_layers(self, packet: ScapyPacket) -> Packet:
         """
-        Process all layers of a packet and return a Packet instance with PacketLayers.
+        Optimized layer processing.
 
-        This method extracts information from each layer of the scapy packet and
-        converts it into a structured Packet object with PacketLayer instances.
+        This method processes a Scapy packet and extracts information from its layers.
+        It handles various network protocol layers and creates a structured Packet object.
 
         Args:
-            packet: A scapy packet object containing multiple protocol layers.
+            packet (ScapyPacket): The Scapy packet to process
 
         Returns:
-            Packet: A structured representation of the packet with all its layers.
-        """
-        packet_layers = []
+            Packet: A structured packet object with extracted layer information
 
-        # Get timestamp and raw size
-        timestamp = float(packet.time)
+        Raises:
+            Exception: If there's an error processing the packet that can't be handled
+        """
+        if packet is None:
+            raise ValueError("Cannot process None packet")
+
+        packet_layers = []
+        timestamp = float(packet.time) if hasattr(packet, "time") else 0.0
         raw_size = len(packet)
 
-        # Process Ethernet layer if present
-        if packet.haslayer(Ether):
-            ethernet_fields = {
-                "dst_mac": packet[Ether].dst,
-                "src_mac": packet[Ether].src,
-                "type": packet[Ether].type,
-            }
-            packet_layers.append(
-                PacketLayer(layer_name="Ethernet", fields=ethernet_fields)
-            )
+        # Process all layers in one pass with a mapping
+        layer_mapping = {
+            Ether: (
+                "Ethernet",
+                lambda p: {"dst_mac": p.dst, "src_mac": p.src, "type": p.type},
+            ),
+            IP: (
+                "IP",
+                lambda p: {
+                    "version": p.version,
+                    "ihl": p.ihl,
+                    "tos": p.tos,
+                    "len": p.len,
+                    "id": p.id,
+                    "flags": p.flags,
+                    "frag": p.frag,
+                    "ttl": p.ttl,
+                    "proto": p.proto,
+                    "chksum": p.chksum,
+                    "src": str(p.src),
+                    "dst": str(p.dst),
+                    "options": p.options if hasattr(p, "options") else None,
+                },
+            ),
+            TCP: (
+                "TCP",
+                lambda p: {
+                    "sport": p.sport,
+                    "dport": p.dport,
+                    "seq": p.seq,
+                    "ack": p.ack,
+                    "dataofs": p.dataofs,
+                    "reserved": p.reserved,
+                    "flags": str(p.flags),
+                    "window": p.window,
+                    "chksum": p.chksum,
+                    "urgptr": p.urgptr,
+                    "options": p.options if hasattr(p, "options") else None,
+                },
+            ),
+            UDP: (
+                "UDP",
+                lambda p: {
+                    "sport": p.sport,
+                    "dport": p.dport,
+                    "len": p.len,
+                    "chksum": p.chksum,
+                },
+            ),
+            ICMP: (
+                "ICMP",
+                lambda p: {
+                    "type": p.type,
+                    "code": p.code,
+                    "chksum": p.chksum,
+                    "id": p.id if hasattr(p, "id") else None,
+                    "seq": p.seq if hasattr(p, "seq") else None,
+                    "data": p.load if hasattr(p, "load") else None,
+                },
+            ),
+            ARP: (
+                "ARP",
+                lambda p: {
+                    "hw_type": p.hwtype,
+                    "proto_type": p.ptype,
+                    "hw_len": p.hwlen,
+                    "proto_len": p.plen,
+                    "opcode": p.op,
+                    "sender_mac": p.hwsrc,
+                    "sender_ip": p.psrc,
+                    "target_mac": p.hwdst,
+                    "target_ip": p.pdst,
+                },
+            ),
+            STP: (
+                "STP",
+                lambda p: {
+                    "protocol_id": p.proto,
+                    "version": p.version,
+                    "bpdutype": p.bpdutype,
+                    "flags": p.flags,
+                    "root_bridge_id": p.rootid,
+                    "sender_bridge_id": p.bridgeid,
+                    "root_path_cost": p.pathcost,
+                    "port_id": p.portid,
+                    "message_age": p.age,
+                    "max_age": p.maxage,
+                    "hello_time": p.hellotime,
+                    "forward_delay": p.fwddelay,
+                },
+            ),
+        }
 
-        # Process IP layer if present
-        if packet.haslayer(IP):
-            # Convert flags to integer value
-            ip_flags = int(packet[IP].flags) if packet[IP].flags is not None else None
+        # Process known layers
+        for layer_type, (name, processor) in layer_mapping.items():
+            if packet.haslayer(layer_type):
+                try:
+                    fields = processor(packet[layer_type])
+                    packet_layers.append(PacketLayer(layer_name=name, fields=fields))
+                except Exception as e:
+                    print(f"Error processing layer {name}: {e}")
+                    # Continue processing other layers even if one fails
 
-            ip_fields = {
-                "version": packet[IP].version,
-                "ihl": packet[IP].ihl,
-                "tos": packet[IP].tos,
-                "len": packet[IP].len,
-                "id": packet[IP].id,
-                "flags": ip_flags,
-                "frag": packet[IP].frag,
-                "ttl": packet[IP].ttl,
-                "proto": packet[IP].proto,
-                "chksum": packet[IP].chksum,
-                "src": packet[IP].src,
-                "dst": packet[IP].dst,
-                "options": (
-                    packet[IP].options if hasattr(packet[IP], "options") else None
-                ),
-                "src_ip": packet[IP].src,
-                "dst_ip": packet[IP].dst,
-            }
-            packet_layers.append(PacketLayer(layer_name="IP", fields=ip_fields))
+        # Process unknown layers
+        try:
+            for layer in packet.layers():
+                layer_name = layer.__name__
+                # Skip layers we've already processed
+                if any(pl.layer_name == layer_name for pl in packet_layers):
+                    continue
 
-        # Process TCP layer if present
-        if packet.haslayer(TCP):
-            tcp_fields = {
-                "sport": packet[TCP].sport,
-                "dport": packet[TCP].dport,
-                "seq": packet[TCP].seq,
-                "ack": packet[TCP].ack,
-                "dataofs": packet[TCP].dataofs,
-                "reserved": packet[TCP].reserved,
-                "flags": str(packet[TCP].flags),
-                "window": packet[TCP].window,
-                "chksum": packet[TCP].chksum,
-                "urgptr": packet[TCP].urgptr,
-                "options": (
-                    [(opt[0], opt[1]) for opt in packet[TCP].options]
-                    if packet[TCP].options
-                    else None
-                ),
-                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
-                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
-            }
-            packet_layers.append(PacketLayer(layer_name="TCP", fields=tcp_fields))
+                # Try to extract basic fields for unknown layers
+                try:
+                    fields = {}
+                    for field_name in layer.fields_desc:
+                        field_value = getattr(packet[layer], field_name.name, None)
+                        if field_value is not None:
+                            # Convert complex objects to strings to avoid serialization issues
+                            if not isinstance(
+                                field_value, (int, float, str, bool, type(None))
+                            ):
+                                field_value = str(field_value)
+                            fields[field_name.name] = field_value
 
-        # Process UDP layer if present
-        if packet.haslayer(UDP):
-            udp_fields = {
-                "sport": packet[UDP].sport,
-                "dport": packet[UDP].dport,
-                "len": packet[UDP].len,
-                "chksum": packet[UDP].chksum,
-                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
-                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
-            }
-            packet_layers.append(PacketLayer(layer_name="UDP", fields=udp_fields))
+                    if fields:  # Only add if we found some fields
+                        packet_layers.append(
+                            PacketLayer(layer_name=layer_name, fields=fields)
+                        )
+                except Exception as e:
+                    print(f"Error processing unknown layer {layer_name}: {e}")
+        except Exception as e:
+            print(f"Error processing unknown layers: {e}")
 
-        # Process ICMP layer if present
-        if packet.haslayer(ICMP):
-            icmp_fields = {
-                "type": packet[ICMP].type,
-                "code": packet[ICMP].code,
-                "chksum": packet[ICMP].chksum,
-                "id": packet[ICMP].id if hasattr(packet[ICMP], "id") else None,
-                "seq": packet[ICMP].seq if hasattr(packet[ICMP], "seq") else None,
-                "src_ip": packet[IP].src if packet.haslayer(IP) else None,
-                "dst_ip": packet[IP].dst if packet.haslayer(IP) else None,
-            }
-            packet_layers.append(PacketLayer(layer_name="ICMP", fields=icmp_fields))
-
-        # Process ARP layer if present
-        if packet.haslayer(ARP):
-            arp_fields = {
-                "hw_type": packet[ARP].hwtype,
-                "proto_type": packet[ARP].ptype,
-                "hw_len": packet[ARP].hwlen,
-                "proto_len": packet[ARP].plen,
-                "opcode": packet[ARP].op,
-                "sender_mac": packet[ARP].hwsrc,
-                "sender_ip": packet[ARP].psrc,
-                "target_mac": packet[ARP].hwdst,
-                "target_ip": packet[ARP].pdst,
-            }
-            packet_layers.append(PacketLayer(layer_name="ARP", fields=arp_fields))
-
-        # Process STP layer if present
-        if packet.haslayer(STP):
-            stp_fields = {
-                "protocol_id": packet[STP].proto,
-                "version": packet[STP].version,
-                "bpdutype": packet[STP].bpdutype,
-                "flags": packet[STP].flags,
-                "root_bridge_id": f"{packet[STP].rootid}",
-                "sender_bridge_id": f"{packet[STP].bridgeid}",
-                "root_path_cost": packet[STP].rootcost,
-                "port_id": packet[STP].portid,
-                "message_age": packet[STP].age,
-                "max_age": packet[STP].maxage,
-                "hello_time": packet[STP].hellotime,
-                "forward_delay": packet[STP].fwddelay,
-            }
-            packet_layers.append(PacketLayer(layer_name="STP", fields=stp_fields))
-
-        # Create and return the Packet instance with all layers
         return Packet(timestamp=timestamp, layers=packet_layers, raw_size=raw_size)
 
-    def capture(self, max_packets: int = 10000, verbose: bool = False) -> None:
+    def packet_callback(self, packet: ScapyPacket) -> None:
+        """
+            Process packets as they arrive in scapy sniff clalback
+        :param packet:
+        :return:
+        """
+        try:
+            processed_packet = self.process_packet_layers(packet)
+            self.packets.append(processed_packet)
+        except Exception as e:
+            print(f"Error capturing packets: {e}: packet_capture.py/packet_callback")
+
+    def capture(
+        self,
+        max_packets: int = 10000,
+        bpf_filter: str | None = "",
+        num_threads: int = 4,
+    ) -> None:
         """
         Capture network packets from the specified interface.
 
@@ -198,17 +281,44 @@ class PacketCapture:
 
         Raises:
             Exception: If there's an error during packet capture or processing.
+            :param bpf_filter:
         """
+        self.is_running = True
+
+        # Start multiple processing threads
+        processors = []
+        for _ in range(num_threads):
+            processor = Thread(target=self.process_queue)
+            processor.start()
+            processors.append(processor)
+
+        packet_buffer: list[ScapyPacket] = []
+
+        def packet_callback_wrapper(packet: ScapyPacket) -> None:
+            if self.max_memory_packets and len(self.packets) >= self.max_memory_packets:
+                self.packets = self.packets[-self.max_memory_packets :]
+                gc.collect()
+            packet_buffer.append(packet)
+            if len(packet_buffer) >= self.max_processing_batch:
+                self.packet_queue.put(packet_buffer[:])  # Create a copy of the buffer
+                packet_buffer.clear()
+
         try:
-            packets = sniff(iface=self.interface, count=max_packets)
-            for packet in packets:
-                # Process all layers of the packet
-                processed_packet = self.process_packet_layers(packet)
-                self.packets.append(processed_packet)
-                if verbose:
-                    print(f"Captured packet with {len(processed_packet.layers)} layers")
-        except Exception as e:
-            print(f"Error capturing packets: {e}")
+            sniff(
+                iface=self.interface,
+                count=max_packets,
+                store=False,
+                prn=packet_callback_wrapper,
+                timeout=None,
+                filter=bpf_filter,
+            )
+        finally:
+            # Process remaining packets in buffer
+            if packet_buffer:
+                self.packet_queue.put(packet_buffer)
+            self.is_running = False
+            for processor in processors:
+                processor.join()
 
     def show_packets(self) -> None:
         """
@@ -228,6 +338,66 @@ class PacketCapture:
                 for field_name, field_value in layer.fields.items():
                     print(f"    {field_name}: {field_value}")
             print("-" * 50)
+
+    def show_stats(self) -> None:
+        """
+        Display statistics about captured packets and capture performance.
+
+        This method prints information about the packet capture process, including:
+        - Total number of packets processed
+        - Total number of packets dropped
+        - Total processing time
+        - Number of batches processed
+        - Average processing time per packet
+        - Average batch size
+        - Current number of packets in memory
+        - Layer distribution (counts of each layer type)
+
+        This is useful for monitoring the performance of the packet capture process
+        and understanding the composition of the captured traffic.
+        """
+        with self.stats_lock:
+            stats = self.stats.copy()
+
+        # Basic statistics
+        print("\n" + "=" * 50)
+        print("PACKET CAPTURE STATISTICS")
+        print("=" * 50)
+        print(f"Total packets processed: {stats['processed_packets']}")
+        print(f"Total packets dropped: {stats['dropped_packets']}")
+        print(f"Total processing time: {stats['processing_time']:.4f} seconds")
+        print(f"Number of batches processed: {stats['batch_count']}")
+
+        # Derived statistics
+        if stats['processed_packets'] > 0:
+            avg_time_per_packet = stats['processing_time'] / stats['processed_packets']
+            print(f"Average processing time per packet: {avg_time_per_packet:.6f} seconds")
+
+        if stats['batch_count'] > 0:
+            avg_batch_size = stats['processed_packets'] / stats['batch_count']
+            print(f"Average batch size: {avg_batch_size:.2f} packets")
+
+        # Memory usage
+        print(f"Current packets in memory: {len(self.packets)}")
+
+        # Layer distribution
+        if self.packets:
+            layer_counts = {}
+            for packet in self.packets:
+                for layer in packet.layers:
+                    layer_name = layer.layer_name
+                    if layer_name in layer_counts:
+                        layer_counts[layer_name] += 1
+                    else:
+                        layer_counts[layer_name] = 1
+
+            print("\nLayer Distribution:")
+            for layer_name, count in sorted(layer_counts.items()):
+                percentage = (count / len(self.packets)) * 100
+                print(f"  {layer_name}: {count} ({percentage:.2f}%)")
+
+        print("=" * 50)
+
 
     def packets_to_json(self) -> List[Dict[str, Any]]:
         """
@@ -400,7 +570,7 @@ class PacketCapture:
             for packet in self.packets:
                 # Start with basic packet info
                 packet_data = {
-                    "timestamp": str(packet.timestamp),
+                    "timestamp": packet.timestamp,  # Keep as float for conversion to datetime
                     "raw_size": str(packet.raw_size),
                 }
 
@@ -421,11 +591,22 @@ class PacketCapture:
 
                 flattened_packets.append(packet_data)
 
-            # Create schema with all columns as strings
-            schema = {col: pl.Utf8 for col in columns}
+            # Create schema with appropriate types
+            schema = {}
+            for col in columns:
+                if col == "timestamp":
+                    schema[col] = pl.Float64  # Will be converted to datetime later
+                else:
+                    schema[col] = pl.Utf8
 
             # Use pl.DataFrame constructor
             df = pl.DataFrame(flattened_packets, schema=schema)
+
+            # Convert timestamp to datetime
+            df = df.with_columns([
+                pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")
+            ])
+
             return df
 
         except Exception as e:

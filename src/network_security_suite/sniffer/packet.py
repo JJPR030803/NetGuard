@@ -10,7 +10,6 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 
 
-
 class NetworkPacket(ABC):
     """
     Abstract base class for network packet representations.

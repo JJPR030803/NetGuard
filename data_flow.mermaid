@@ -1,0 +1,50 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    NI["Network Interface"] --> PS["Packet Sniffer<br>Scapy"]
+    PS --> PP["Performance Profiler"] & FE["Feature Extractor"]
+    FE --> PQ[("Parquet Files<br>ML Training Data")] & RT["Real-time ML Pipeline"]
+    PQ --> MLT["ML Model Training<br>Classification/Regression"] & BA["Batch Analytics"]
+    MLT --> TM["Trained Models"]
+    RT --> TM
+    TM --> PR["Predictions & Results"]
+    PR --> DB[("SQLite/PostgreSQL<br>API Data")]
+    DB --> API["FastAPI Backend"]
+    BA --> API
+    PP --> API
+    API --> E1["api/threats"] & E2["api/analytics"] & E3["api/performance"] & E4["api/models"]
+    E1 --> RC["React Dashboard"]
+    E2 --> RC
+    E3 --> RC
+    E4 --> RC
+    RC --> TV["Threat Visualization"] & AD["Analytics Dashboard"] & PD["Performance Dashboard"] & MM["Model Management"] & FL["User Feedback"]
+    FL --> MLT
+     NI:::capture
+     PS:::capture
+     PP:::capture
+     FE:::capture
+     PQ:::storage
+     RT:::ml
+     MLT:::ml
+     TM:::ml
+     PR:::ml
+     DB:::storage
+     BA:::storage
+     API:::api
+     E1:::api
+     E2:::api
+     E3:::api
+     E4:::api
+     RC:::frontend
+     TV:::frontend
+     AD:::frontend
+     PD:::frontend
+     MM:::frontend
+     FL:::frontend
+    classDef capture fill:#e1f5fe
+    classDef storage fill:#f3e5f5
+    classDef ml fill:#e8f5e8
+    classDef api fill:#fff3e0
+    classDef frontend fill:#fce4ec
