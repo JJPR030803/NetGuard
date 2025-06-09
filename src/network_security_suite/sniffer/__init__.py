@@ -19,7 +19,7 @@ Classes:
     EthernetPacket: Class for Ethernet frame packets
 """
 
-from .packet import ARPPacket, EthernetPacket, NetworkPacket, STPPacket
+from ..models.packet_data_structures import ARPPacket, EthernetPacket, NetworkPacket, STPPacket
 from .packet_capture import PacketCapture
 
 __all__ = ["PacketCapture", "NetworkPacket", "ARPPacket", "STPPacket", "EthernetPacket"]

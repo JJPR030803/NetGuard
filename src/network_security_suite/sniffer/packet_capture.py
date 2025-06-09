@@ -66,6 +66,7 @@ class PacketCapture:
         }
 
     def update_stats(self, processing_time: float, batch_size: int) -> None:
+        """Update statistics."""
         with self.stats_lock:
             self.stats["processed_packets"] += batch_size
             self.stats["processing_time"] += processing_time
@@ -369,12 +370,14 @@ class PacketCapture:
         print(f"Number of batches processed: {stats['batch_count']}")
 
         # Derived statistics
-        if stats['processed_packets'] > 0:
-            avg_time_per_packet = stats['processing_time'] / stats['processed_packets']
-            print(f"Average processing time per packet: {avg_time_per_packet:.6f} seconds")
+        if stats["processed_packets"] > 0:
+            avg_time_per_packet = stats["processing_time"] / stats["processed_packets"]
+            print(
+                f"Average processing time per packet: {avg_time_per_packet:.6f} seconds"
+            )
 
-        if stats['batch_count'] > 0:
-            avg_batch_size = stats['processed_packets'] / stats['batch_count']
+        if stats["batch_count"] > 0:
+            avg_batch_size = stats["processed_packets"] / stats["batch_count"]
             print(f"Average batch size: {avg_batch_size:.2f} packets")
 
         # Memory usage
@@ -397,7 +400,6 @@ class PacketCapture:
                 print(f"  {layer_name}: {count} ({percentage:.2f}%)")
 
         print("=" * 50)
-
 
     def packets_to_json(self) -> List[Dict[str, Any]]:
         """
@@ -603,9 +605,14 @@ class PacketCapture:
             df = pl.DataFrame(flattened_packets, schema=schema)
 
             # Convert timestamp to datetime
-            df = df.with_columns([
-                pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")
-            ])
+            df = df.with_columns(
+                [
+                    pl.col("timestamp")
+                    .cast(pl.Float64)
+                    .cast(pl.Datetime)
+                    .alias("timestamp")
+                ]
+            )
 
             return df
 

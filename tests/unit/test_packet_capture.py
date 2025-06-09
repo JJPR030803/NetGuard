@@ -87,20 +87,22 @@ class TestPacketCapture:
 
         # Add some packets with different layers to test layer distribution
         ethernet_layer = PacketLayer(
-            layer_name="Ethernet", 
-            fields={"src_mac": "00:11:22:33:44:55", "dst_mac": "aa:bb:cc:dd:ee:ff"}
+            layer_name="Ethernet",
+            fields={"src_mac": "00:11:22:33:44:55", "dst_mac": "aa:bb:cc:dd:ee:ff"},
         )
         ip_layer = PacketLayer(
-            layer_name="IP", 
-            fields={"src": "192.168.1.1", "dst": "10.0.0.1"}
+            layer_name="IP", fields={"src": "192.168.1.1", "dst": "10.0.0.1"}
         )
-        tcp_layer = PacketLayer(
-            layer_name="TCP", 
-            fields={"sport": 12345, "dport": 80}
-        )
+        tcp_layer = PacketLayer(layer_name="TCP", fields={"sport": 12345, "dport": 80})
 
-        packet1 = Packet(timestamp=1234567890.0, layers=[ethernet_layer, ip_layer], raw_size=100)
-        packet2 = Packet(timestamp=1234567891.0, layers=[ethernet_layer, ip_layer, tcp_layer], raw_size=120)
+        packet1 = Packet(
+            timestamp=1234567890.0, layers=[ethernet_layer, ip_layer], raw_size=100
+        )
+        packet2 = Packet(
+            timestamp=1234567891.0,
+            layers=[ethernet_layer, ip_layer, tcp_layer],
+            raw_size=120,
+        )
 
         packet_capture.packets = [packet1, packet2]
 

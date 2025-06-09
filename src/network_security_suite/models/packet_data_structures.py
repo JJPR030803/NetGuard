@@ -5,6 +5,13 @@ This module defines Pydantic models for representing network packets and their l
 providing structured data models with validation and serialization capabilities.
 It includes models for various packet types (Ethernet, IP, TCP, UDP, ICMP, ARP, STP)
 and utilities for converting packets to different formats (JSON, pandas, polars).
+
+The module uses a single class hierarchy based on Pydantic models, which provides:
+1. Data validation and serialization through Pydantic
+2. Object-oriented interface for packet manipulation
+3. Conversion utilities for different data formats (JSON, pandas, polars)
+
+Each packet type inherits from a base packet class and adds its specific fields and methods.
 """
 
 from typing import Any, Dict, List, Optional
@@ -108,26 +115,71 @@ class Packet(BaseModel):
             layer.show()
 
 
-class NetworkPacketModel(pyd.BaseModel):
+class BasePacket(pyd.BaseModel):
     """
-    Base Pydantic model for network packet representations.
+    Base Pydantic model for all network packet types.
 
     This model serves as the base for all specific packet type models
-    and contains common fields shared by all network packets.
+    and contains common fields and methods shared by all network packets.
 
     Attributes:
         payload (Optional[str]): The packet payload data.
         layers (List[str]): List of protocol layers in the packet.
-        timestamp (Optional[str]): The timestamp when the packet was captured.
+        timestamp (Optional[Union[str, float]]): The timestamp when the packet was captured.
         dst_ip (Optional[IPvAnyAddress]): Destination IP address.
         src_ip (Optional[IPvAnyAddress]): Source IP address.
     """
 
     payload: Optional[str] = None
     layers: List[str] = []
-    timestamp: Optional[str] = None
+    timestamp: Optional[Any] = None  # Can be str or float
     dst_ip: Optional[IPvAnyAddress] = None
     src_ip: Optional[IPvAnyAddress] = None
+
+    def get_payload(self) -> Optional[str]:
+        """
+        Get the payload data of the packet.
+
+        Returns:
+            Optional[str]: The payload data of the packet.
+        """
+        return self.payload
+
+    def get_layers(self) -> List[str]:
+        """
+        Get the list of protocol layers in the packet.
+
+        Returns:
+            List[str]: A list of protocol layers in the packet.
+        """
+        return self.layers
+
+    def get_timestamp(self) -> Optional[float]:
+        """
+        Get the timestamp when the packet was captured.
+
+        Returns:
+            Optional[float]: The timestamp of the packet capture.
+        """
+        return self.timestamp
+
+    def get_dst_ip(self) -> Optional[str]:
+        """
+        Get the destination IP address of the packet.
+
+        Returns:
+            Optional[str]: The destination IP address.
+        """
+        return str(self.dst_ip) if self.dst_ip else None
+
+    def get_src_ip(self) -> Optional[str]:
+        """
+        Get the source IP address of the packet.
+
+        Returns:
+            Optional[str]: The source IP address.
+        """
+        return str(self.src_ip) if self.src_ip else None
 
     def to_json(self) -> Dict[str, Any]:
         """
@@ -188,8 +240,27 @@ class NetworkPacketModel(pyd.BaseModel):
             print(f"Error converting model to Polars DataFrame: {e}")
             return pl.DataFrame()
 
+    def show(self) -> None:
+        """
+        Display the packet information in a human-readable format.
 
-class ARPPacketModel(NetworkPacketModel):
+        This method prints out all relevant packet information,
+        including headers, addresses, and payload summary.
+        """
+        print(f"Packet Type: {self.__class__.__name__}")
+        print(f"  Timestamp: {self.timestamp}")
+        print(f"  Source IP: {self.src_ip}")
+        print(f"  Destination IP: {self.dst_ip}")
+        print(f"  Layers: {self.layers}")
+        if self.payload:
+            print(f"  Payload: {self.payload[:50]}..." if len(self.payload) > 50 else f"  Payload: {self.payload}")
+
+
+# For backward compatibility
+NetworkPacketModel = BasePacket
+
+
+class ARPPacket(BasePacket):
     """
     Pydantic model for Address Resolution Protocol (ARP) packets.
 
@@ -218,17 +289,35 @@ class ARPPacketModel(NetworkPacketModel):
     target_ip: Optional[IPvAnyAddress] = None
 
     @classmethod
-    def new(cls, **data: Any) -> "ARPPacketModel":
+    def new(cls, **data: Any) -> "ARPPacket":
         """
-        Create a new ARPPacketModel instance from keyword arguments.
+        Create a new ARPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            ARPPacketModel: A new instance of the ARPPacketModel.
+            ARPPacket: A new instance of the ARPPacket.
         """
-        return ARPPacketModel(**data)
+        return ARPPacket(**data)
+
+    def get_dst_ip(self) -> Optional[str]:
+        """
+        Get the destination IP address of the packet.
+
+        Returns:
+            Optional[str]: The destination IP address (target_ip for ARP).
+        """
+        return str(self.target_ip) if self.target_ip else None
+
+    def get_src_ip(self) -> Optional[str]:
+        """
+        Get the source IP address of the packet.
+
+        Returns:
+            Optional[str]: The source IP address (sender_ip for ARP).
+        """
+        return str(self.sender_ip) if self.sender_ip else None
 
     def show(self) -> None:
         """
@@ -250,7 +339,11 @@ class ARPPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class STPPacketModel(NetworkPacketModel):
+# For backward compatibility
+ARPPacketModel = ARPPacket
+
+
+class STPPacket(BasePacket):
     """
     Pydantic model for Spanning Tree Protocol (STP) packets.
 
@@ -287,17 +380,17 @@ class STPPacketModel(NetworkPacketModel):
     forward_delay: Optional[int] = None  # Tiempo de espera antes del forwarding
 
     @classmethod
-    def new(cls, **data: Any) -> "STPPacketModel":
+    def new(cls, **data: Any) -> "STPPacket":
         """
-        Create a new STPPacketModel instance from keyword arguments.
+        Create a new STPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            STPPacketModel: A new instance of the STPPacketModel.
+            STPPacket: A new instance of the STPPacket.
         """
-        return STPPacketModel(**data)
+        return STPPacket(**data)
 
     def show(self) -> None:
         """
@@ -322,7 +415,11 @@ class STPPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class EthernetPacketModel(NetworkPacketModel):
+# For backward compatibility
+STPPacketModel = STPPacket
+
+
+class EthernetPacket(BasePacket):
     """
     Pydantic model for Ethernet frames (Layer 2 of the OSI model).
 
@@ -345,17 +442,17 @@ class EthernetPacketModel(NetworkPacketModel):
     crc: Optional[str] = None  # checksum de la trama
 
     @classmethod
-    def new(cls, **data: Any) -> "EthernetPacketModel":
+    def new(cls, **data: Any) -> "EthernetPacket":
         """
-        Create a new EthernetPacketModel instance from keyword arguments.
+        Create a new EthernetPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            EthernetPacketModel: A new instance of the EthernetPacketModel.
+            EthernetPacket: A new instance of the EthernetPacket.
         """
-        return EthernetPacketModel(**data)
+        return EthernetPacket(**data)
 
     def show(self) -> None:
         """
@@ -374,7 +471,11 @@ class EthernetPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class IPPacketModel(NetworkPacketModel):
+# For backward compatibility
+EthernetPacketModel = EthernetPacket
+
+
+class IPPacket(BasePacket):
     """
     Pydantic model for Internet Protocol (IP) packets.
 
@@ -411,17 +512,35 @@ class IPPacketModel(NetworkPacketModel):
     options: Optional[List[dict]] = None  # Options
 
     @classmethod
-    def new(cls, **data: Any) -> "IPPacketModel":
+    def new(cls, **data: Any) -> "IPPacket":
         """
-        Create a new IPPacketModel instance from keyword arguments.
+        Create a new IPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            IPPacketModel: A new instance of the IPPacketModel.
+            IPPacket: A new instance of the IPPacket.
         """
-        return IPPacketModel(**data)
+        return IPPacket(**data)
+
+    def get_dst_ip(self) -> Optional[str]:
+        """
+        Get the destination IP address of the packet.
+
+        Returns:
+            Optional[str]: The destination IP address.
+        """
+        return str(self.dst) if self.dst else None
+
+    def get_src_ip(self) -> Optional[str]:
+        """
+        Get the source IP address of the packet.
+
+        Returns:
+            Optional[str]: The source IP address.
+        """
+        return str(self.src) if self.src else None
 
     def show(self) -> None:
         """
@@ -447,7 +566,11 @@ class IPPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class ICMPPacketModel(NetworkPacketModel):
+# For backward compatibility
+IPPacketModel = IPPacket
+
+
+class ICMPPacket(BasePacket):
     """
     Pydantic model for Internet Control Message Protocol (ICMP) packets.
 
@@ -471,17 +594,17 @@ class ICMPPacketModel(NetworkPacketModel):
     data: Optional[bytes] = None  # Data
 
     @classmethod
-    def new(cls, **data: Any) -> "ICMPPacketModel":
+    def new(cls, **data: Any) -> "ICMPPacket":
         """
-        Create a new ICMPPacketModel instance from keyword arguments.
+        Create a new ICMPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            ICMPPacketModel: A new instance of the ICMPPacketModel.
+            ICMPPacket: A new instance of the ICMPPacket.
         """
-        return ICMPPacketModel(**data)
+        return ICMPPacket(**data)
 
     def show(self) -> None:
         """
@@ -502,7 +625,11 @@ class ICMPPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class TCPPacketModel(NetworkPacketModel):
+# For backward compatibility
+ICMPPacketModel = ICMPPacket
+
+
+class TCPPacket(BasePacket):
     """
     Pydantic model for Transmission Control Protocol (TCP) packets.
 
@@ -536,17 +663,17 @@ class TCPPacketModel(NetworkPacketModel):
     options: Optional[List[tuple]] = None  # Options
 
     @classmethod
-    def new(cls, **data: Any) -> "TCPPacketModel":
+    def new(cls, **data: Any) -> "TCPPacket":
         """
-        Create a new TCPPacketModel instance from keyword arguments.
+        Create a new TCPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            TCPPacketModel: A new instance of the TCPPacketModel.
+            TCPPacket: A new instance of the TCPPacket.
         """
-        return TCPPacketModel(**data)
+        return TCPPacket(**data)
 
     def show(self) -> None:
         """
@@ -572,7 +699,11 @@ class TCPPacketModel(NetworkPacketModel):
         print(f"  Timestamp: {self.timestamp}")
 
 
-class UDPPacketModel(NetworkPacketModel):
+# For backward compatibility
+TCPPacketModel = TCPPacket
+
+
+class UDPPacket(BasePacket):
     """
     Pydantic model for User Datagram Protocol (UDP) packets.
 
@@ -592,17 +723,17 @@ class UDPPacketModel(NetworkPacketModel):
     chksum: Optional[int] = None  # Checksum
 
     @classmethod
-    def new(cls, **data: Any) -> "UDPPacketModel":
+    def new(cls, **data: Any) -> "UDPPacket":
         """
-        Create a new UDPPacketModel instance from keyword arguments.
+        Create a new UDPPacket instance from keyword arguments.
 
         Args:
             **data: Keyword arguments corresponding to the model's fields.
 
         Returns:
-            UDPPacketModel: A new instance of the UDPPacketModel.
+            UDPPacket: A new instance of the UDPPacket.
         """
-        return UDPPacketModel(**data)
+        return UDPPacket(**data)
 
     def show(self) -> None:
         """
@@ -619,3 +750,10 @@ class UDPPacketModel(NetworkPacketModel):
         print(f"  Source IP: {self.src_ip}")
         print(f"  Destination IP: {self.dst_ip}")
         print(f"  Timestamp: {self.timestamp}")
+
+
+# For backward compatibility
+UDPPacketModel = UDPPacket
+
+
+# The old NetworkPacket hierarchy has been merged into the Pydantic-based classes above
