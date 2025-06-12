@@ -18,4 +18,4 @@ fi
 sudo \
     PYTHONPATH="$PROJECT_ROOT" \
     "$PYTHON_EXECUTABLE" \
-    "$PROJECT_ROOT/src/network_security_suite/sniffer/testing.py"
+    "$PROJECT_ROOT/src/network_security_suite/main.py"

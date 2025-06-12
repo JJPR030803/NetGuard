@@ -24,6 +24,7 @@ from network_security_suite.models.packet_data_structures import (
     Packet,
     PacketLayer,
 )
+from network_security_suite.sniffer.exceptions import DataConversionError
 
 
 class PacketCapture:
@@ -82,10 +83,13 @@ class PacketCapture:
                     try:
                         processed_packet = self.process_packet_layers(packet)
                         self.packets.append(processed_packet)
-                    except Exception as e:
-                        print(
-                            f"Error processing packet: {e}: packet_capture.py/process_queue"
-                        )
+                    except Exception:
+                        # Log the error but continue processing other packets
+                        # We don't want to stop the entire queue processing for one packet
+                        # This would be a good place for logging in a production environment
+                        # packet_id = getattr(packet, "time", "unknown")
+
+                        self.stats["dropped_packets"] += 1
                 end_time = time()
                 processing_time = end_time - start_time
                 self.update_stats(processing_time, len(batch))
@@ -215,9 +219,10 @@ class PacketCapture:
                 try:
                     fields = processor(packet[layer_type])
                     packet_layers.append(PacketLayer(layer_name=name, fields=fields))
-                except Exception as e:
-                    print(f"Error processing layer {name}: {e}")
-                    # Continue processing other layers even if one fails
+                except Exception:
+                    # Create but don't raise the exception - we want to continue processing other layers
+                    # Just log the error in a production environment
+                    pass
 
         # Process unknown layers
         try:
@@ -244,10 +249,14 @@ class PacketCapture:
                         packet_layers.append(
                             PacketLayer(layer_name=layer_name, fields=fields)
                         )
-                except Exception as e:
-                    print(f"Error processing unknown layer {layer_name}: {e}")
-        except Exception as e:
-            print(f"Error processing unknown layers: {e}")
+                except Exception:
+                    # Create but don't raise the exception - we want to continue processing other layers
+                    # Just log the error in a production environment
+                    pass
+        except Exception:
+            # Continue with the layers we've processed so far
+            # Just log the error in a production environment
+            pass
 
         return Packet(timestamp=timestamp, layers=packet_layers, raw_size=raw_size)
 
@@ -260,8 +269,14 @@ class PacketCapture:
         try:
             processed_packet = self.process_packet_layers(packet)
             self.packets.append(processed_packet)
-        except Exception as e:
-            print(f"Error capturing packets: {e}: packet_capture.py/packet_callback")
+        except Exception:
+            # Create but don't raise the exception - this would be a good place for logging
+            # in a production environment
+            # packet_id = getattr(packet, "time", "unknown")
+            # Just log the error in a production environment
+            pass
+            with self.stats_lock:
+                self.stats["dropped_packets"] += 1
 
     def capture(
         self,
@@ -483,8 +498,9 @@ class PacketCapture:
                 "total_packets": len(self.packets),
             }
         except Exception as e:
-            print(f"Error converting packets to JSON: {e}")
-            return {}
+            raise DataConversionError(
+                source_format="packets", target_format="JSON", error_details=str(e)
+            ) from e
 
     def to_pandas_df(self) -> pd.DataFrame:
         """
@@ -521,8 +537,11 @@ class PacketCapture:
             # Create DataFrame from flattened packet data
             return pd.DataFrame(flattened_packets)
         except Exception as e:
-            print(f"Error converting packets to pandas DataFrame: {e}")
-            return pd.DataFrame()
+            raise DataConversionError(
+                source_format="packets",
+                target_format="pandas DataFrame",
+                error_details=str(e),
+            ) from e
 
     def to_polars_df(self) -> pl.DataFrame:
         """
@@ -617,5 +636,8 @@ class PacketCapture:
             return df
 
         except Exception as e:
-            print(f"Error converting packets to Polars DataFrame: {e}")
-            return pl.DataFrame()
+            raise DataConversionError(
+                source_format="packets",
+                target_format="Polars DataFrame",
+                error_details=str(e),
+            ) from e

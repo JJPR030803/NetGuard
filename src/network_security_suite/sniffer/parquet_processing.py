@@ -17,6 +17,13 @@ Example usage:
 
 import polars as pl
 
+from network_security_suite.sniffer.exceptions import (
+    DataConversionError,
+    DataExportError,
+    DataImportError,
+    DataProcessingException,
+    InterfaceNotFoundError,
+)
 from network_security_suite.sniffer.interfaces import Interface
 from network_security_suite.sniffer.packet_capture import PacketCapture
 
@@ -76,12 +83,9 @@ class ParquetProcessing:
         working_interface = interface_manager.get_interface_by_type(interface_type)
 
         if not working_interface:
-            print(
-                f"Interface type '{interface_type}' not found. Using the first available interface."
-            )
             all_interfaces = interface_manager.get_active_interfaces()
             if not all_interfaces:
-                raise ValueError("No network interfaces found")
+                raise InterfaceNotFoundError("No network interfaces found")
             interface_name = all_interfaces[0]
         else:
             interface_name = working_interface[0]
@@ -107,10 +111,6 @@ class ParquetProcessing:
         try:
             # Verify timestamp is a datetime type
             if df_pl.schema["timestamp"] != pl.Datetime:
-                print(
-                    f"Warning: timestamp column is not datetime type, it's {df_pl.schema['timestamp']}"
-                )
-                print("Converting timestamp to datetime...")
                 df_pl = df_pl.with_columns(
                     [pl.col("timestamp").cast(pl.Datetime).alias("timestamp")]
                 )
@@ -139,11 +139,15 @@ class ParquetProcessing:
             )
             print(f"Successfully wrote DataFrame to {filepath}")
         except ValueError as ve:
-            print(f"Value Error: {ve}")
+            raise DataConversionError(
+                source_format="DataFrame",
+                target_format="Parquet",
+                error_details=str(ve),
+            ) from ve
         except Exception as e:
-            print(f"Error processing DataFrame: {e}")
-            print(f"DataFrame schema: {df_pl.schema}")
-            print(f"First few rows: {df_pl.head()}")
+            raise DataExportError(
+                export_format="Parquet", destination=filepath, error_details=str(e)
+            ) from e
 
     def load_packets(self, filepath: str = "") -> pl.DataFrame:
         """
@@ -170,15 +174,13 @@ class ParquetProcessing:
 
         try:
             df_pl = pl.read_parquet(filepath)
-            print(f"Successfully loaded DataFrame from {filepath}")
-            print(f"DataFrame shape: {df_pl.shape}")
             return df_pl
         except FileNotFoundError:
-            print(f"File not found: {filepath}")
             raise
         except Exception as e:
-            print(f"Error loading Parquet file: {e}")
-            raise
+            raise DataImportError(
+                import_format="Parquet", source=filepath, error_details=str(e)
+            ) from e
 
     def show_dataframe_stats(self, df: pl.DataFrame) -> None:
         """
@@ -214,7 +216,7 @@ class ParquetProcessing:
             stats = df.describe()
             print(stats)
         except Exception as e:
-            print(f"Could not compute statistics: {e}")
+            raise DataProcessingException(f"Could not compute statistics: {e}") from e
 
         # Show unique values for categorical columns (if not too many)
         print("\nUnique Values for Selected Columns:")
@@ -227,7 +229,7 @@ class ParquetProcessing:
                     ):  # Only show if not too many unique values
                         print(f"  {col}: {unique_values.to_list()}")
             except Exception:
-                print("Avanzando a la siguiente columna")
-                pass# Skip columns that can't be processed
+                # Skip to the next column if there's an error processing this one
+                continue
 
         print("=" * 50)

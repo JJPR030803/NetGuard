@@ -253,7 +253,11 @@ class BasePacket(pyd.BaseModel):
         print(f"  Destination IP: {self.dst_ip}")
         print(f"  Layers: {self.layers}")
         if self.payload:
-            print(f"  Payload: {self.payload[:50]}..." if len(self.payload) > 50 else f"  Payload: {self.payload}")
+            print(
+                f"  Payload: {self.payload[:50]}..."
+                if len(self.payload) > 50
+                else f"  Payload: {self.payload}"
+            )
 
 
 # For backward compatibility

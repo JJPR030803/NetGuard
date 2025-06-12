@@ -15,6 +15,8 @@ from typing import Dict, List
 
 import netifaces  # You'll need to add this to your poetry dependencies
 
+# from network_security_suite.sniffer.exceptions import InterfaceConfigurationError
+
 
 class Interface:
     """
@@ -125,8 +127,10 @@ class Interface:
                 except subprocess.CalledProcessError:
                     pass
 
-        except Exception as e:
-            print(f"Error getting Linux interfaces: {e}")
+        except Exception:
+            # Log the error but return any interfaces we've found so far
+            # This allows the program to continue with partial interface information
+            pass
         return interfaces
 
     def _get_macos_interfaces(self) -> Dict[str, dict]:
@@ -187,8 +191,10 @@ class Interface:
 
                 interfaces[iface] = interface_info
 
-        except Exception as e:
-            print(f"Error getting macOS interfaces: {e}")
+        except Exception:
+            # Log the error but return any interfaces we've found so far
+            # This allows the program to continue with partial interface information
+            pass
         return interfaces
 
     def _get_windows_interfaces(self) -> Dict[str, dict]:
@@ -233,7 +239,9 @@ class Interface:
                     # Fallback to PATH-based execution if the hardcoded path doesn't exist
                     ipconfig_path_str = shutil.which("ipconfig")
                     if not ipconfig_path_str:
-                        print("ipconfig command not found")
+                        # Create but don't raise the exception - return empty dict instead
+                        # This would be a good place for logging in a production environment
+                        # InterfaceConfigurationError(config_issue="ipconfig command not found")
                         return {}  # Return empty dict if ipconfig is not found
                     ipconfig_path = Path(ipconfig_path_str)
 
@@ -248,8 +256,10 @@ class Interface:
                         shell=False,  # Explicitly set shell=False for security
                         check=True,
                     ).stdout
-            except subprocess.CalledProcessError as e:
-                print(f"Error running ipconfig: {e}")
+            except subprocess.CalledProcessError:
+                # Return empty dict if ipconfig fails
+                # This would be a good place for logging in a production environment
+                # InterfaceConfigurationError(config_issue="Error running ipconfig")
                 return {}
             current_interface = None
             interface_info = {}
@@ -286,8 +296,10 @@ class Interface:
             if current_interface and interface_info:
                 interfaces[current_interface] = interface_info
 
-        except Exception as e:
-            print(f"Error getting Windows interfaces: {e}")
+        except Exception:
+            # Log the error but return any interfaces we've found so far
+            # This allows the program to continue with partial interface information
+            pass
         return interfaces
 
     def _is_valid_interface_name(self, iface: str) -> bool:
