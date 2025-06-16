@@ -14,7 +14,7 @@ Modules:
     utils: Utility functions and helpers
 
 For more information, see the documentation at:
-https://github.com/yourusername/network-security-suite/docs
+https://github.com/JJPR030803/network-security-suite/
 """
 
 __version__ = "0.1.0"
