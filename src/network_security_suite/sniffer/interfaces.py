@@ -11,11 +11,13 @@ import shutil
 # security measures to mitigate risks (full paths, no shell=True, input validation)
 import subprocess  # nosec B404
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-import netifaces  # You'll need to add this to your poetry dependencies
+import netifaces
 
-# from network_security_suite.sniffer.exceptions import InterfaceConfigurationError
+from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
+
+# from network_security_suite.sniffer.exceptions.md import InterfaceConfigurationError
 
 
 class Interface:
@@ -36,14 +38,23 @@ class Interface:
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+"
     )
 
-    def __init__(self) -> None:
+    def __init__(self, log_dir: Optional[str] = None) -> None:
         """
         Initialize the Interface class.
 
         Detects the current operating system and populates the interfaces dictionary
         with information about all available network interfaces.
+
+        Args:
+            log_dir (Optional[str], optional): Directory to store log files. Defaults to None.
         """
+        # Initialize loggers
+        self.info_logger = InfoLogger(log_dir=log_dir)
+        self.debug_logger = DebugLogger(log_dir=log_dir)
+        self.error_logger = ErrorLogger(log_dir=log_dir)
+
         self.os_type = platform.system().lower()
+        self.info_logger.log(f"Initializing Interface on {self.os_type} system")
         self.interfaces = self._get_interfaces()
 
     def _get_interfaces(self) -> Dict[str, dict]:
@@ -60,13 +71,24 @@ class Interface:
         Raises:
             NotImplementedError: If the current operating system is not supported.
         """
-        if self.os_type == "linux":
-            return self._get_linux_interfaces()
-        if self.os_type == "darwin":  # macOS
-            return self._get_macos_interfaces()
-        if self.os_type == "windows":
-            return self._get_windows_interfaces()
-        raise NotImplementedError(f"Operating system {self.os_type} not supported")
+        self.debug_logger.log(f"Detecting network interfaces for {self.os_type}")
+        try:
+            if self.os_type == "linux":
+                self.debug_logger.log("Using Linux interface detection method")
+                return self._get_linux_interfaces()
+            if self.os_type == "darwin":  # macOS
+                self.debug_logger.log("Using macOS interface detection method")
+                return self._get_macos_interfaces()
+            if self.os_type == "windows":
+                self.debug_logger.log("Using Windows interface detection method")
+                return self._get_windows_interfaces()
+
+            error_msg = f"Operating system {self.os_type} not supported"
+            self.error_logger.log(error_msg)
+            raise NotImplementedError(error_msg)
+        except Exception as e:
+            self.error_logger.log(f"Error detecting network interfaces: {str(e)}")
+            raise
 
     def _get_linux_interfaces(self) -> Dict[str, dict]:
         """
@@ -85,10 +107,13 @@ class Interface:
                 - type: The detected interface type
                 - state: The interface state (UP/DOWN) if available
         """
+        self.debug_logger.log("Detecting Linux network interfaces")
         interfaces = {}
         try:
             # Using netifaces for basic interface detection
+            self.debug_logger.log("Using netifaces for basic interface detection")
             for iface in netifaces.interfaces():
+                self.debug_logger.log(f"Processing interface: {iface}")
                 addrs = netifaces.ifaddresses(iface)
                 interface_info = {
                     "name": iface,
@@ -102,10 +127,14 @@ class Interface:
                     "type": self._detect_interface_type(iface),
                 }
                 interfaces[iface] = interface_info
+                self.debug_logger.log(
+                    f"Added interface {iface} with type {interface_info['type']}"
+                )
 
             # Additional Linux-specific information
             ip_path = shutil.which("ip")
             if ip_path:
+                self.debug_logger.log("Using 'ip' command for additional information")
                 try:
                     # B603: This subprocess call is safe because:
                     # 1. We use the full path to the executable (ip_path from shutil.which)
@@ -124,10 +153,18 @@ class Interface:
                                 # Add state information
                                 state = "UP" if "UP" in line else "DOWN"
                                 interfaces[iface_name]["state"] = state
+                                self.debug_logger.log(
+                                    f"Updated interface {iface_name} state to {state}"
+                                )
                 except subprocess.CalledProcessError:
+                    self.error_logger.log("Failed to execute 'ip link show' command")
                     pass
 
-        except Exception:
+            self.info_logger.log(
+                f"Successfully detected {len(interfaces)} Linux network interfaces"
+            )
+        except Exception as e:
+            self.error_logger.log(f"Error detecting Linux interfaces: {str(e)}")
             # Log the error but return any interfaces we've found so far
             # This allows the program to continue with partial interface information
             pass
@@ -365,14 +402,17 @@ class Interface:
         Returns:
             None
         """
+        self.info_logger.log(f"Displaying {len(self.interfaces)} network interfaces")
         print(f"\nNetwork Interfaces on {self.os_type.capitalize()}:")
         print("-" * 60)
         for name, info in self.interfaces.items():
             print(f"Interface: {name}")
+            self.debug_logger.log(f"Displaying details for interface: {name}")
             for key, value in info.items():
                 if key != "name":
                     print(f"  {key}: {value}")
             print("-" * 60)
+        self.info_logger.log("Finished displaying network interfaces")
 
     def get_interface_by_type(self, type_name: str) -> List[str]:
         """
@@ -386,9 +426,14 @@ class Interface:
             List[str]: A list of interface names that match the specified type.
                 Returns an empty list if no interfaces of the specified type are found.
         """
-        return [
+        self.debug_logger.log(f"Filtering interfaces by type: {type_name}")
+        interfaces = [
             name for name, info in self.interfaces.items() if info["type"] == type_name
         ]
+        self.info_logger.log(
+            f"Found {len(interfaces)} interfaces of type '{type_name}'"
+        )
+        return interfaces
 
     def get_active_interfaces(self) -> List[str]:
         """
@@ -402,9 +447,12 @@ class Interface:
             List[str]: A list of active interface names.
                 Returns an empty list if no active interfaces are found.
         """
-        return [
+        self.debug_logger.log("Filtering interfaces by active state (UP)")
+        active_interfaces = [
             name for name, info in self.interfaces.items() if info.get("state") == "UP"
         ]
+        self.info_logger.log(f"Found {len(active_interfaces)} active interfaces")
+        return active_interfaces
 
     def get_interface_info(self, interface_name: str) -> dict:
         """
@@ -418,4 +466,10 @@ class Interface:
                 IP addresses, type, and state (if available). Returns an empty dictionary
                 if the specified interface is not found.
         """
-        return self.interfaces.get(interface_name, {})
+        self.debug_logger.log(f"Retrieving information for interface: {interface_name}")
+        interface_info = self.interfaces.get(interface_name, {})
+        if interface_info:
+            self.info_logger.log(f"Found interface information for {interface_name}")
+        else:
+            self.error_logger.log(f"Interface not found: {interface_name}")
+        return interface_info

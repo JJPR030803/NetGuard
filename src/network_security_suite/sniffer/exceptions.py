@@ -1,8 +1,8 @@
 """
-Exception handler for different types of sniffing related exceptions.
+Exception handler for different types of sniffing related exceptions.md.
 
 This module provides a comprehensive set of exception classes for the sniffer module.
-These exceptions help in identifying and handling specific error scenarios that may
+These exceptions.md help in identifying and handling specific error scenarios that may
 occur during network sniffing operations, packet processing, data conversion, and
 interface management.
 
@@ -25,23 +25,28 @@ The exception hierarchy is organized as follows:
     - ConfigurationNotFoundError: When configuration is not found
 """
 
+from network_security_suite.sniffer.loggers import ErrorLogger
+
 
 class SnifferException(Exception):
     """Base exception class for all sniffer-related errors.
 
-    This is the parent class for all exceptions in the sniffer module.
-    It provides a common base for catching all sniffer-related exceptions.
+    This is the parent class for all exceptions.md in the sniffer module.
+    It provides a common base for catching all sniffer-related exceptions.md.
 
     Attributes:
         message (str): Explanation of the error
+        logger (ErrorLogger): Logger for error messages
     """
 
     def __init__(self, message="An error occurred in the sniffer module"):
         self.message = message
+        self.logger = ErrorLogger()
+        self.logger.log(f"SnifferException: {self.message}")
         super().__init__(self.message)
 
 
-# Interface-related exceptions
+# Interface-related exceptions.md
 class InterfaceException(SnifferException):
     """Base exception for interface-related errors.
 
@@ -106,7 +111,7 @@ class InterfaceConfigurationError(InterfaceException):
         super().__init__(interface, message)
 
 
-# Packet capture exceptions
+# Packet capture exceptions.md
 class PacketCaptureException(SnifferException):
     """Base exception for packet capture errors.
 
@@ -183,7 +188,7 @@ class FilterError(PacketCaptureException):
         super().__init__(message)
 
 
-# Data processing exceptions
+# Data processing exceptions.md
 class DataProcessingException(SnifferException):
     """Base exception for data processing errors.
 
@@ -264,7 +269,7 @@ class DataImportError(DataProcessingException):
         super().__init__(message)
 
 
-# Configuration exceptions
+# Configuration exceptions.md
 class ConfigurationException(SnifferException):
     """Base exception for configuration errors.
 

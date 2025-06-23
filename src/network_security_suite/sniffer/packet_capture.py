@@ -7,6 +7,8 @@ including JSON, pandas DataFrames, and Polars DataFrames.
 """
 
 import gc
+import platform
+from datetime import datetime
 from queue import Empty, Queue
 from threading import Lock, Thread
 from time import time
@@ -25,6 +27,12 @@ from network_security_suite.models.packet_data_structures import (
     PacketLayer,
 )
 from network_security_suite.sniffer.exceptions import DataConversionError
+from network_security_suite.sniffer.loggers import (
+    DebugLogger,
+    ErrorLogger,
+    InfoLogger,
+    PacketLogger,
+)
 
 
 class PacketCapture:
@@ -39,16 +47,32 @@ class PacketCapture:
         packets (list[Packet]): A list of captured packet objects.
     """
 
-    def __init__(self, interface: str, max_memory_packets: int = 10000):
+    def __init__(self, interface: str, max_memory_packets: int = 10000, log_dir: Optional[str] = None):
         """
         Initialize a new PacketCapture instance.
 
         Args:
             interface (str): The name of the network interface to capture packets from.
+            max_memory_packets (int, optional): Maximum number of packets to keep in memory. Defaults to 10000.
+            log_dir (Optional[str], optional): Directory to store log files. Defaults to None.
         """
+        # Initialize loggers
+        self.info_logger = InfoLogger(log_dir=log_dir)
+        self.debug_logger = DebugLogger(log_dir=log_dir)
+        self.error_logger = ErrorLogger(log_dir=log_dir)
+        self.packet_logger = PacketLogger(log_dir=log_dir)
+
+        self.info_logger.log(f"Initializing PacketCapture for interface: {interface}")
+
         if max_memory_packets < 100:
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {max_memory_packets}, must be at least 100"
+            )
             raise ValueError("max_memory_packets must be at least 100")
         if max_memory_packets % 10 != 0:
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {max_memory_packets}, must be multiple of 10"
+            )
             raise ValueError(
                 "max_memory_packets must be multiple of 10 for faster processing"
             )
@@ -65,6 +89,9 @@ class PacketCapture:
             "processing_time": 0.0,
             "batch_count": 0,
         }
+        self.debug_logger.log(
+            f"PacketCapture initialized with max_memory_packets: {max_memory_packets}"
+        )
 
     def update_stats(self, processing_time: float, batch_size: int) -> None:
         """Update statistics."""
@@ -75,27 +102,38 @@ class PacketCapture:
 
     def process_queue(self) -> None:
         """Process packets in batches."""
+        self.debug_logger.log("Starting packet queue processing")
         while self.is_running or not self.packet_queue.empty():
             try:
                 batch = self.packet_queue.get(timeout=1)  # Get the batch
+                self.debug_logger.log(f"Processing batch of {len(batch)} packets")
                 start_time = time()
                 for packet in batch:  # Process each packet in the batch
                     try:
                         processed_packet = self.process_packet_layers(packet)
                         self.packets.append(processed_packet)
-                    except Exception:
+                        self.packet_logger.log(
+                            f"Processed packet: {processed_packet.id}"
+                        )
+                    except Exception as e:
                         # Log the error but continue processing other packets
                         # We don't want to stop the entire queue processing for one packet
-                        # This would be a good place for logging in a production environment
-                        # packet_id = getattr(packet, "time", "unknown")
-
+                        packet_id = getattr(packet, "time", "unknown")
+                        self.error_logger.log(
+                            f"Error processing packet {packet_id}: {str(e)}"
+                        )
                         self.stats["dropped_packets"] += 1
                 end_time = time()
                 processing_time = end_time - start_time
                 self.update_stats(processing_time, len(batch))
+                self.debug_logger.log(
+                    f"Batch processed in {processing_time:.4f} seconds"
+                )
                 self.packet_queue.task_done()
             except Empty:
+                self.debug_logger.log("Queue empty, waiting for more packets")
                 continue
+        self.info_logger.log("Packet queue processing completed")
 
     def process_packet_layers(self, packet: ScapyPacket) -> Packet:
         """
@@ -278,11 +316,47 @@ class PacketCapture:
             with self.stats_lock:
                 self.stats["dropped_packets"] += 1
 
+    def _get_session_info(self) -> Dict[str, str]:
+        """
+        Get information about the current sniffing session.
+
+        Returns:
+            Dict[str, str]: A dictionary containing information about the session,
+            including OS, machine type, interface type, date, etc.
+        """
+        session_info = {
+            "os": platform.system(),
+            "os_version": platform.version(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "interface": self.interface,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+        # Try to determine interface type
+        if self.interface.lower().startswith(("wlan", "wifi", "wl")):
+            session_info["interface_type"] = "wireless"
+        elif self.interface.lower().startswith(("docker", "br-")):
+            session_info["interface_type"] = "docker"
+        elif self.interface.lower().startswith(("eth", "en", "eno")):
+            session_info["interface_type"] = "ethernet"
+        elif self.interface.lower().startswith(("veth")):
+            session_info["interface_type"] = "virtual"
+        elif self.interface.lower().startswith(("tun", "tap")):
+            session_info["interface_type"] = "vpn"
+        elif self.interface.lower() in ("lo", "loopback"):
+            session_info["interface_type"] = "loopback"
+        else:
+            session_info["interface_type"] = "unknown"
+
+        return session_info
+
     def capture(
         self,
         max_packets: int = 10000,
         bpf_filter: str | None = "",
         num_threads: int = 4,
+        log: bool = False,
     ) -> None:
         """
         Capture network packets from the specified interface.
@@ -293,33 +367,53 @@ class PacketCapture:
 
         Args:
             max_packets (int, optional): Maximum number of packets to capture. Defaults to 10000.
-            verbose (bool, optional): Whether to print information about captured packets. Defaults to False.
+            bpf_filter (str | None, optional): Berkeley Packet Filter string. Defaults to "".
+            num_threads (int, optional): Number of processing threads to use. Defaults to 4.
+            log (bool, optional): Whether to log detailed session information. Defaults to False.
 
         Raises:
             Exception: If there's an error during packet capture or processing.
-            :param bpf_filter:
         """
+        self.info_logger.log(f"Starting packet capture on interface {self.interface}")
+        self.debug_logger.log(f"Capture parameters: max_packets={max_packets}, filter='{bpf_filter}', threads={num_threads}")
+
+        # Log detailed session information if requested
+        if log:
+            session_info = self._get_session_info()
+            self.info_logger.log("=== SNIFFING SESSION STARTED ===")
+            self.info_logger.log(f"Date/Time: {session_info['date']}")
+            self.info_logger.log(f"Operating System: {session_info['os']} {session_info['os_version']}")
+            self.info_logger.log(f"Machine: {session_info['machine']} ({session_info['processor']})")
+            self.info_logger.log(f"Interface: {session_info['interface']} (Type: {session_info['interface_type']})")
+            self.info_logger.log(f"Max Packets: {max_packets}")
+            self.info_logger.log("================================")
+
         self.is_running = True
 
         # Start multiple processing threads
+        self.debug_logger.log(f"Starting {num_threads} processing threads")
         processors = []
-        for _ in range(num_threads):
+        for i in range(num_threads):
             processor = Thread(target=self.process_queue)
             processor.start()
             processors.append(processor)
+            self.debug_logger.log(f"Thread {i+1} started")
 
         packet_buffer: list[ScapyPacket] = []
 
         def packet_callback_wrapper(packet: ScapyPacket) -> None:
             if self.max_memory_packets and len(self.packets) >= self.max_memory_packets:
+                self.debug_logger.log(f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list")
                 self.packets = self.packets[-self.max_memory_packets :]
                 gc.collect()
             packet_buffer.append(packet)
             if len(packet_buffer) >= self.max_processing_batch:
+                self.packet_logger.log(f"Queuing batch of {len(packet_buffer)} packets for processing")
                 self.packet_queue.put(packet_buffer[:])  # Create a copy of the buffer
                 packet_buffer.clear()
 
         try:
+            self.info_logger.log("Beginning packet sniffing")
             sniff(
                 iface=self.interface,
                 count=max_packets,
@@ -328,13 +422,54 @@ class PacketCapture:
                 timeout=None,
                 filter=bpf_filter,
             )
+            self.info_logger.log(f"Packet sniffing completed, captured up to {max_packets} packets")
+        except Exception as e:
+            self.error_logger.log(f"Error during packet capture: {str(e)}")
+            raise
         finally:
             # Process remaining packets in buffer
             if packet_buffer:
+                self.packet_logger.log(f"Queuing final batch of {len(packet_buffer)} packets")
                 self.packet_queue.put(packet_buffer)
+
+            self.debug_logger.log("Signaling processing threads to stop")
             self.is_running = False
-            for processor in processors:
+
+            for i, processor in enumerate(processors):
+                self.debug_logger.log(f"Waiting for thread {i+1} to finish")
                 processor.join()
+                self.debug_logger.log(f"Thread {i+1} finished")
+
+            self.info_logger.log("Packet capture and processing completed")
+
+            # Log session completion details if requested
+            if log:
+                with self.stats_lock:
+                    processed_packets = self.stats["processed_packets"]
+                    dropped_packets = self.stats["dropped_packets"]
+                    processing_time = self.stats["processing_time"]
+
+                self.info_logger.log("=== SNIFFING SESSION COMPLETED ===")
+                self.info_logger.log(f"Date/Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                self.info_logger.log(f"Packets Processed: {processed_packets}")
+                self.info_logger.log(f"Packets Dropped: {dropped_packets}")
+                self.info_logger.log(f"Total Processing Time: {processing_time:.2f} seconds")
+
+                # Calculate layer distribution
+                layer_counts = {}
+                for packet in self.packets:
+                    for layer in packet.layers:
+                        layer_name = layer.layer_name
+                        if layer_name in layer_counts:
+                            layer_counts[layer_name] += 1
+                        else:
+                            layer_counts[layer_name] = 1
+
+                self.info_logger.log("Layer Distribution:")
+                for layer_name, count in layer_counts.items():
+                    self.info_logger.log(f"  {layer_name}: {count}")
+
+                self.info_logger.log("=================================")
 
     def show_packets(self) -> None:
         """
@@ -641,3 +776,7 @@ class PacketCapture:
                 target_format="Polars DataFrame",
                 error_details=str(e),
             ) from e
+def capture(self, max_packets: int = 100, log: bool = False) -> None:
+    if log:
+        self.packet_logger.log(f"Starting packet capture on interface {self.interface}")
+        self.debug_logger.log(f"Max packets set to {max_packets}")
