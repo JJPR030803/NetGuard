@@ -15,6 +15,9 @@ Example usage:
     df = processor.load_packets(filepath="/path/to/output.parquet")
 """
 
+import os
+import time
+from datetime import datetime
 from typing import Optional
 
 import polars as pl
@@ -27,12 +30,10 @@ from network_security_suite.sniffer.exceptions import (
     InterfaceNotFoundError,
 )
 from network_security_suite.sniffer.interfaces import Interface
+from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
 from network_security_suite.sniffer.packet_capture import PacketCapture
-from network_security_suite.sniffer.loggers import (
-    InfoLogger,
-    DebugLogger,
-    ErrorLogger,
-)
+from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from src.network_security_suite.utils.performance_metrics import perf
 
 
 class ParquetProcessing:
@@ -50,20 +51,49 @@ class ParquetProcessing:
         interface (str): The name of the network interface to capture packets from.
     """
 
-    def __init__(self, interface: str, log_dir: Optional[str] = None):
+    def __init__(
+        self, 
+        interface: str = "", 
+        log_dir: Optional[str] = None,
+        config: Optional[SnifferConfig] = None
+    ):
+        """
+        Initialize a new ParquetProcessing instance.
+
+        Args:
+            interface (str, optional): The name of the network interface. If empty, uses config value.
+            log_dir (Optional[str], optional): Directory to store log files. If None, uses config value.
+            config (Optional[SnifferConfig], optional): Configuration object. Defaults to None.
+        """
+        # Use configuration if provided
+        self.config = config if config is not None else SnifferConfig()
+
+        # Override config with explicit parameters if provided
+        if interface:
+            self.interface = interface
+        else:
+            self.interface = self.config.interface
+
+        if log_dir:
+            self.log_dir = log_dir
+        else:
+            self.log_dir = self.config.log_dir if self.config.log_to_file else None
+
         # Initialize loggers
-        self.info_logger = InfoLogger(log_dir=log_dir)
-        self.debug_logger = DebugLogger(log_dir=log_dir)
-        self.error_logger = ErrorLogger(log_dir=log_dir)
-        self.log_dir = log_dir
+        self.info_logger = InfoLogger(log_dir=self.log_dir)
+        self.debug_logger = DebugLogger(log_dir=self.log_dir)
+        self.error_logger = ErrorLogger(log_dir=self.log_dir)
 
-        self.info_logger.log(f"Initializing ParquetProcessing for interface: {interface}")
-        self.interface = interface
+        self.info_logger.log(
+            f"Initializing ParquetProcessing for interface: {self.interface}"
+        )
 
+    @perf.monitor("save_packets")
     def save_packets(
         self,
         filepath: str = "",
-        interface_type: str = "wireless",
+        interface_type: str = "",
+        max_packets: int = None,
         # compression_type: str = "zstd",
     ) -> None:
         """
@@ -83,15 +113,32 @@ class ParquetProcessing:
 
         Args:
             filepath (str, optional): The path where the Parquet file will be saved.
-                If empty, an error will occur when trying to write the file.
+                If empty, uses the export_dir from config.
             interface_type (str, optional): The type of interface to capture packets from.
-                Defaults to "wireless". If the specified interface type is not found,
-                the first available interface will be used.
+                If empty, uses the preferred_interface_types from config.
+            max_packets (int, optional): Maximum number of packets to capture.
+                If None, uses the packet_count from config.
 
         Raises:
             ValueError: If no network interfaces are found or if no filepath is provided.
             Exception: If there's an error processing the DataFrame or writing to the file.
         """
+        # Use configuration values if parameters are not provided
+        if not filepath:
+            timestamp = int(time())
+            filepath = os.path.join(
+                self.config.export_dir, 
+                f"packets_{self.interface}_{timestamp}.{self.config.export_format}"
+            )
+
+        if not interface_type and self.config.preferred_interface_types:
+            interface_type = self.config.preferred_interface_types[0]
+        elif not interface_type:
+            interface_type = "wireless"  # Default fallback
+
+        if max_packets is None:
+            max_packets = self.config.packet_count if self.config.packet_count > 0 else 10000
+
         self.info_logger.log(f"Starting packet capture and save to {filepath}")
         self.debug_logger.log(f"Using interface type: {interface_type}")
 
@@ -100,7 +147,9 @@ class ParquetProcessing:
         working_interface = interface_manager.get_interface_by_type(interface_type)
 
         if not working_interface:
-            self.debug_logger.log(f"No interfaces of type {interface_type} found, using first active interface")
+            self.debug_logger.log(
+                f"No interfaces of type {interface_type} found, using first active interface"
+            )
             all_interfaces = interface_manager.get_active_interfaces()
             if not all_interfaces:
                 self.error_logger.log("No network interfaces found")
@@ -112,10 +161,15 @@ class ParquetProcessing:
         self.info_logger.log(f"Using interface: {interface_name}")
         print(f"Using interface: {interface_name}")
 
-        capture = PacketCapture(interface=interface_name, log_dir=self.log_dir)
-        self.info_logger.log("Starting packet capture (10000 packets)...")
-        print("Starting packet capture (10 packets)...")
-        capture.capture(max_packets=10000)
+        # Create PacketCapture with configuration
+        capture = PacketCapture(
+            interface=interface_name, 
+            log_dir=self.log_dir,
+            config=self.config
+        )
+        self.info_logger.log(f"Starting packet capture ({max_packets} packets)...")
+        print(f"Starting packet capture ({max_packets} packets)...")
+        capture.capture(max_packets=max_packets)
 
         # Display captured packets
         self.debug_logger.log("Displaying captured packets")
@@ -156,20 +210,55 @@ class ParquetProcessing:
 
             # Check if filepath is provided
             if not filepath:
-                self.error_logger.log("No filepath provided for saving the Parquet file")
-                raise ValueError("No filepath provided for saving the Parquet file")
+                self.error_logger.log(
+                    "No filepath provided for saving the data file"
+                )
+                raise ValueError("No filepath provided for saving the data file")
 
-            self.info_logger.log(f"Writing DataFrame to {filepath} with zstd compression")
-            df_pl.write_parquet(
-                file=filepath,
-                compression="zstd",  # Best for network data
-                row_group_size=50000,  # Good for time-series analysis
-                statistics=True,
-                use_pyarrow=True,
+            # Determine export format from filepath or config
+            export_format = self.config.export_format
+            if "." in filepath:
+                file_extension = filepath.split(".")[-1].lower()
+                if file_extension in ["parquet", "csv"]:
+                    export_format = file_extension
+
+            self.info_logger.log(
+                f"Writing DataFrame to {filepath} in {export_format} format"
             )
+
+            if export_format.lower() == "parquet":
+                df_pl.write_parquet(
+                    file=filepath,
+                    compression="zstd",  # Best for network data
+                    row_group_size=50000,  # Good for time-series analysis
+                    statistics=True,
+                    use_pyarrow=True,
+                )
+            elif export_format.lower() == "csv":
+                df_pl.write_csv(
+                    file=filepath,
+                    has_header=True,
+                )
+            else:
+                self.error_logger.log(f"Unsupported export format: {export_format}")
+                raise ValueError(f"Unsupported export format: {export_format}")
             self.info_logger.log(f"Successfully wrote DataFrame to {filepath}")
             print(f"Successfully wrote DataFrame to {filepath}")
+
         except ValueError as ve:
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_save_packets",
+                "label": "save_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "error": str(ve),
+                "status": "error"
+            })
+
             error_msg = f"Error converting DataFrame to Parquet: {str(ve)}"
             self.error_logger.log(error_msg)
             raise DataConversionError(
@@ -178,6 +267,19 @@ class ParquetProcessing:
                 error_details=str(ve),
             ) from ve
         except Exception as e:
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_save_packets",
+                "label": "save_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "error": str(e),
+                "status": "error"
+            })
+
             error_msg = f"Error exporting data to {filepath}: {str(e)}"
             self.error_logger.log(error_msg)
             raise DataExportError(
@@ -204,21 +306,86 @@ class ParquetProcessing:
             FileNotFoundError: If the specified file does not exist.
             Exception: If there's an error reading the Parquet file.
         """
+        # Start performance monitoring
+        start_time = time()
+        self.perf_metrics._log_metric({
+            "timestamp": datetime.now(),
+            "type": "start_load_packets",
+            "label": "load_packets",
+            "filepath": filepath
+        })
+
         self.info_logger.log(f"Loading packet data from {filepath}")
 
         if not filepath:
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_load_packets",
+                "label": "load_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "error": "No filepath provided",
+                "status": "error"
+            })
+
             self.error_logger.log("No filepath provided for loading the Parquet file")
             raise ValueError("No filepath provided for loading the Parquet file")
 
         try:
             self.debug_logger.log(f"Reading Parquet file: {filepath}")
             df_pl = pl.read_parquet(filepath)
-            self.info_logger.log(f"Successfully loaded DataFrame with shape: {df_pl.shape}")
+
+            # End performance monitoring - success case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_load_packets",
+                "label": "load_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "rows": df_pl.height,
+                "columns": df_pl.width,
+                "status": "success"
+            })
+
+            self.info_logger.log(
+                f"Successfully loaded DataFrame with shape: {df_pl.shape}"
+            )
             return df_pl
         except FileNotFoundError as e:
-            self.error_logger.log(f"File not found: {filepath}")
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_load_packets",
+                "label": "load_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "error": f"File not found: {str(e)}",
+                "status": "error"
+            })
+
+            self.error_logger.log(f"File not found: {filepath}, Error: {e}")
             raise
         except Exception as e:
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_load_packets",
+                "label": "load_packets",
+                "value": round(elapsed_time, 4),
+                "filepath": filepath,
+                "error": str(e),
+                "status": "error"
+            })
+
             error_msg = f"Error importing data from {filepath}: {str(e)}"
             self.error_logger.log(error_msg)
             raise DataImportError(
@@ -239,9 +406,31 @@ class ParquetProcessing:
         Raises:
             ValueError: If the DataFrame is empty.
         """
+        # Start performance monitoring
+        start_time = time()
+        self.perf_metrics._log_metric({
+            "timestamp": datetime.now(),
+            "type": "start_dataframe_stats",
+            "label": "show_dataframe_stats",
+            "rows": df.height if not df.is_empty() else 0,
+            "columns": df.width if not df.is_empty() else 0
+        })
+
         self.info_logger.log("Generating DataFrame statistics")
 
         if df.is_empty():
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_dataframe_stats",
+                "label": "show_dataframe_stats",
+                "value": round(elapsed_time, 4),
+                "error": "DataFrame is empty",
+                "status": "error"
+            })
+
             self.error_logger.log("Cannot show statistics for empty DataFrame")
             raise ValueError("DataFrame is empty")
 
@@ -265,6 +454,20 @@ class ParquetProcessing:
             stats = df.describe()
             print(stats)
         except Exception as e:
+            # End performance monitoring - error case
+            end_time = time()
+            elapsed_time = end_time - start_time
+            self.perf_metrics._log_metric({
+                "timestamp": datetime.now(),
+                "type": "end_dataframe_stats",
+                "label": "show_dataframe_stats",
+                "value": round(elapsed_time, 4),
+                "rows": df.height,
+                "columns": df.width,
+                "error": f"Could not compute statistics: {str(e)}",
+                "status": "error"
+            })
+
             error_msg = f"Could not compute statistics: {e}"
             self.error_logger.log(error_msg)
             raise DataProcessingException(error_msg) from e
@@ -279,12 +482,27 @@ class ParquetProcessing:
                     if (
                         len(unique_values) <= 10
                     ):  # Only show if not too many unique values
-                        self.debug_logger.log(f"Found {len(unique_values)} unique values for column {col}")
+                        self.debug_logger.log(
+                            f"Found {len(unique_values)} unique values for column {col}"
+                        )
                         print(f"  {col}: {unique_values.to_list()}")
             except Exception as e:
                 self.debug_logger.log(f"Error processing column {col}: {str(e)}")
                 # Skip to the next column if there's an error processing this one
                 continue
+
+        # End performance monitoring - success case
+        end_time = time()
+        elapsed_time = end_time - start_time
+        self.perf_metrics._log_metric({
+            "timestamp": datetime.now(),
+            "type": "end_dataframe_stats",
+            "label": "show_dataframe_stats",
+            "value": round(elapsed_time, 4),
+            "rows": df.height,
+            "columns": df.width,
+            "status": "success"
+        })
 
         self.info_logger.log("Completed DataFrame statistics display")
         print("=" * 50)

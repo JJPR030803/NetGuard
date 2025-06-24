@@ -16,11 +16,71 @@ from typing import Dict, List, Optional
 import netifaces
 
 from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
-
-# from network_security_suite.sniffer.exceptions.md import InterfaceConfigurationError
-
+from network_security_suite.sniffer.loggers import ConsoleLogger # Import ConsoleLogger
+from .sniffer_config import SnifferConfig
+from typing import Optional
 
 class Interface:
+    def __init__(self, config: Optional[SnifferConfig] = None):
+        """Initialize Interface with configuration."""
+        self.config = config if config is not None else SnifferConfig()
+        
+        # Setup loggers using config
+        self._setup_loggers()
+        
+        self.os_type = platform.system().lower()
+        self.info_logger.log(f"Initializing Interface on {self.os_type} system")
+        self.interfaces = self._get_interfaces()
+        
+        # Auto-select interface if configured
+        if self.config.interface_detection_method == "auto":
+            self._auto_select_interface()
+    
+    def _setup_loggers(self):
+        """Setup loggers based on configuration."""
+        log_dir = self.config.log_dir if self.config.log_to_file else None
+        
+        if self.config.log_to_file:
+            Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
+            
+        self.info_logger = InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        self.debug_logger = DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        self.error_logger = ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+    
+    def _auto_select_interface(self):
+        """Auto-select best interface based on config preferences."""
+        for interface_type in self.config.preferred_interface_types:
+            interfaces = self.get_interface_by_type(interface_type)
+            if interfaces:
+                active_interfaces = [iface for iface in interfaces 
+                                   if self.interfaces[iface].get('state') == 'UP']
+                if active_interfaces:
+                    self.config.interface = active_interfaces[0]
+                    self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
+                    return
+        
+        # Fallback to first available interface
+        if self.interfaces:
+            self.config.interface = list(self.interfaces.keys())[0]
+            self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
+    
+    def get_recommended_interface(self) -> Optional[str]:
+        """Get recommended interface based on config preferences."""
+        for interface_type in self.config.preferred_interface_types:
+            interfaces = self.get_interface_by_type(interface_type)
+            active_interfaces = [iface for iface in interfaces 
+                               if self.interfaces[iface].get('state') == 'UP']
+            if active_interfaces:
+                return active_interfaces[0]
+        return None
+    
+    def validate_interface(self, interface_name: str) -> bool:
+        """Validate interface name based on config security settings."""
+        if not self.config.validate_interface_names:
+            return True
+            
+        return self._is_valid_interface_name(interface_name)
+
     """
     A class for detecting and managing network interfaces across different operating systems.
 
@@ -37,25 +97,6 @@ class Interface:
     VALID_IFACE_CHARS = set(
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+"
     )
-
-    def __init__(self, log_dir: Optional[str] = None) -> None:
-        """
-        Initialize the Interface class.
-
-        Detects the current operating system and populates the interfaces dictionary
-        with information about all available network interfaces.
-
-        Args:
-            log_dir (Optional[str], optional): Directory to store log files. Defaults to None.
-        """
-        # Initialize loggers
-        self.info_logger = InfoLogger(log_dir=log_dir)
-        self.debug_logger = DebugLogger(log_dir=log_dir)
-        self.error_logger = ErrorLogger(log_dir=log_dir)
-
-        self.os_type = platform.system().lower()
-        self.info_logger.log(f"Initializing Interface on {self.os_type} system")
-        self.interfaces = self._get_interfaces()
 
     def _get_interfaces(self) -> Dict[str, dict]:
         """

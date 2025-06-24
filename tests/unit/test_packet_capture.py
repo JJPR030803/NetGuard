@@ -2,13 +2,20 @@
 Unit tests for the PacketCapture class
 """
 
+import platform
+from queue import Queue
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 from scapy.layers.inet import ICMP, IP, TCP, UDP
 from scapy.layers.l2 import ARP, STP, Ether
 
-from src.network_security_suite.models.packet_data_structures import Packet, PacketLayer
+from src.network_security_suite.models.packet_data_structures import (
+    POLARS_AVAILABLE,
+    Packet,
+    PacketLayer,
+)
 from src.network_security_suite.sniffer.packet_capture import PacketCapture
 
 
@@ -72,7 +79,7 @@ class TestPacketCapture:
         packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
         packet_capture.packets = [packet]
 
-        # Call show_packets (this just prints to console, so we're just testing it doesn't raise exceptions)
+        # Call show_packets (this just prints to console, so we're just testing it doesn't raise exceptions.md)
         packet_capture.show_packets()
 
     def test_show_stats(self, packet_capture: PacketCapture) -> None:
@@ -106,7 +113,7 @@ class TestPacketCapture:
 
         packet_capture.packets = [packet1, packet2]
 
-        # Call show_stats (this just prints to console, so we're just testing it doesn't raise exceptions)
+        # Call show_stats (this just prints to console, so we're just testing it doesn't raise exceptions.md)
         packet_capture.show_stats()
 
     def test_process_packet_layers(self, packet_capture: PacketCapture) -> None:
@@ -313,6 +320,426 @@ class TestPacketCapture:
         assert processed_error.raw_size == 100
         # Layer should be skipped due to error
         assert len(processed_error.layers) == 0
+
+    def test_get_session_info(self, packet_capture: PacketCapture) -> None:
+        """Test getting session information"""
+        # Mock platform information
+        with (
+            patch("platform.system", return_value="Linux"),
+            patch("platform.version", return_value="5.10.0"),
+            patch("platform.machine", return_value="x86_64"),
+            patch("platform.processor", return_value="Intel(R) Core(TM) i7"),
+        ):
+            # Test with different interface types
+            # Ethernet interface
+            packet_capture.interface = "eth0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["os"] == "Linux"
+            assert session_info["os_version"] == "5.10.0"
+            assert session_info["machine"] == "x86_64"
+            assert session_info["processor"] == "Intel(R) Core(TM) i7"
+            assert session_info["interface"] == "eth0"
+            assert session_info["interface_type"] == "ethernet"
+
+            # Wireless interface
+            packet_capture.interface = "wlan0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "wlan0"
+            assert session_info["interface_type"] == "wireless"
+
+            # Docker interface
+            packet_capture.interface = "docker0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "docker0"
+            assert session_info["interface_type"] == "docker"
+
+            # Virtual interface
+            packet_capture.interface = "veth0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "veth0"
+            assert session_info["interface_type"] == "virtual"
+
+            # VPN interface
+            packet_capture.interface = "tun0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "tun0"
+            assert session_info["interface_type"] == "vpn"
+
+            # Loopback interface
+            packet_capture.interface = "lo"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "lo"
+            assert session_info["interface_type"] == "loopback"
+
+            # Unknown interface
+            packet_capture.interface = "unknown0"
+            session_info = packet_capture._get_session_info()
+            assert session_info["interface"] == "unknown0"
+            assert session_info["interface_type"] == "unknown"
+
+    def test_update_stats(self, packet_capture: PacketCapture) -> None:
+        """Test updating statistics"""
+        # Initial stats should be empty or have default values
+        assert packet_capture.stats["processed_packets"] == 0
+        assert packet_capture.stats["dropped_packets"] == 0
+        assert packet_capture.stats["processing_time"] == 0.0
+        assert packet_capture.stats["batch_count"] == 0
+
+        # Update stats
+        packet_capture.update_stats(processing_time=1.5, batch_size=10)
+
+        # Check updated stats
+        assert packet_capture.stats["processed_packets"] == 10
+        assert packet_capture.stats["processing_time"] == 1.5
+        assert packet_capture.stats["batch_count"] == 1
+
+        # Update stats again
+        packet_capture.update_stats(processing_time=2.0, batch_size=20)
+
+        # Check cumulative stats
+        assert packet_capture.stats["processed_packets"] == 30
+        assert packet_capture.stats["processing_time"] == 3.5
+        assert packet_capture.stats["batch_count"] == 2
+
+    def test_packet_callback(self, packet_capture: PacketCapture) -> None:
+        """Test packet callback function"""
+        # Create a mock packet
+        mock_packet = MagicMock()
+        mock_packet.time = 1234567890.0
+        mock_packet.__len__.return_value = 100
+        mock_packet.haslayer.return_value = False
+
+        # Call packet_callback
+        packet_capture.packet_callback(mock_packet)
+
+        # Verify packet was processed and added to packets list
+        assert len(packet_capture.packets) == 1
+        assert packet_capture.packets[0].timestamp == 1234567890.0
+        assert packet_capture.packets[0].raw_size == 100
+
+        # Test with exception during processing
+        with patch.object(
+            packet_capture, "process_packet_layers", side_effect=Exception("Test error")
+        ):
+            # Reset packets list
+            packet_capture.packets = []
+
+            # Call packet_callback with a packet that will cause an exception
+            packet_capture.packet_callback(mock_packet)
+
+            # Verify no packets were added and dropped_packets was incremented
+            assert len(packet_capture.packets) == 0
+            assert packet_capture.stats["dropped_packets"] == 1
+
+    def test_process_queue(self, packet_capture: PacketCapture) -> None:
+        """Test processing packets from queue"""
+        # Create mock packets
+        mock_packet1 = MagicMock()
+        mock_packet1.time = 1234567890.0
+        mock_packet1.__len__.return_value = 100
+        mock_packet1.haslayer.return_value = False
+
+        mock_packet2 = MagicMock()
+        mock_packet2.time = 1234567891.0
+        mock_packet2.__len__.return_value = 200
+        mock_packet2.haslayer.return_value = False
+
+        # Set up the packet queue
+        packet_capture.packet_queue = Queue()
+        packet_capture.packet_queue.put([mock_packet1, mock_packet2])
+
+        # Set is_running to True so the process_queue method will process the queue
+        packet_capture.is_running = True
+
+        # Mock the process_packet_layers method to return a known packet
+        with patch.object(packet_capture, "process_packet_layers") as mock_process:
+            # Create mock processed packets
+            processed_packet1 = Packet(timestamp=1234567890.0, layers=[], raw_size=100)
+            processed_packet1.id = "packet1"  # Add an id for the log
+            processed_packet2 = Packet(timestamp=1234567891.0, layers=[], raw_size=200)
+            processed_packet2.id = "packet2"  # Add an id for the log
+
+            mock_process.side_effect = [processed_packet1, processed_packet2]
+
+            # Call process_queue
+            packet_capture.process_queue()
+
+            # Verify packets were processed and added to packets list
+            assert len(packet_capture.packets) == 2
+            assert packet_capture.packets[0].timestamp == 1234567890.0
+            assert packet_capture.packets[1].timestamp == 1234567891.0
+
+            # Verify process_packet_layers was called for each packet
+            assert mock_process.call_count == 2
+
+            # Verify stats were updated
+            assert packet_capture.stats["processed_packets"] == 2
+            assert packet_capture.stats["batch_count"] == 1
+            assert packet_capture.stats["processing_time"] > 0
+
+    def test_process_queue_with_exception(self, packet_capture: PacketCapture) -> None:
+        """Test processing packets from queue with exception"""
+        # Create mock packets
+        mock_packet1 = MagicMock()
+        mock_packet1.time = 1234567890.0
+        mock_packet1.__len__.return_value = 100
+        mock_packet1.haslayer.return_value = False
+
+        # Set up the packet queue
+        packet_capture.packet_queue = Queue()
+        packet_capture.packet_queue.put([mock_packet1])
+
+        # Set is_running to True so the process_queue method will process the queue
+        packet_capture.is_running = True
+
+        # Mock the process_packet_layers method to raise an exception
+        with patch.object(
+            packet_capture, "process_packet_layers", side_effect=Exception("Test error")
+        ):
+            # Call process_queue
+            packet_capture.process_queue()
+
+            # Verify no packets were added and dropped_packets was incremented
+            assert len(packet_capture.packets) == 0
+            assert packet_capture.stats["dropped_packets"] == 1
+
+            # Verify stats were still updated
+            assert packet_capture.stats["processed_packets"] == 0
+            assert packet_capture.stats["batch_count"] == 1
+            assert packet_capture.stats["processing_time"] > 0
+
+    def test_packets_to_json(self, packet_capture: PacketCapture) -> None:
+        """Test converting packets to JSON"""
+        # Create test packets
+        layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+        layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+        packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+        packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+        packet_capture.packets = [packet1, packet2]
+
+        # Convert to JSON
+        json_packets = packet_capture.packets_to_json()
+
+        # Verify JSON conversion
+        assert len(json_packets) == 2
+        assert json_packets[0]["timestamp"] == 1234567890.0
+        assert json_packets[0]["raw_size"] == 100
+        assert json_packets[0]["layers"][0]["layer_name"] == "Test1"
+        assert json_packets[0]["layers"][0]["fields"]["field1"] == "value1"
+
+        assert json_packets[1]["timestamp"] == 1234567891.0
+        assert json_packets[1]["raw_size"] == 200
+        assert json_packets[1]["layers"][0]["layer_name"] == "Test2"
+        assert json_packets[1]["layers"][0]["fields"]["field2"] == "value2"
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_packets_to_polars(self, packet_capture: PacketCapture) -> None:
+        """Test converting packets to Polars DataFrames"""
+        # Import here to avoid issues if polars is not installed
+        try:
+            import polars as pl
+
+            # Create test packets
+            layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+            layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+            packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+            packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+            packet_capture.packets = [packet1, packet2]
+
+            # Convert to Polars DataFrames
+            polars_dfs = packet_capture.packets_to_polars()
+
+            # Verify Polars conversion
+            assert len(polars_dfs) == 2
+            assert isinstance(polars_dfs[0], pl.DataFrame)
+            assert isinstance(polars_dfs[1], pl.DataFrame)
+
+            # Check first DataFrame
+            df1 = polars_dfs[0]
+            assert df1.shape[0] == 1  # One row
+            assert "timestamp" in df1.columns
+            assert "raw_size" in df1.columns
+            assert "Test1_field1" in df1.columns
+            assert df1["timestamp"][0] == 1234567890.0
+            assert df1["raw_size"][0] == 100
+            assert df1["Test1_field1"][0] == "value1"
+
+            # Check second DataFrame
+            df2 = polars_dfs[1]
+            assert df2.shape[0] == 1  # One row
+            assert "timestamp" in df2.columns
+            assert "raw_size" in df2.columns
+            assert "Test2_field2" in df2.columns
+            assert df2["timestamp"][0] == 1234567891.0
+            assert df2["raw_size"][0] == 200
+            assert df2["Test2_field2"][0] == "value2"
+        except ImportError:
+            pytest.skip("Polars not installed")
+
+    def test_packets_to_pandas(self, packet_capture: PacketCapture) -> None:
+        """Test converting packets to Pandas DataFrames"""
+        # Create test packets
+        layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+        layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+        packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+        packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+        packet_capture.packets = [packet1, packet2]
+
+        # Convert to Pandas DataFrames
+        pandas_dfs = packet_capture.packets_to_pandas()
+
+        # Verify Pandas conversion
+        assert len(pandas_dfs) == 2
+        assert isinstance(pandas_dfs[0], pd.DataFrame)
+        assert isinstance(pandas_dfs[1], pd.DataFrame)
+
+        # Check first DataFrame
+        df1 = pandas_dfs[0]
+        assert df1.shape[0] == 1  # One row
+        assert "timestamp" in df1.columns
+        assert "raw_size" in df1.columns
+        assert "Test1_field1" in df1.columns
+        assert df1["timestamp"].iloc[0] == 1234567890.0
+        assert df1["raw_size"].iloc[0] == 100
+        assert df1["Test1_field1"].iloc[0] == "value1"
+
+        # Check second DataFrame
+        df2 = pandas_dfs[1]
+        assert df2.shape[0] == 1  # One row
+        assert "timestamp" in df2.columns
+        assert "raw_size" in df2.columns
+        assert "Test2_field2" in df2.columns
+        assert df2["timestamp"].iloc[0] == 1234567891.0
+        assert df2["raw_size"].iloc[0] == 200
+        assert df2["Test2_field2"].iloc[0] == "value2"
+
+    def test_to_json(self, packet_capture: PacketCapture) -> None:
+        """Test converting all packets to a single JSON object"""
+        # Create test packets
+        layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+        layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+        packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+        packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+        packet_capture.packets = [packet1, packet2]
+
+        # Convert to JSON
+        json_data = packet_capture.to_json()
+
+        # Verify JSON conversion
+        assert "packets" in json_data
+        assert "total_packets" in json_data
+        assert json_data["total_packets"] == 2
+
+        json_packets = json_data["packets"]
+        assert len(json_packets) == 2
+
+        assert json_packets[0]["timestamp"] == 1234567890.0
+        assert json_packets[0]["raw_size"] == 100
+        assert json_packets[0]["layers"][0]["layer_name"] == "Test1"
+        assert json_packets[0]["layers"][0]["fields"]["field1"] == "value1"
+
+        assert json_packets[1]["timestamp"] == 1234567891.0
+        assert json_packets[1]["raw_size"] == 200
+        assert json_packets[1]["layers"][0]["layer_name"] == "Test2"
+        assert json_packets[1]["layers"][0]["fields"]["field2"] == "value2"
+
+        # Test with empty packets list
+        packet_capture.packets = []
+        empty_json = packet_capture.to_json()
+        assert empty_json == {}
+
+    def test_to_pandas_df(self, packet_capture: PacketCapture) -> None:
+        """Test converting all packets to a single pandas DataFrame"""
+        # Create test packets
+        layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+        layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+        packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+        packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+        packet_capture.packets = [packet1, packet2]
+
+        # Convert to pandas DataFrame
+        df = packet_capture.to_pandas_df()
+
+        # Verify pandas conversion
+        assert isinstance(df, pd.DataFrame)
+        assert df.shape[0] == 2  # Two rows
+        assert "timestamp" in df.columns
+        assert "raw_size" in df.columns
+        assert "Test1_field1" in df.columns
+        assert "Test2_field2" in df.columns
+
+        # Check values
+        assert df["timestamp"].iloc[0] == 1234567890.0
+        assert df["raw_size"].iloc[0] == 100
+        assert df["Test1_field1"].iloc[0] == "value1"
+        assert pd.isna(df["Test2_field2"].iloc[0])  # Should be NaN for first packet
+
+        assert df["timestamp"].iloc[1] == 1234567891.0
+        assert df["raw_size"].iloc[1] == 200
+        assert pd.isna(df["Test1_field1"].iloc[1])  # Should be NaN for second packet
+        assert df["Test2_field2"].iloc[1] == "value2"
+
+        # Test with empty packets list
+        packet_capture.packets = []
+        empty_df = packet_capture.to_pandas_df()
+        assert isinstance(empty_df, pd.DataFrame)
+        assert empty_df.empty
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_to_polars_df(self, packet_capture: PacketCapture) -> None:
+        """Test converting all packets to a single polars DataFrame"""
+        # Import here to avoid issues if polars is not installed
+        try:
+            import polars as pl
+
+            # Create test packets
+            layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
+            layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
+
+            packet1 = Packet(timestamp=1234567890.0, layers=[layer1], raw_size=100)
+            packet2 = Packet(timestamp=1234567891.0, layers=[layer2], raw_size=200)
+
+            packet_capture.packets = [packet1, packet2]
+
+            # Convert to polars DataFrame
+            df = packet_capture.to_polars_df()
+
+            # Verify polars conversion
+            assert isinstance(df, pl.DataFrame)
+            assert df.shape[0] == 2  # Two rows
+            assert "timestamp" in df.columns
+            assert "raw_size" in df.columns
+            assert "Test1_field1" in df.columns
+            assert "Test2_field2" in df.columns
+
+            # Check values (note: polars uses empty strings instead of NaN for missing values)
+            assert df["timestamp"][0] == 1234567890.0
+            assert df["raw_size"][0] == "100"
+            assert df["Test1_field1"][0] == "value1"
+            assert df["Test2_field2"][0] == ""  # Empty string for missing value
+
+            assert df["timestamp"][1] == 1234567891.0
+            assert df["raw_size"][1] == "200"
+            assert df["Test1_field1"][1] == ""  # Empty string for missing value
+            assert df["Test2_field2"][1] == "value2"
+
+            # Test with empty packets list
+            packet_capture.packets = []
+            empty_df = packet_capture.to_polars_df()
+            assert isinstance(empty_df, pl.DataFrame)
+            assert empty_df.is_empty()
+        except ImportError:
+            pytest.skip("Polars not installed")
 
 
 if __name__ == "__main__":
