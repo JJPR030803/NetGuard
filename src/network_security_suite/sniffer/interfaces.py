@@ -21,32 +21,50 @@ from .sniffer_config import SnifferConfig
 from typing import Optional
 
 class Interface:
-    def __init__(self, config: Optional[SnifferConfig] = None):
-        """Initialize Interface with configuration."""
+    def __init__(self, config: Optional[SnifferConfig] = None, interface: Optional[str] = None, 
+                 interface_detection_method: Optional[str] = None, log_dir: Optional[str] = None):
+        """
+        Initialize Interface with configuration.
+
+        Args:
+            config (Optional[SnifferConfig], optional): Configuration object. Defaults to None.
+            interface (Optional[str], optional): Interface name to use. Defaults to None.
+            interface_detection_method (Optional[str], optional): Method to detect interfaces. Defaults to None.
+            log_dir (Optional[str], optional): Directory to store log files. Defaults to None.
+        """
+        # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
-        
+
+        # Override config with direct parameters if provided
+        if interface is not None:
+            self.config.interface = interface
+        if interface_detection_method is not None:
+            self.config.interface_detection_method = interface_detection_method
+        if log_dir is not None:
+            self.config.log_dir = log_dir
+
         # Setup loggers using config
         self._setup_loggers()
-        
+
         self.os_type = platform.system().lower()
         self.info_logger.log(f"Initializing Interface on {self.os_type} system")
         self.interfaces = self._get_interfaces()
-        
+
         # Auto-select interface if configured
         if self.config.interface_detection_method == "auto":
             self._auto_select_interface()
-    
+
     def _setup_loggers(self):
         """Setup loggers based on configuration."""
         log_dir = self.config.log_dir if self.config.log_to_file else None
-        
+
         if self.config.log_to_file:
             Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
-            
+
         self.info_logger = InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
         self.debug_logger = DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
         self.error_logger = ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-    
+
     def _auto_select_interface(self):
         """Auto-select best interface based on config preferences."""
         for interface_type in self.config.preferred_interface_types:
@@ -58,12 +76,12 @@ class Interface:
                     self.config.interface = active_interfaces[0]
                     self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
                     return
-        
+
         # Fallback to first available interface
         if self.interfaces:
             self.config.interface = list(self.interfaces.keys())[0]
             self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
-    
+
     def get_recommended_interface(self) -> Optional[str]:
         """Get recommended interface based on config preferences."""
         for interface_type in self.config.preferred_interface_types:
@@ -73,12 +91,12 @@ class Interface:
             if active_interfaces:
                 return active_interfaces[0]
         return None
-    
+
     def validate_interface(self, interface_name: str) -> bool:
         """Validate interface name based on config security settings."""
         if not self.config.validate_interface_names:
             return True
-            
+
         return self._is_valid_interface_name(interface_name)
 
     """

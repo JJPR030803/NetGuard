@@ -84,6 +84,9 @@ class ParquetProcessing:
         self.debug_logger = DebugLogger(log_dir=self.log_dir)
         self.error_logger = ErrorLogger(log_dir=self.log_dir)
 
+        # Initialize performance metrics
+        self.perf_metrics = perf
+
         self.info_logger.log(
             f"Initializing ParquetProcessing for interface: {self.interface}"
         )
@@ -123,9 +126,11 @@ class ParquetProcessing:
             ValueError: If no network interfaces are found or if no filepath is provided.
             Exception: If there's an error processing the DataFrame or writing to the file.
         """
+        # Start performance monitoring
+        start_time = time.time()
         # Use configuration values if parameters are not provided
         if not filepath:
-            timestamp = int(time())
+            timestamp = int(time.time())
             filepath = os.path.join(
                 self.config.export_dir, 
                 f"packets_{self.interface}_{timestamp}.{self.config.export_format}"
@@ -247,7 +252,7 @@ class ParquetProcessing:
 
         except ValueError as ve:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -268,7 +273,7 @@ class ParquetProcessing:
             ) from ve
         except Exception as e:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -307,7 +312,7 @@ class ParquetProcessing:
             Exception: If there's an error reading the Parquet file.
         """
         # Start performance monitoring
-        start_time = time()
+        start_time = time.time()
         self.perf_metrics._log_metric({
             "timestamp": datetime.now(),
             "type": "start_load_packets",
@@ -319,7 +324,7 @@ class ParquetProcessing:
 
         if not filepath:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -339,7 +344,7 @@ class ParquetProcessing:
             df_pl = pl.read_parquet(filepath)
 
             # End performance monitoring - success case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -358,7 +363,7 @@ class ParquetProcessing:
             return df_pl
         except FileNotFoundError as e:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -374,7 +379,7 @@ class ParquetProcessing:
             raise
         except Exception as e:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -407,7 +412,7 @@ class ParquetProcessing:
             ValueError: If the DataFrame is empty.
         """
         # Start performance monitoring
-        start_time = time()
+        start_time = time.time()
         self.perf_metrics._log_metric({
             "timestamp": datetime.now(),
             "type": "start_dataframe_stats",
@@ -420,7 +425,7 @@ class ParquetProcessing:
 
         if df.is_empty():
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -455,7 +460,7 @@ class ParquetProcessing:
             print(stats)
         except Exception as e:
             # End performance monitoring - error case
-            end_time = time()
+            end_time = time.time()
             elapsed_time = end_time - start_time
             self.perf_metrics._log_metric({
                 "timestamp": datetime.now(),
@@ -492,7 +497,7 @@ class ParquetProcessing:
                 continue
 
         # End performance monitoring - success case
-        end_time = time()
+        end_time = time.time()
         elapsed_time = end_time - start_time
         self.perf_metrics._log_metric({
             "timestamp": datetime.now(),

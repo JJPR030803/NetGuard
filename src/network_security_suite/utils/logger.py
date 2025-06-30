@@ -138,33 +138,33 @@ class Logger(ABC):
         log_dir: Optional[str] = None  # Keep for backward compatibility
     ):
         self.config = config if config is not None else SnifferConfig()
-        
+
         # Use config values, with fallback to direct parameters for backward compatibility
         self.log_dir = self.config.log_dir if config else (log_dir or self.config.log_dir)
-        
+
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(getattr(logging, self.config.log_level.upper()))
-        
+
         # Setup format from config
         format_string = self.config.log_format if config else "%(asctime)s [%(levelname)s] %(message)s"
         self.format = log_format or logging.Formatter(format_string)
-        
+
         # Setup handlers from config or provided handlers
         self.handlers = handlers or self._create_handlers_from_config()
-        
+
         self.set_handlers()
-    
+
     def _create_handlers_from_config(self) -> HandlerTypes:
         """Create handlers based on configuration."""
         handlers: HandlerTypes = {}
-        
+
         if self.config.enable_console_logging:
             handlers["console_handler"] = HandlerConfig(
                 "console", 
                 getattr(logging, self.config.log_level.upper()),
                 Formatter("%(message)s")
             )
-        
+
         if self.config.enable_file_logging and self.config.log_to_file:
             handlers["file_handler"] = HandlerConfig(
                 "file",
@@ -174,7 +174,7 @@ class Logger(ABC):
                 max_bytes=self.config.max_log_file_size,
                 backup_count=self.config.log_backup_count
             )
-        
+
         return handlers
 
     @abstractmethod
@@ -236,14 +236,14 @@ NetworkSecurityLogger: custom logger for network security
 class NetworkSecurityLogger(Logger):
     def __init__(self, config: Optional[SnifferConfig] = None):
         self.config = config if config is not None else SnifferConfig()
-        
+
         handlers: HandlerTypes = {}
-        
+
         if self.config.enable_console_logging:
             handlers["console_handler"] = HandlerConfig(
                 "console", logging.INFO, Formatter("%(message)s")
             )
-        
+
         if self.config.enable_file_logging and self.config.log_to_file:
             handlers["error_handler"] = HandlerConfig(
                 "error", logging.ERROR,
@@ -252,7 +252,7 @@ class NetworkSecurityLogger(Logger):
                 max_bytes=self.config.max_log_file_size,
                 backup_count=self.config.log_backup_count
             )
-        
+
         if self.config.enable_security_logging and self.config.log_to_file:
             handlers["security_handler"] = HandlerConfig(
                 "security", logging.WARNING,
@@ -261,7 +261,7 @@ class NetworkSecurityLogger(Logger):
                 max_bytes=self.config.max_log_file_size,
                 backup_count=self.config.log_backup_count
             )
-        
+
         if self.config.enable_packet_logging and self.config.log_to_file:
             handlers["packet_handler"] = HandlerConfig(
                 "packet", logging.DEBUG,
@@ -270,7 +270,7 @@ class NetworkSecurityLogger(Logger):
                 max_bytes=self.config.max_log_file_size,
                 backup_count=self.config.log_backup_count
             )
-        
+
         super().__init__(config=config, handlers=handlers)
 
     def log(self, message: str) -> None:
@@ -319,20 +319,27 @@ class NetworkSecurityLogger(Logger):
 
 
 class PerformanceLogger(Logger):
-    def __init__(self, config: Optional[SnifferConfig] = None):
+    def __init__(self, config: Optional[SnifferConfig] = None, save_logs: bool = None, log_dir: Optional[str] = None, **kwargs):
         self.config = config if config is not None else SnifferConfig()
-        
+
+        # Use save_logs parameter if provided, otherwise use config
+        should_save_logs = save_logs if save_logs is not None else self.config.log_to_file
+
+        # Use log_dir parameter if provided, otherwise use config
+        log_directory = log_dir if log_dir is not None else self.config.log_dir
+
         handlers: HandlerTypes = {}
-        
-        if self.config.enable_performance_logging and self.config.log_to_file:
+
+        if self.config.enable_performance_logging and should_save_logs:
             handlers["performance_handler"] = HandlerConfig(
                 "performance", logging.DEBUG,
                 Formatter("%(asctime)s [PERFORMANCE] %(message)s"),
                 filepath="performance.log",
                 max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count
+                backup_count=self.config.log_backup_count,
+                log_dir=log_directory
             )
-        
+
         super().__init__(config=config, handlers=handlers)
 
     def log(self, message: str) -> None:

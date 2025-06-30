@@ -18,7 +18,7 @@ allowing its components to be used by any other part of the application without
 creating circular dependencies.
 """
 from .logger import Logger,PerformanceLogger,NetworkSecurityLogger,HandlerTypes,HandlerConfig
-from .performance_metrics import PerformanceLogger,PerformanceMetrics
+from .performance_metrics import PerformanceMetrics
 
 __all__=[
     'PerformanceLogger',
