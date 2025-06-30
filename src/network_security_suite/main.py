@@ -117,22 +117,30 @@ def run_with_config_object(config: SnifferConfig):
     packet_logger.log("Packet logging system ready")
 
     # Create Interface instance with configuration
-    interface = Interface(config=config)
+    interface_manager = Interface(config=config)
 
     # Get interface based on configuration
+    selected_interface = None
     if config.interface_detection_method == "auto":
-        selected_interface = interface.get_recommended_interface()
+        selected_interface = interface_manager.get_recommended_interface()
         if not selected_interface:
             info_logger.log("No suitable interface found based on preferences")
             raise RuntimeError("No suitable interface available")
     else:
-        # Use the configured interface
-        selected_interface = config.interface
+        # Use the configured interface (manual mode)
+        if config.interface and config.interface in interface_manager.interfaces:
+            selected_interface = config.interface
+        else:
+            info_logger.log(f"Configured interface '{config.interface}' not found")
+            raise RuntimeError(f"Interface '{config.interface}' not available")
 
     info_logger.log(f"Using interface: {selected_interface}")
 
+    # Update config with selected interface
+    config.interface = selected_interface
+
     # Create PacketCapture instance with configuration
-    capture = PacketCapture(config=config, interface=selected_interface)
+    capture = PacketCapture(config=config)
 
     # Enable logging in the capture call
     info_logger.log("Starting packet capture")
@@ -187,5 +195,81 @@ def run_modules_individually():
         print(f"Exporting data to {export_path}")
         packets_pl.write_parquet(export_path)
 
+
+# !/usr/bin/env python3
+"""Test script for programmatic configuration."""
+
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from network_security_suite.sniffer.interfaces import Interface
+from network_security_suite.sniffer.packet_capture import PacketCapture
+
+
+def test_programmatic():
+    """Test purely programmatic configuration."""
+    print("=== Testing Programmatic Configuration ===")
+
+    # Create config programmatically
+    config = SnifferConfig(
+        interface_detection_method="auto",
+        preferred_interface_types=["ethernet", "wireless"],
+        packet_count=10,  # Small number for testing
+        filter_expression="",
+        num_threads=2,
+        max_memory_packets=1000,
+        log_level="DEBUG"
+    )
+
+    print(f"✓ Config created")
+    print(f"  - Detection method: {config.interface_detection_method}")
+    print(f"  - Preferred types: {config.preferred_interface_types}")
+
+    # Test interface detection
+    try:
+        interface_manager = Interface(config=config)
+        print(f"✓ Interface manager created")
+
+        # Show available interfaces
+        interface_manager.show_available_interfaces()
+
+        # Get recommended interface
+        selected_interface = interface_manager.get_recommended_interface()
+        if selected_interface:
+            print(f"✓ Selected interface: {selected_interface}")
+
+            # Update config
+            config.interface = selected_interface
+
+            # Test packet capture initialization
+            capture = PacketCapture(config=config)
+            print(f"✓ PacketCapture initialized")
+
+            # Optional: uncomment to test actual capture
+            # print("Starting packet capture...")
+            # capture.capture(max_packets=5, log=True)
+            # capture.show_stats()
+
+        else:
+            print("✗ No suitable interface found")
+
+    except Exception as e:
+        print(f"✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
-    run_with_config("/home/batman/Documents/networkguard2/src/network_security_suite/sniffer/test_sniffer_config.yaml")
+    config = SnifferConfig(
+    interface="wlo1",
+    packet_count=100,
+    filter_expression="",
+    num_threads=2,
+    max_memory_packets=1000,
+    log_level="DEBUG"
+    )
+    print(config)
+   

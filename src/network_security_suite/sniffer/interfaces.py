@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import netifaces
+import string
 
 from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
 from network_security_suite.sniffer.loggers import ConsoleLogger # Import ConsoleLogger
@@ -21,21 +22,21 @@ from .sniffer_config import SnifferConfig
 from typing import Optional
 
 class Interface:
-    def __init__(self, config: Optional[SnifferConfig] = None, interface: Optional[str] = None, 
-                 interface_detection_method: Optional[str] = None, log_dir: Optional[str] = None):
-        """
-        Initialize Interface with configuration.
-
-        Args:
-            config (Optional[SnifferConfig], optional): Configuration object. Defaults to None.
-            interface (Optional[str], optional): Interface name to use. Defaults to None.
-            interface_detection_method (Optional[str], optional): Method to detect interfaces. Defaults to None.
-            log_dir (Optional[str], optional): Directory to store log files. Defaults to None.
-        """
+    def __init__(
+        self, 
+        config: Optional[SnifferConfig] = None,
+        interface: Optional[str] = None,  # Legacy support
+        interface_detection_method: Optional[str] = None,  # Legacy support
+        log_dir: Optional[str] = None  # Legacy support
+    ):
+        """Initialize the Interface class with configuration support."""
+        # Import here to avoid circular imports
+        from .sniffer_config import SnifferConfig
+        
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
-
-        # Override config with direct parameters if provided
+        
+        # Legacy support - override config with direct parameters if provided
         if interface is not None:
             self.config.interface = interface
         if interface_detection_method is not None:
@@ -43,16 +44,21 @@ class Interface:
         if log_dir is not None:
             self.config.log_dir = log_dir
 
-        # Setup loggers using config
-        self._setup_loggers()
+        # Initialize loggers
+        self.info_logger = InfoLogger(log_dir=self.config.log_dir)
+        self.debug_logger = DebugLogger(log_dir=self.config.log_dir)
+        self.error_logger = ErrorLogger(log_dir=self.config.log_dir)
 
         self.os_type = platform.system().lower()
-        self.info_logger.log(f"Initializing Interface on {self.os_type} system")
-        self.interfaces = self._get_interfaces()
+        self.interfaces = {}
+        self.VALID_IFACE_CHARS = set(string.ascii_letters + string.digits + "-_.")
 
-        # Auto-select interface if configured
-        if self.config.interface_detection_method == "auto":
-            self._auto_select_interface()
+        try:
+            self.interfaces = self._get_interfaces()
+            self.info_logger.log(f"Detected {len(self.interfaces)} network interfaces")
+        except Exception as e:
+            self.error_logger.log(f"Error detecting interfaces: {str(e)}")
+            self.interfaces = {}
 
     def _setup_loggers(self):
         """Setup loggers based on configuration."""
@@ -83,13 +89,45 @@ class Interface:
             self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
 
     def get_recommended_interface(self) -> Optional[str]:
-        """Get recommended interface based on config preferences."""
-        for interface_type in self.config.preferred_interface_types:
-            interfaces = self.get_interface_by_type(interface_type)
-            active_interfaces = [iface for iface in interfaces 
-                               if self.interfaces[iface].get('state') == 'UP']
+        """
+        Get a recommended interface based on configuration preferences.
+
+        Returns:
+            Optional[str]: The name of the recommended interface, or None if no suitable interface is found.
+        """
+        if not self.interfaces:
+            self.error_logger.log("No interfaces available for recommendation")
+            return None
+
+        # If a specific interface is configured and exists, use it
+        if (self.config.interface and 
+            self.config.interface in self.interfaces and 
+            self.config.interface_detection_method == 'manual'):
+            return self.config.interface
+
+        # Auto-detection based on preferences
+        if self.config.interface_detection_method == 'auto':
+            # Get active interfaces first
+            active_interfaces = self.get_active_interfaces()
+
+            # Filter by preferred types
+            for preferred_type in self.config.preferred_interface_types:
+                matching_interfaces = [
+                    iface for iface in active_interfaces 
+                    if self.interfaces[iface].get('type') == preferred_type
+                ]
+                if matching_interfaces:
+                    selected = matching_interfaces[0]  # Take the first match
+                    self.info_logger.log(f"Auto-selected interface: {selected} (type: {preferred_type})")
+                    return selected
+
+            # If no preferred type matches, return the first active interface
             if active_interfaces:
-                return active_interfaces[0]
+                selected = active_interfaces[0]
+                self.info_logger.log(f"Auto-selected interface: {selected} (fallback)")
+                return selected
+
+        self.error_logger.log("No suitable interface found")
         return None
 
     def validate_interface(self, interface_name: str) -> bool:

@@ -1,3 +1,4 @@
+
 """
 Network packet capture and processing module.
 
@@ -34,7 +35,7 @@ from network_security_suite.sniffer.loggers import (
     PacketLogger,
 )
 from network_security_suite.sniffer.sniffer_config import SnifferConfig
-from src.network_security_suite.utils.performance_metrics import perf
+from network_security_suite.utils.performance_metrics import perf
 
 
 class PacketCapture:
@@ -57,6 +58,9 @@ class PacketCapture:
         log_dir: Optional[str] = None  # Keep for backward compatibility
     ):
         """Initialize PacketCapture with configuration."""
+        # Import here to avoid circular imports
+        from .sniffer_config import SnifferConfig
+        
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
         
@@ -68,28 +72,49 @@ class PacketCapture:
         if log_dir is not None:
             self.config.log_dir = log_dir
         
-        # Rest of initialization using self.config values
+        # Use config values directly
         self.interface = self.config.interface
         self.max_memory_packets = self.config.max_memory_packets
         self.log_dir = self.config.log_dir
-        # ... etc
 
-        # Initialize loggers
-        self.info_logger = InfoLogger(log_dir=self.log_dir)
-        self.debug_logger = DebugLogger(log_dir=self.log_dir)
-        self.error_logger = ErrorLogger(log_dir=self.log_dir)
-        self.packet_logger = PacketLogger(log_dir=self.log_dir)
+        # Initialize loggers using config
+        self.info_logger = InfoLogger(log_dir=self.config.log_dir)
+        self.debug_logger = DebugLogger(log_dir=self.config.log_dir)
+        self.error_logger = ErrorLogger(log_dir=self.config.log_dir)
+        self.packet_logger = PacketLogger(log_dir=self.config.log_dir)
 
-        self.info_logger.log(f"Initializing PacketCapture for interface: {self.interface}")
+        # Validation using config values
+        if self.config.max_memory_packets < 100:
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            raise ValueError("max_memory_packets must be at least 100")
+        
+        if self.config.max_memory_packets % 10 != 0:
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            raise ValueError("max_memory_packets must be multiple of 10")
 
-        if self.max_memory_packets < 100:
+        # Initialize other attributes
+        self.packets: list[Packet] = []
+        self.packet_queue: Queue[list[Packet]] = Queue()
+        self.is_running: bool = False
+        self.max_processing_batch = self.config.max_processing_batch_size
+        self.stats_lock = Lock()
+        self.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+        self.info_logger.log(f"Initializing PacketCapture for interface: {self.config.interface}")
+
+        if self.config.max_memory_packets < 100:
             self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.max_memory_packets}, must be at least 100"
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100"
             )
             raise ValueError("max_memory_packets must be at least 100")
-        if self.max_memory_packets % 10 != 0:
+        if self.config.max_memory_packets % 10 != 0:
             self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.max_memory_packets}, must be multiple of 10"
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10"
             )
             raise ValueError(
                 "max_memory_packets must be multiple of 10 for faster processing"
@@ -862,4 +887,4 @@ class PacketCapture:
 def capture(self, max_packets: int = 100, log: bool = False) -> None:
     if log:
         self.packet_logger.log(f"Starting packet capture on interface {self.interface}")
-        self.debug_logger.log(f"Max packets set to {max_packets}")
+        self.debug_
