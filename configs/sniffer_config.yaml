@@ -1,0 +1,54 @@
+# Network Security Suite - Sniffer Configuration
+
+# Interface settings
+interface:
+  name: "wlo1"
+  detection_method: "auto"  # auto, manual, preferred_type
+  preferred_types:
+    - "ethernet"
+    - "wireless"
+
+# Capture settings
+capture:
+  filter_expression: ""
+  packet_count: 100  # 0 means unlimited
+  timeout: 0  # 0 means no timeout
+  promiscuous_mode: true
+  max_memory_packets: 10000
+  max_processing_batch_size: 100
+  num_threads: 4
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_to_file: true
+  log_dir: "/home/batman/Documents/networkguard2/logs/logs"
+  log_format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  
+  # Logger-specific settings
+  enable_console_logging: true
+  enable_file_logging: true
+  enable_security_logging: true
+  enable_packet_logging: true
+  enable_performance_logging: true
+  
+  # File rotation settings
+  max_log_file_size: 10485760  # 10MB
+  log_backup_count: 5
+
+# Export settings
+export:
+  format: "parquet"
+  dir: "/home/batman/Documents/networkguard2/logs/parquet"
+
+# Performance settings
+performance:
+  enable_monitoring: true
+  log_interval: 60  # seconds
+  parquet_path: "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+
+# Security settings
+security:
+  validate_interface_names: true
+  sanitize_filter_expressions: true
+  max_filter_length: 200

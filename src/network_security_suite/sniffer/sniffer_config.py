@@ -26,11 +26,14 @@ Example:
     # Generate a default configuration file
     SnifferConfig.generate_default_config('path/to/default_config.yaml')
 """
+
 import os
-import yaml
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, List, Optional
+
+import yaml
+
 
 @dataclass
 class SnifferConfig:
@@ -62,12 +65,12 @@ class SnifferConfig:
 
         Interface Settings:
         ------------------
-        interface (str): Name of the network interface to use (e.g., "eth0", "wlan0").
-                         Default: "eth0"
-        interface_detection_method (str): Method for detecting interfaces ("auto", "manual", "preferred_type").
-                                         Default: "auto"
-        preferred_interface_types (List[str]): List of interface types in order of preference.
-                                              Default: ["ethernet", "wireless"]
+        interface (str): Name of the network interface to use (e.g., "eth0", "wlan0"). Default: "eth0"
+
+        interface_detection_method (str): Method for detecting interfaces ("auto", "manual", "preferred_type"). Default: "auto"
+
+        preferred_interface_types (List[str]): List of interface types in order of preference. Default: ["ethernet", "wireless"]
+
 
         Capture Settings:
         ----------------
@@ -75,8 +78,8 @@ class SnifferConfig:
                                 Default: "" (no filtering)
         packet_count (int): Maximum number of packets to capture (0 = unlimited).
                            Default: 0
-                           
-                           
+
+
         timeout (int): Maximum time in seconds to capture packets (0 = no timeout).
                       Default: 0
         promiscuous_mode (bool): Whether to put the interface in promiscuous mode.
@@ -88,6 +91,8 @@ class SnifferConfig:
                                         Default: 100
         num_threads (int): Number of threads to use for packet processing.
                           Default: 4
+        enable_realtime_display (bool): Whether to enable real-time display of captured packets.
+                                      Default: False
 
         Logging Configuration:
         ---------------------
@@ -179,7 +184,9 @@ class SnifferConfig:
     Default: "auto"
     """
 
-    preferred_interface_types: List[str] = field(default_factory=lambda: ["ethernet", "wireless"])
+    preferred_interface_types: List[str] = field(
+        default_factory=lambda: ["ethernet", "wireless"]
+    )
     """
     List of preferred interface types in order of preference.
 
@@ -274,6 +281,17 @@ class SnifferConfig:
     and the specific workload.
 
     Default: 4
+    """
+
+    enable_realtime_display: bool = False
+    """
+    Whether to enable real-time display of captured packets.
+
+    If True, a real-time display of captured packets will be shown in the console,
+    updating at regular intervals. This is useful for monitoring packet capture
+    in real-time but may add some overhead.
+
+    Default: False
     """
 
     # Logging configuration
@@ -437,7 +455,9 @@ class SnifferConfig:
     Default: 60 (seconds)
     """
 
-    performance_parquet_path: str = "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+    performance_parquet_path: str = (
+        "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+    )
     """
     Path to the Parquet file where performance metrics will be stored.
 
@@ -496,10 +516,12 @@ class SnifferConfig:
         if self.log_to_file:
             Path(self.log_dir).mkdir(parents=True, exist_ok=True)
         Path(self.export_dir).mkdir(parents=True, exist_ok=True)
-        Path(os.path.dirname(self.performance_parquet_path)).mkdir(parents=True, exist_ok=True)
+        Path(os.path.dirname(self.performance_parquet_path)).mkdir(
+            parents=True, exist_ok=True
+        )
 
     @classmethod
-    def from_yaml(cls, yaml_file: str) -> 'SnifferConfig':
+    def from_yaml(cls, yaml_file: str) -> "SnifferConfig":
         """
         Load configuration from a YAML file.
 
@@ -548,10 +570,12 @@ class SnifferConfig:
             ```
         """
         if not os.path.exists(yaml_file):
-            print(f"Warning: Configuration file {yaml_file} not found. Using default configuration.")
+            print(
+                f"Warning: Configuration file {yaml_file} not found. Using default configuration."
+            )
             return cls()
 
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, "r") as f:
             config_data = yaml.safe_load(f)
 
         if not config_data:
@@ -561,86 +585,116 @@ class SnifferConfig:
         config_dict = {}
 
         # Interface settings
-        if 'interface' in config_data:
-            interface_config = config_data['interface']
-            if 'name' in interface_config:
-                config_dict['interface'] = interface_config['name']
-            if 'detection_method' in interface_config:
-                config_dict['interface_detection_method'] = interface_config['detection_method']
-            if 'preferred_types' in interface_config:
-                config_dict['preferred_interface_types'] = interface_config['preferred_types']
+        if "interface" in config_data:
+            interface_config = config_data["interface"]
+            if "name" in interface_config:
+                config_dict["interface"] = interface_config["name"]
+            if "detection_method" in interface_config:
+                config_dict["interface_detection_method"] = interface_config[
+                    "detection_method"
+                ]
+            if "preferred_types" in interface_config:
+                config_dict["preferred_interface_types"] = interface_config[
+                    "preferred_types"
+                ]
 
         # Capture settings
-        if 'capture' in config_data:
-            capture_config = config_data['capture']
-            if 'filter_expression' in capture_config:
-                config_dict['filter_expression'] = capture_config['filter_expression']
-            if 'packet_count' in capture_config:
-                config_dict['packet_count'] = capture_config['packet_count']
-            if 'timeout' in capture_config:
-                config_dict['timeout'] = capture_config['timeout']
-            if 'promiscuous_mode' in capture_config:
-                config_dict['promiscuous_mode'] = capture_config['promiscuous_mode']
-            if 'max_memory_packets' in capture_config:
-                config_dict['max_memory_packets'] = capture_config['max_memory_packets']
-            if 'max_processing_batch_size' in capture_config:
-                config_dict['max_processing_batch_size'] = capture_config['max_processing_batch_size']
-            if 'num_threads' in capture_config:
-                config_dict['num_threads'] = capture_config['num_threads']
+        if "capture" in config_data:
+            capture_config = config_data["capture"]
+            if "filter_expression" in capture_config:
+                config_dict["filter_expression"] = capture_config["filter_expression"]
+            if "packet_count" in capture_config:
+                config_dict["packet_count"] = capture_config["packet_count"]
+            if "timeout" in capture_config:
+                config_dict["timeout"] = capture_config["timeout"]
+            if "promiscuous_mode" in capture_config:
+                config_dict["promiscuous_mode"] = capture_config["promiscuous_mode"]
+            if "max_memory_packets" in capture_config:
+                config_dict["max_memory_packets"] = capture_config["max_memory_packets"]
+            if "max_processing_batch_size" in capture_config:
+                config_dict["max_processing_batch_size"] = capture_config[
+                    "max_processing_batch_size"
+                ]
+            if "num_threads" in capture_config:
+                config_dict["num_threads"] = capture_config["num_threads"]
+            if "enable_realtime_display" in capture_config:
+                config_dict["enable_realtime_display"] = capture_config[
+                    "enable_realtime_display"
+                ]
 
         # Logging configuration
-        if 'logging' in config_data:
-            logging_config = config_data['logging']
-            if 'level' in logging_config:
-                config_dict['log_level'] = logging_config['level']
-            if 'log_to_file' in logging_config:
-                config_dict['log_to_file'] = logging_config['log_to_file']
-            if 'log_dir' in logging_config:
-                config_dict['log_dir'] = logging_config['log_dir']
-            if 'log_format' in logging_config:
-                config_dict['log_format'] = logging_config['log_format']
-            if 'enable_console_logging' in logging_config:
-                config_dict['enable_console_logging'] = logging_config['enable_console_logging']
-            if 'enable_file_logging' in logging_config:
-                config_dict['enable_file_logging'] = logging_config['enable_file_logging']
-            if 'enable_security_logging' in logging_config:
-                config_dict['enable_security_logging'] = logging_config['enable_security_logging']
-            if 'enable_packet_logging' in logging_config:
-                config_dict['enable_packet_logging'] = logging_config['enable_packet_logging']
-            if 'enable_performance_logging' in logging_config:
-                config_dict['enable_performance_logging'] = logging_config['enable_performance_logging']
-            if 'max_log_file_size' in logging_config:
-                config_dict['max_log_file_size'] = logging_config['max_log_file_size']
-            if 'log_backup_count' in logging_config:
-                config_dict['log_backup_count'] = logging_config['log_backup_count']
+        if "logging" in config_data:
+            logging_config = config_data["logging"]
+            if "level" in logging_config:
+                config_dict["log_level"] = logging_config["level"]
+            if "log_to_file" in logging_config:
+                config_dict["log_to_file"] = logging_config["log_to_file"]
+            if "log_dir" in logging_config:
+                config_dict["log_dir"] = logging_config["log_dir"]
+            if "log_format" in logging_config:
+                config_dict["log_format"] = logging_config["log_format"]
+            if "enable_console_logging" in logging_config:
+                config_dict["enable_console_logging"] = logging_config[
+                    "enable_console_logging"
+                ]
+            if "enable_file_logging" in logging_config:
+                config_dict["enable_file_logging"] = logging_config[
+                    "enable_file_logging"
+                ]
+            if "enable_security_logging" in logging_config:
+                config_dict["enable_security_logging"] = logging_config[
+                    "enable_security_logging"
+                ]
+            if "enable_packet_logging" in logging_config:
+                config_dict["enable_packet_logging"] = logging_config[
+                    "enable_packet_logging"
+                ]
+            if "enable_performance_logging" in logging_config:
+                config_dict["enable_performance_logging"] = logging_config[
+                    "enable_performance_logging"
+                ]
+            if "max_log_file_size" in logging_config:
+                config_dict["max_log_file_size"] = logging_config["max_log_file_size"]
+            if "log_backup_count" in logging_config:
+                config_dict["log_backup_count"] = logging_config["log_backup_count"]
 
         # Export settings
-        if 'export' in config_data:
-            export_config = config_data['export']
-            if 'format' in export_config:
-                config_dict['export_format'] = export_config['format']
-            if 'dir' in export_config:
-                config_dict['export_dir'] = export_config['dir']
+        if "export" in config_data:
+            export_config = config_data["export"]
+            if "format" in export_config:
+                config_dict["export_format"] = export_config["format"]
+            if "dir" in export_config:
+                config_dict["export_dir"] = export_config["dir"]
 
         # Performance settings
-        if 'performance' in config_data:
-            performance_config = config_data['performance']
-            if 'enable_monitoring' in performance_config:
-                config_dict['enable_performance_monitoring'] = performance_config['enable_monitoring']
-            if 'log_interval' in performance_config:
-                config_dict['performance_log_interval'] = performance_config['log_interval']
-            if 'parquet_path' in performance_config:
-                config_dict['performance_parquet_path'] = performance_config['parquet_path']
+        if "performance" in config_data:
+            performance_config = config_data["performance"]
+            if "enable_monitoring" in performance_config:
+                config_dict["enable_performance_monitoring"] = performance_config[
+                    "enable_monitoring"
+                ]
+            if "log_interval" in performance_config:
+                config_dict["performance_log_interval"] = performance_config[
+                    "log_interval"
+                ]
+            if "parquet_path" in performance_config:
+                config_dict["performance_parquet_path"] = performance_config[
+                    "parquet_path"
+                ]
 
         # Security settings
-        if 'security' in config_data:
-            security_config = config_data['security']
-            if 'validate_interface_names' in security_config:
-                config_dict['validate_interface_names'] = security_config['validate_interface_names']
-            if 'sanitize_filter_expressions' in security_config:
-                config_dict['sanitize_filter_expressions'] = security_config['sanitize_filter_expressions']
-            if 'max_filter_length' in security_config:
-                config_dict['max_filter_length'] = security_config['max_filter_length']
+        if "security" in config_data:
+            security_config = config_data["security"]
+            if "validate_interface_names" in security_config:
+                config_dict["validate_interface_names"] = security_config[
+                    "validate_interface_names"
+                ]
+            if "sanitize_filter_expressions" in security_config:
+                config_dict["sanitize_filter_expressions"] = security_config[
+                    "sanitize_filter_expressions"
+                ]
+            if "max_filter_length" in security_config:
+                config_dict["max_filter_length"] = security_config["max_filter_length"]
 
         # Create a new instance with the loaded values
         config = cls(**config_dict)
@@ -696,54 +750,52 @@ class SnifferConfig:
         """
         # Convert to nested dictionary structure
         config_dict = {
-            'interface': {
-                'name': self.interface,
-                'detection_method': self.interface_detection_method,
-                'preferred_types': self.preferred_interface_types
+            "interface": {
+                "name": self.interface,
+                "detection_method": self.interface_detection_method,
+                "preferred_types": self.preferred_interface_types,
             },
-            'capture': {
-                'filter_expression': self.filter_expression,
-                'packet_count': self.packet_count,
-                'timeout': self.timeout,
-                'promiscuous_mode': self.promiscuous_mode,
-                'max_memory_packets': self.max_memory_packets,
-                'max_processing_batch_size': self.max_processing_batch_size,
-                'num_threads': self.num_threads
+            "capture": {
+                "filter_expression": self.filter_expression,
+                "packet_count": self.packet_count,
+                "timeout": self.timeout,
+                "promiscuous_mode": self.promiscuous_mode,
+                "max_memory_packets": self.max_memory_packets,
+                "max_processing_batch_size": self.max_processing_batch_size,
+                "num_threads": self.num_threads,
+                "enable_realtime_display": self.enable_realtime_display,
             },
-            'logging': {
-                'level': self.log_level,
-                'log_to_file': self.log_to_file,
-                'log_dir': self.log_dir,
-                'log_format': self.log_format,
-                'enable_console_logging': self.enable_console_logging,
-                'enable_file_logging': self.enable_file_logging,
-                'enable_security_logging': self.enable_security_logging,
-                'enable_packet_logging': self.enable_packet_logging,
-                'enable_performance_logging': self.enable_performance_logging,
-                'max_log_file_size': self.max_log_file_size,
-                'log_backup_count': self.log_backup_count
+            "logging": {
+                "level": self.log_level,
+                "log_to_file": self.log_to_file,
+                "log_dir": self.log_dir,
+                "log_format": self.log_format,
+                "enable_console_logging": self.enable_console_logging,
+                "enable_file_logging": self.enable_file_logging,
+                "enable_security_logging": self.enable_security_logging,
+                "enable_packet_logging": self.enable_packet_logging,
+                "enable_performance_logging": self.enable_performance_logging,
+                "max_log_file_size": self.max_log_file_size,
+                "log_backup_count": self.log_backup_count,
             },
-            'export': {
-                'format': self.export_format,
-                'dir': self.export_dir
+            "export": {"format": self.export_format, "dir": self.export_dir},
+            "performance": {
+                "enable_monitoring": self.enable_performance_monitoring,
+                "log_interval": self.performance_log_interval,
+                "parquet_path": self.performance_parquet_path,
             },
-            'performance': {
-                'enable_monitoring': self.enable_performance_monitoring,
-                'log_interval': self.performance_log_interval,
-                'parquet_path': self.performance_parquet_path
+            "security": {
+                "validate_interface_names": self.validate_interface_names,
+                "sanitize_filter_expressions": self.sanitize_filter_expressions,
+                "max_filter_length": self.max_filter_length,
             },
-            'security': {
-                'validate_interface_names': self.validate_interface_names,
-                'sanitize_filter_expressions': self.sanitize_filter_expressions,
-                'max_filter_length': self.max_filter_length
-            }
         }
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(yaml_file), exist_ok=True)
 
         # Write to file
-        with open(yaml_file, 'w') as f:
+        with open(yaml_file, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
     @classmethod
@@ -798,6 +850,7 @@ class SnifferConfig:
             - Max Memory Packets: {self.max_memory_packets}
             - Batch Size: {self.max_processing_batch_size}
             - Threads: {self.num_threads}
+            - Real-time Display: {self.enable_realtime_display}
 
           Logging Settings:
             - Log Level: {self.log_level}

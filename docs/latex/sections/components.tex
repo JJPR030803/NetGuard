@@ -1,0 +1,127 @@
+\subsection{Packet Sniffer Module}
+The Packet Sniffer Module is responsible for capturing and processing network packets in real-time. It is implemented in the \texttt{network\_security\_suite.sniffer} package.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item Real-time packet capture using Scapy
+    \item Support for multiple network interfaces
+    \item Packet filtering based on configurable rules
+    \item Packet metadata extraction
+    \item Efficient packet processing pipeline
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The module uses Scapy's packet capture capabilities to intercept network traffic. It implements a multi-threaded architecture to ensure high-performance packet processing without dropping packets during high traffic periods.
+
+\begin{lstlisting}[language=Python, caption=Example Packet Capture Code]
+from scapy.all import sniff, IP, TCP
+
+def packet_callback(packet):
+    if IP in packet and TCP in packet:
+        # Process packet
+        src_ip = packet[IP].src
+        dst_ip = packet[IP].dst
+        src_port = packet[TCP].sport
+        dst_port = packet[TCP].dport
+        # Store or forward packet metadata
+        
+# Start packet capture
+sniff(prn=packet_callback, filter="tcp", store=0)
+\end{lstlisting}
+
+\subsection{Analysis Engine}
+The Analysis Engine performs deep packet inspection and preliminary analysis based on predefined rules. It is implemented in the \texttt{network\_security\_suite.core} package.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item Rule-based packet analysis
+    \item Protocol-specific inspection
+    \item Traffic pattern recognition
+    \item Signature-based threat detection
+    \item Real-time alerting for suspicious activities
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The Analysis Engine uses a combination of rule-based analysis and pattern matching to identify potential security threats. It supports custom rule definitions and can be extended with additional analysis capabilities.
+
+\subsection{Machine Learning Module}
+The Machine Learning Module applies ML algorithms to detect anomalies and potential threats that may not be detected by traditional rule-based approaches. It is implemented in the \texttt{network\_security\_suite.ml} package.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item Anomaly detection using unsupervised learning
+    \item Classification of known attack patterns
+    \item Behavioral analysis of network traffic
+    \item Continuous learning from new data
+    \item Model versioning and management
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The module uses scikit-learn for implementing various machine learning algorithms. It includes preprocessing pipelines, feature extraction, model training, and prediction components.
+
+\subsection{API Layer}
+The API Layer provides RESTful endpoints for integration and data access. It is implemented using FastAPI in the \texttt{network\_security\_suite.api} package.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item RESTful API endpoints
+    \item Authentication and authorization
+    \item Rate limiting and request validation
+    \item Comprehensive API documentation using Swagger/OpenAPI
+    \item Asynchronous request handling
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The API is built using FastAPI, which provides automatic validation, serialization, and documentation. It follows RESTful principles and uses JWT for authentication.
+
+\begin{lstlisting}[language=Python, caption=Example API Endpoint]
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+
+router = APIRouter()
+
+@router.get("/packets", response_model=List[PacketSchema])
+async def get_packets(
+    limit: int = 100,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve recent packet data.
+    """
+    if not current_user.has_permission("read:packets"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    packets = await get_recent_packets(limit)
+    return packets
+\end{lstlisting}
+
+\subsection{Database}
+The database stores packet metadata, analysis results, and system configuration. The system uses SQLAlchemy as an ORM to interact with the database.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item Efficient storage of packet metadata
+    \item Indexing for fast query performance
+    \item Support for multiple database backends
+    \item Schema migrations using Alembic
+    \item Connection pooling for optimal performance
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The database schema is defined using SQLAlchemy models in the \texttt{network\_security\_suite.models} package. Alembic is used for managing database migrations.
+
+\subsection{Frontend Dashboard}
+The Frontend Dashboard provides visualization and management interface for the system. It is implemented as a React application.
+
+\subsubsection{Key Features}
+\begin{itemize}
+    \item Real-time data visualization
+    \item Interactive network traffic analysis
+    \item Alert management and notification
+    \item User and permission management
+    \item System configuration interface
+    \item Responsive design for different device sizes
+\end{itemize}
+
+\subsubsection{Implementation Details}
+The dashboard is built using React with modern JavaScript/TypeScript. It communicates with the backend API to retrieve and display data, and to manage system configuration.

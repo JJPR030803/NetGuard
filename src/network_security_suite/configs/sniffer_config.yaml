@@ -1,0 +1,37 @@
+interface:
+  name: eth0
+  detection_method: auto
+  preferred_types:
+  - ethernet
+  - wireless
+capture:
+  filter_expression: ''
+  packet_count: 0
+  timeout: 0
+  promiscuous_mode: true
+  max_memory_packets: 10000
+  max_processing_batch_size: 100
+  num_threads: 4
+logging:
+  level: INFO
+  log_to_file: true
+  log_dir: /home/batman/Documents/networkguard2/logs/logs
+  log_format: '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+  enable_console_logging: true
+  enable_file_logging: true
+  enable_security_logging: true
+  enable_packet_logging: true
+  enable_performance_logging: true
+  max_log_file_size: 10485760
+  log_backup_count: 5
+export:
+  format: parquet
+  dir: /home/batman/Documents/networkguard2/logs/parquet
+performance:
+  enable_monitoring: true
+  log_interval: 60
+  parquet_path: /home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet
+security:
+  validate_interface_names: true
+  sanitize_filter_expressions: true
+  max_filter_length: 200

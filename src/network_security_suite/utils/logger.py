@@ -1,193 +1,317 @@
 """
-Logging module for the Network Security Suite.
+Logger utilities for the Network Security Suite.
 
-This module provides a flexible and extensible logging system for the Network Security Suite.
-It includes several logger classes for different purposes, such as general logging,
-network security logging, and performance logging.
+This module centralizes logging concerns across the project. It provides:
+- A HandlerConfig helper to consistently create file/rotating/timed handlers.
+- An abstract Logger base with sensible defaults and handler wiring.
+- Concrete loggers for distinct domains (NetworkSecurityLogger, PerformanceLogger).
 
-The module is designed to be easily extended with new logger types while maintaining
-a consistent interface through the abstract Logger base class.
+Quick start:
+    from network_security_suite.utils.logger import NetworkSecurityLogger
+    sec_log = NetworkSecurityLogger(log_dir="./logs")
+    sec_log.log("Suspicious traffic detected from 10.0.0.5")
+    sec_log.debug("Rule X matched packet 12345")
+    sec_log.error("Failed to parse payload")
+
+Notes:
+- By default, file-based handlers write under log_dir (defaults to /tmp/network_security_suite).
+- Formatters are lightweight by default to avoid duplicated timestamps where
+  upstream logging already adds them.
+- All methods are designed to be safe no-ops if misconfigured; override as
+  needed in your application.
 """
 
-import contextlib
 import logging
-import logging.handlers
 import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from logging import Formatter, Handler
-from typing import Optional, TypedDict
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from typing import Dict, Optional, TypedDict
 
-from typing_extensions import override
-from ..sniffer.sniffer_config import SnifferConfig
 
-class HandlerConfig(Handler):
+@dataclass
+class HandlerConfig:
     """
-    A custom logging handler that extends the standard Handler class.
+    HandlerConfig is a data class meant to configure and manage logging handlers.
 
-    This handler supports both console and file-based logging with rotation capabilities.
-    It can be configured with a specific formatter, log level, and file path.
-    When a file path is provided, it creates a RotatingFileHandler that automatically
-    rotates log files when they reach a specified size.
+    This class is used to set up various logging handle configurations, including
+    rotating file handlers and timed rotating file handlers. It provides an
+    initializer for setting file paths, ensuring directory existence, and
+    dynamically creating handlers based on the provided name. This class is
+    designed for flexible logging configurations in applications and supports
+    optional log directory and max byte configuration for log files.
 
-    :ivar name: Name of the handler.
+    It ensures the creation and readiness of log handlers that can be directly
+    utilized in logging setups.
+
+    :ivar name: Name indicating the type of log handler to use, such as
+        rotating_file or timed_rotating_file.
     :type name: str
-    :ivar filepath: Path to the log file (if file-based logging is used).
-    :type filepath: str or None
-    :ivar max_bytes: Maximum size of log files before rotation (default: 10MB).
+    :ivar level: Logging level to be used for this handler (e.g., DEBUG, INFO).
+    :type level: int
+    :ivar formatter: Formatter to use for the log messages.
+    :type formatter: Formatter
+    :ivar filepath: Path to the log file, optionally including the filename. If not
+        provided, no file handler is created.
+    :type filepath: Optional[str]
+    :ivar max_bytes: Maximum size of the file in bytes for rotating file handlers.
+        Defaults to 10MB.
     :type max_bytes: int
-    :ivar backup_count: Number of backup files to keep (default: 5).
+    :ivar backup_count: Number of backup log files to keep when using a rotating
+        file handler. Defaults to 5.
     :type backup_count: int
-    :ivar file_handler: The underlying RotatingFileHandler (if file-based logging is used).
-    :type file_handler: logging.handlers.RotatingFileHandler or None
-    :ivar formatter: Formatter for log messages.
-    :type formatter: logging.Formatter or None
+    :ivar log_dir: Directory where logs are stored. If not provided, defaults to
+        the current directory.
+    :type log_dir: Optional[str]
+    :ivar file_handler: The created logging handler instance (if applicable). None
+        if no file handler is created.
+    :type file_handler: Optional[Handler]
     """
+
+    name: str
+    level: int
+    formatter: Formatter
+    filepath: Optional[str] = None
+    max_bytes: int = 10485760  # 10MB
+    backup_count: int = 5
+    log_dir: Optional[str] = None
+    file_handler: Optional[Handler] = None
 
     def __init__(
         self,
         name: str,
-        level: int = logging.INFO,
-        formatter: Optional[Formatter] = None,
+        level: int,
+        formatter: Formatter,
         filepath: Optional[str] = None,
-        max_bytes: int = 10485760,  # 10MB
+        max_bytes: int = 10485760,
         backup_count: int = 5,
         log_dir: Optional[str] = None,
     ):
-        super().__init__(level=level)
         self.name = name
+        self.level = level
+        self.formatter = formatter
         self.filepath = filepath
         self.max_bytes = max_bytes
         self.backup_count = backup_count
+        self.log_dir = log_dir
         self.file_handler = None
-        self.formatter = formatter
 
-        if formatter:
-            self.setFormatter(formatter)
-
+        # Create file handler if filepath is provided
         if filepath:
-            # Create full path
-            full_path = os.path.join(log_dir, filepath) if log_dir else filepath
+            # Use log_dir if provided, otherwise use current directory
+            if log_dir:
+                # Ensure log directory exists
+                os.makedirs(log_dir, exist_ok=True)
+                full_path = os.path.join(log_dir, filepath)
+            else:
+                full_path = filepath
+                # Create directory if it doesn't exist
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            # Create appropriate handler based on name
+            if name == "rotating_file":
+                self.file_handler = RotatingFileHandler(
+                    full_path, maxBytes=max_bytes, backupCount=backup_count
+                )
+            elif name == "timed_rotating_file":
+                self.file_handler = TimedRotatingFileHandler(
+                    full_path, when="midnight", interval=1, backupCount=backup_count
+                )
+            else:
+                self.file_handler = logging.FileHandler(full_path)
 
-            # Create the file handler
-            self.file_handler = logging.handlers.RotatingFileHandler(
-                full_path,
-                maxBytes=max_bytes,
-                backupCount=backup_count,
-                mode="a",  # Append mode
-            )
-
-            if formatter:
-                self.file_handler.setFormatter(formatter)
-
-            # Set permissions on the log file
-            try:
-                os.chmod(full_path, 0o666)
-            except Exception:
-                contextlib.suppress(Exception)  # Ignore permission errors
+            self.file_handler.setLevel(level)
+            self.file_handler.setFormatter(formatter)
 
     def has_format(self) -> bool:
-        """Check if the handler has a formatter set."""
-        return self.formatter is not None or (
-            self.file_handler is not None and self.file_handler.formatter is not None
-        )
+        """
+        Return True if this handler configuration has a formatter assigned.
+
+        This is useful when normalizing handler setup inside Logger.set_handlers,
+        where a default formatter may be applied if none is configured.
+
+        Returns:
+            bool: True if a formatter is set, otherwise False.
+        """
+        return self.formatter is not None
 
 
 class HandlerTypes(TypedDict, total=False):
     """
-    A TypedDict for handler configurations used in loggers.
+    Typed dictionary for defining optional handler configurations.
 
-    This class defines the structure for a dictionary of handler configurations,
-    where each key represents a handler type and each value is a HandlerConfig instance.
-    The 'total=False' parameter indicates that all keys are optional.
+    This class is used for specifying various handler configurations that may
+    be part of a logging or event system. Each handler type is optional
+    and can be specified as needed. Typical usage includes providing
+    specific configurations for logging handlers such as file handlers,
+    console handlers, or handlers for specific log levels like error,
+    debug, and warning.
 
-    This type is used to provide type hints for the handlers parameter in the Logger class,
-    making it easier to understand and validate the expected structure of handler configurations.
+    :ivar console_handler: Optional configuration for a console handler.
+    :type console_handler: Optional[HandlerConfig]
+    :ivar security_handler: Optional configuration for a security handler.
+    :type security_handler: Optional[HandlerConfig]
+    :ivar packet_handler: Optional configuration for a packet handler.
+    :type packet_handler: Optional[HandlerConfig]
+    :ivar file_handler: Optional configuration for a file handler.
+    :type file_handler: Optional[HandlerConfig]
+    :ivar rotating_file_handler: Optional configuration for a rotating file handler.
+    :type rotating_file_handler: Optional[HandlerConfig]
+    :ivar timed_rotating_file_handler: Optional configuration for a timed rotating file handler.
+    :type timed_rotating_file_handler: Optional[HandlerConfig]
+    :ivar smtp_handler: Optional configuration for an SMTP handler.
+    :type smtp_handler: Optional[HandlerConfig]
+    :ivar http_handler: Optional configuration for an HTTP handler.
+    :type http_handler: Optional[HandlerConfig]
+    :ivar queue_handler: Optional configuration for a queue handler.
+    :type queue_handler: Optional[HandlerConfig]
+    :ivar error_handler: Optional configuration for an error handler.
+    :type error_handler: Optional[HandlerConfig]
+    :ivar debug_handler: Optional configuration for a debug handler.
+    :type debug_handler: Optional[HandlerConfig]
+    :ivar critical_handler: Optional configuration for a critical handler.
+    :type critical_handler: Optional[HandlerConfig]
+    :ivar warning_handler: Optional configuration for a warning handler.
+    :type warning_handler: Optional[HandlerConfig]
+    :ivar info_handler: Optional configuration for an info handler.
+    :type info_handler: Optional[HandlerConfig]
     """
 
-    console_handler: HandlerConfig
-    security_handler: HandlerConfig
-    packet_handler: HandlerConfig
-    file_handler: HandlerConfig
-    rotating_file_handler: HandlerConfig
-    timed_rotating_file_handler: HandlerConfig
-    smtp_handler: HandlerConfig
-    http_handler: HandlerConfig
-    queue_handler: HandlerConfig
-    error_handler: HandlerConfig
-    debug_handler: HandlerConfig
-    critical_handler: HandlerConfig
-    warning_handler: HandlerConfig
-    info_handler: HandlerConfig
-
-
-"""
-Abstract class for logging functionality
-Used on different sections of project.
-"""
+    console_handler: Optional[HandlerConfig]
+    security_handler: Optional[HandlerConfig]
+    packet_handler: Optional[HandlerConfig]
+    file_handler: Optional[HandlerConfig]
+    rotating_file_handler: Optional[HandlerConfig]
+    timed_rotating_file_handler: Optional[HandlerConfig]
+    smtp_handler: Optional[HandlerConfig]
+    http_handler: Optional[HandlerConfig]
+    queue_handler: Optional[HandlerConfig]
+    error_handler: Optional[HandlerConfig]
+    debug_handler: Optional[HandlerConfig]
+    critical_handler: Optional[HandlerConfig]
+    warning_handler: Optional[HandlerConfig]
+    info_handler: Optional[HandlerConfig]
 
 
 class Logger(ABC):
+    """
+    Logger class providing a base structure for log management and customization.
+
+    This class is designed as an abstract base class (ABC) for creating custom
+    loggers with specific behavior. It initializes default logging configurations,
+    allows for the addition of custom handlers, and enables saving logs to files.
+    Derived classes are expected to implement the abstract methods for logging and
+    saving logs.
+
+    :ivar logger: The logging instance for managing log messages.
+    :type logger: logging.Logger
+    :ivar format: Logging format used for formatting log messages.
+    :type format: logging.Formatter
+    :ivar handlers: Collection of handler configurations for log management.
+    :type handlers: Optional[HandlerTypes]
+    :ivar log_dir: Path to the directory where logs can be saved.
+    :type log_dir: Optional[str]
+    """
+
     def __init__(
         self,
-        config: Optional[SnifferConfig] = None,
         log_format: Optional[Formatter] = None,
         handlers: Optional[HandlerTypes] = None,
-        log_dir: Optional[str] = None  # Keep for backward compatibility
+        log_dir: Optional[str] = None,
     ):
-        self.config = config if config is not None else SnifferConfig()
+        """
+        Initialize the base logger with format, handlers, and log directory.
 
-        # Use config values, with fallback to direct parameters for backward compatibility
-        self.log_dir = self.config.log_dir if config else (log_dir or self.config.log_dir)
+        Args:
+            log_format (Optional[logging.Formatter]): Custom formatter to use for
+                messages. If None, defaults to "%(asctime)s [%(levelname)s] %(message)s".
+            handlers (Optional[HandlerTypes]): Mapping of handler names to
+                HandlerConfig instances. If None, a minimal console handler is created.
+            log_dir (Optional[str]): Base directory where file handlers should
+                write logs. Defaults to "/tmp/network_security_suite" if not provided.
+        """
+        self.log_dir = log_dir or "/tmp/network_security_suite"
 
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(getattr(logging, self.config.log_level.upper()))
+        self.logger.setLevel(logging.INFO)
 
-        # Setup format from config
-        format_string = self.config.log_format if config else "%(asctime)s [%(levelname)s] %(message)s"
+        # Setup default format
+        format_string = "%(asctime)s [%(levelname)s] %(message)s"
         self.format = log_format or logging.Formatter(format_string)
 
-        # Setup handlers from config or provided handlers
-        self.handlers = handlers or self._create_handlers_from_config()
-
+        # Setup handlers
+        self.handlers = handlers or self._create_default_handlers()
         self.set_handlers()
 
-    def _create_handlers_from_config(self) -> HandlerTypes:
-        """Create handlers based on configuration."""
-        handlers: HandlerTypes = {}
+    def _create_default_handlers(self) -> HandlerTypes:
+        """
+        Create a minimal default handler configuration.
 
-        if self.config.enable_console_logging:
-            handlers["console_handler"] = HandlerConfig(
-                "console", 
-                getattr(logging, self.config.log_level.upper()),
-                Formatter("%(message)s")
+        By default, a simple console handler is used with level INFO and a
+        bare "%(message)s" format to avoid duplicating timestamps/levels that
+        higher-level classes may include. Projects can override this by passing
+        a custom handlers dict to the constructor.
+
+        Returns:
+            HandlerTypes: Dictionary with a single console handler definition.
+        """
+        handlers: HandlerTypes = {
+            "console_handler": HandlerConfig(
+                "console", logging.INFO, Formatter("%(message)s")
             )
-
-        if self.config.enable_file_logging and self.config.log_to_file:
-            handlers["file_handler"] = HandlerConfig(
-                "file",
-                getattr(logging, self.config.log_level.upper()),
-                self.format,
-                filepath=f"{self.__class__.__name__.lower()}.log",
-                max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count
-            )
-
+        }
         return handlers
 
     @abstractmethod
     def log(self, message: str):
+        """
+        Emit a log message.
+
+        Subclasses decide the log level and any additional formatting. For
+        example, NetworkSecurityLogger.log() uses WARNING while
+        PerformanceLogger.log() uses INFO.
+
+        Args:
+            message (str): The message to be logged.
+        """
         pass
 
     @abstractmethod
     def save_logs(self, path: str):
-        if self.save_logs:
-            pass
+        """
+        Persist current logs to a target destination.
+
+        Subclasses can implement exporting, archiving, or uploading of log
+        records. Many use-cases are already covered by file handlers, so this
+        method is optional to implement unless custom behavior is needed.
+
+        Args:
+            path (str): Destination path (file or directory) for the persisted logs.
+        """
+        pass
 
     def set_handlers(self):
-        """Set up logging handlers for the logger."""
+        """
+        Build and attach logging handlers defined in self.handlers.
+
+        This method iterates through HandlerConfig entries and ensures each
+        handler is correctly bound to this logger instance, honoring the
+        configured log_dir. It will recreate file-based handlers with the
+        resolved log_dir to guarantee log files end up under the intended
+        directory.
+
+        Behavior:
+        - If a HandlerConfig already created a file handler and a log_dir is set,
+          the file handler is safely closed and recreated with the updated path.
+        - If a handler has no formatter, the logger's default formatter is
+          applied.
+        - Any available file_handler on the config is added to the logger.
+
+        Note:
+        The HandlerConfig object is used as a convenience container. The actual
+        logging.Handler attached to the logger is handler.file_handler.
+        """
         for handler in self.handlers.values():
             if handler:
                 # Set the log_dir for the handler if it's a HandlerConfig instance
@@ -228,142 +352,131 @@ class Logger(ABC):
                     self.logger.addHandler(handler.file_handler)
 
 
-"""
-NetworkSecurityLogger: custom logger for network security
-"""
-
-
 class NetworkSecurityLogger(Logger):
-    def __init__(self, config: Optional[SnifferConfig] = None):
-        self.config = config if config is not None else SnifferConfig()
+    """
+    Provides specialized logging for network security-related messages.
 
-        handlers: HandlerTypes = {}
+    This class extends a base Logger to handle and format logging specifically
+    for security-related data. It supports logging at different levels such as
+    warning, debug, and error, while also allowing the saving of logs to file.
+    The log messages can be output to the console and/or a specific security log
+    file, based on the handler configuration.
 
-        if self.config.enable_console_logging:
-            handlers["console_handler"] = HandlerConfig(
-                "console", logging.INFO, Formatter("%(message)s")
-            )
+    :ivar logger: The logger instance used to write logs.
+    :type logger: logging.Logger
+    """
 
-        if self.config.enable_file_logging and self.config.log_to_file:
-            handlers["error_handler"] = HandlerConfig(
-                "error", logging.ERROR,
-                Formatter(self.config.log_format),
-                filepath="error.log",
-                max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count
-            )
-
-        if self.config.enable_security_logging and self.config.log_to_file:
-            handlers["security_handler"] = HandlerConfig(
-                "security", logging.WARNING,
+    def __init__(self, log_dir: Optional[str] = None):
+        handlers: HandlerTypes = {
+            "console_handler": HandlerConfig(
+                "console", logging.INFO, Formatter("%(asctime)s [SECURITY] %(message)s")
+            ),
+            "security_handler": HandlerConfig(
+                "security",
+                logging.WARNING,
                 Formatter("%(asctime)s [SECURITY] %(message)s"),
                 filepath="security.log",
-                max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count
-            )
-
-        if self.config.enable_packet_logging and self.config.log_to_file:
-            handlers["packet_handler"] = HandlerConfig(
-                "packet", logging.DEBUG,
-                Formatter("%(asctime)s [PACKET] %(message)s"),
-                filepath="packets.log",
-                max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count
-            )
-
-        super().__init__(config=config, handlers=handlers)
+                log_dir=log_dir,
+            ),
+        }
+        super().__init__(handlers=handlers, log_dir=log_dir)
 
     def log(self, message: str) -> None:
         """
-        Log an informational message.
+        Log a security-related message at WARNING level.
 
-        This method logs a message at the INFO level using the configured handlers.
-
-        :param message: The message to log.
-        :type message: str
+        Args:
+            message (str): The text to log. Should be concise and redact any
+                sensitive data before calling.
         """
-        self.logger.info(message)
+        self.logger.warning(message)
 
     def debug(self, message: str) -> None:
         """
-        Log a debug message.
+        Log a security debug message.
 
-        This method logs a message at the DEBUG level using the configured handlers.
+        Only emitted if the logger level allows DEBUG.
 
-        :param message: The message to log.
-        :type message: str
+        Args:
+            message (str): Debug details useful for troubleshooting.
         """
         self.logger.debug(message)
 
     def error(self, message: str) -> None:
         """
-        Log an error message.
+        Log a security error message at ERROR level.
 
-        This method logs a message at the ERROR level using the configured handlers.
-
-        :param message: The message to log.
-        :type message: str
+        Args:
+            message (str): Description of the error condition.
         """
         self.logger.error(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str):
         """
-        Save logs manually if needed.
+        Persist accumulated security logs to the specified path.
 
-        This method is a placeholder for implementing manual log saving functionality
-        if additional persistence is required beyond the automatic file logging.
-        Currently, it does nothing as logs are automatically saved by the handlers.
+        Note: In most deployments handlers already write to files (e.g.,
+        security.log). Override this in integrators if you need to export,
+        rotate, or upload logs elsewhere.
+
+        Args:
+            path (str): Destination file or directory for saving/exporting logs.
         """
-        # Optional: save to file manually if you need separate persistence
+        # Implementation intentionally left as a no-op for now
         pass
 
 
 class PerformanceLogger(Logger):
-    def __init__(self, config: Optional[SnifferConfig] = None, save_logs: bool = None, log_dir: Optional[str] = None, **kwargs):
-        self.config = config if config is not None else SnifferConfig()
+    """
+    A logger for performance monitoring tasks.
 
-        # Use save_logs parameter if provided, otherwise use config
-        should_save_logs = save_logs if save_logs is not None else self.config.log_to_file
+    The PerformanceLogger class is designed to handle and manage performance-related
+    logging efficiently. It extends the base Logger functionality, introducing specific
+    handlers and configurations tailored for performance monitoring. It allows logging
+    both to the console and to a dedicated performance log file in an easy and
+    structured way.
 
-        # Use log_dir parameter if provided, otherwise use config
-        log_directory = log_dir if log_dir is not None else self.config.log_dir
+    :ivar handlers: A dictionary containing configurations for the console and performance
+        handlers. These handlers define where and how the performance logs are outputted.
+    :type handlers: HandlerTypes
+    """
 
-        handlers: HandlerTypes = {}
-
-        if self.config.enable_performance_logging and should_save_logs:
-            handlers["performance_handler"] = HandlerConfig(
-                "performance", logging.DEBUG,
-                Formatter("%(asctime)s [PERFORMANCE] %(message)s"),
+    def __init__(self, log_dir: Optional[str] = None):
+        handlers: HandlerTypes = {
+            "console_handler": HandlerConfig(
+                "console", logging.INFO, Formatter("%(asctime)s [PERF] %(message)s")
+            ),
+            "performance_handler": HandlerConfig(
+                "performance",
+                logging.INFO,
+                Formatter("%(asctime)s [PERF] %(message)s"),
                 filepath="performance.log",
-                max_bytes=self.config.max_log_file_size,
-                backup_count=self.config.log_backup_count,
-                log_dir=log_directory
-            )
-
-        super().__init__(config=config, handlers=handlers)
+                log_dir=log_dir,
+            ),
+        }
+        super().__init__(handlers=handlers, log_dir=log_dir)
 
     def log(self, message: str) -> None:
         """
-        Log a performance message.
+        Log a performance-related message at INFO level.
 
-        This method logs a message at the DEBUG level to ensure all performance
-        metrics are captured, regardless of the logger's overall level setting.
+        Typical messages include timing, throughput, resource usage, or other
+        metrics summaries.
 
-        :param message: The performance metric message to log.
-        :type message: str
+        Args:
+            message (str): Human-readable performance information.
         """
-        self.logger.debug(message)
+        self.logger.info(message)
 
-    def save_logs(self, path: str) -> None:
+    def save_logs(self, path: str):
         """
-        Save logs to a specific path.
+        Persist performance logs to the specified path.
 
-        This method is a placeholder for implementing custom log saving functionality.
-        Currently, it does nothing as logs are automatically saved by the handlers
-        if save_logs was set to True during initialization.
+        In many setups, handlers already stream to performance.log. Override to
+        export or transform metrics (e.g., upload to time-series DB).
 
-        :param path: The path where logs should be saved.
-        :type path: str
+        Args:
+            path (str): Destination file or directory for saving/exporting logs.
         """
-        # This is a placeholder for custom log saving functionality
+        # Implementation intentionally left as a no-op for now
         pass

@@ -6,6 +6,7 @@ Compatible with multiple operating systems.
 
 import platform
 import shutil
+import string
 
 # B404: We need to use subprocess for system commands, but we've implemented
 # security measures to mitigate risks (full paths, no shell=True, input validation)
@@ -14,28 +15,28 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import netifaces
-import string
 
+from network_security_suite.sniffer.loggers import ConsoleLogger  # Import ConsoleLogger
 from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
-from network_security_suite.sniffer.loggers import ConsoleLogger # Import ConsoleLogger
+
 from .sniffer_config import SnifferConfig
-from typing import Optional
+
 
 class Interface:
     def __init__(
-        self, 
+        self,
         config: Optional[SnifferConfig] = None,
         interface: Optional[str] = None,  # Legacy support
         interface_detection_method: Optional[str] = None,  # Legacy support
-        log_dir: Optional[str] = None  # Legacy support
+        log_dir: Optional[str] = None,  # Legacy support
     ):
         """Initialize the Interface class with configuration support."""
         # Import here to avoid circular imports
         from .sniffer_config import SnifferConfig
-        
+
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
-        
+
         # Legacy support - override config with direct parameters if provided
         if interface is not None:
             self.config.interface = interface
@@ -67,26 +68,45 @@ class Interface:
         if self.config.log_to_file:
             Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
 
-        self.info_logger = InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        self.debug_logger = DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        self.error_logger = ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        self.info_logger = (
+            InfoLogger(log_dir=log_dir)
+            if self.config.enable_file_logging
+            else ConsoleLogger()
+        )
+        self.debug_logger = (
+            DebugLogger(log_dir=log_dir)
+            if self.config.enable_file_logging
+            else ConsoleLogger()
+        )
+        self.error_logger = (
+            ErrorLogger(log_dir=log_dir)
+            if self.config.enable_file_logging
+            else ConsoleLogger()
+        )
 
     def _auto_select_interface(self):
         """Auto-select best interface based on config preferences."""
         for interface_type in self.config.preferred_interface_types:
             interfaces = self.get_interface_by_type(interface_type)
             if interfaces:
-                active_interfaces = [iface for iface in interfaces 
-                                   if self.interfaces[iface].get('state') == 'UP']
+                active_interfaces = [
+                    iface
+                    for iface in interfaces
+                    if self.interfaces[iface].get("state") == "UP"
+                ]
                 if active_interfaces:
                     self.config.interface = active_interfaces[0]
-                    self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
+                    self.info_logger.log(
+                        f"Auto-selected interface: {self.config.interface}"
+                    )
                     return
 
         # Fallback to first available interface
         if self.interfaces:
             self.config.interface = list(self.interfaces.keys())[0]
-            self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
+            self.info_logger.log(
+                f"Fallback interface selected: {self.config.interface}"
+            )
 
     def get_recommended_interface(self) -> Optional[str]:
         """
@@ -100,25 +120,30 @@ class Interface:
             return None
 
         # If a specific interface is configured and exists, use it
-        if (self.config.interface and 
-            self.config.interface in self.interfaces and 
-            self.config.interface_detection_method == 'manual'):
+        if (
+            self.config.interface
+            and self.config.interface in self.interfaces
+            and self.config.interface_detection_method == "manual"
+        ):
             return self.config.interface
 
         # Auto-detection based on preferences
-        if self.config.interface_detection_method == 'auto':
+        if self.config.interface_detection_method == "auto":
             # Get active interfaces first
             active_interfaces = self.get_active_interfaces()
 
             # Filter by preferred types
             for preferred_type in self.config.preferred_interface_types:
                 matching_interfaces = [
-                    iface for iface in active_interfaces 
-                    if self.interfaces[iface].get('type') == preferred_type
+                    iface
+                    for iface in active_interfaces
+                    if self.interfaces[iface].get("type") == preferred_type
                 ]
                 if matching_interfaces:
                     selected = matching_interfaces[0]  # Take the first match
-                    self.info_logger.log(f"Auto-selected interface: {selected} (type: {preferred_type})")
+                    self.info_logger.log(
+                        f"Auto-selected interface: {selected} (type: {preferred_type})"
+                    )
                     return selected
 
             # If no preferred type matches, return the first active interface

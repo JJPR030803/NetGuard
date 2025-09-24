@@ -1,4 +1,3 @@
-
 """
 Network packet capture and processing module.
 
@@ -8,11 +7,13 @@ including JSON, pandas DataFrames, and Polars DataFrames.
 """
 
 import gc
+import os
 import platform
+from collections import deque
 from datetime import datetime
 from queue import Empty, Queue
 from threading import Lock, Thread
-from time import time
+from time import sleep, time
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -51,27 +52,23 @@ class PacketCapture:
     """
 
     def __init__(
-        self, 
-        config: Optional[SnifferConfig] = None,
-        interface: Optional[str] = None,  # Keep for backward compatibility
-        max_memory_packets: Optional[int] = None,  # Keep for backward compatibility
-        log_dir: Optional[str] = None  # Keep for backward compatibility
+        self, config: Optional[SnifferConfig] = None, realtime_display: bool = False
     ):
-        """Initialize PacketCapture with configuration."""
+        """
+        Initialize PacketCapture with configuration.
+
+        Args:
+            config (Optional[SnifferConfig], optional): Configuration object. Defaults to None.
+            realtime_display (bool, optional): Enable real-time packet display. Defaults to False.
+        """
         # Import here to avoid circular imports
+        import os
+
         from .sniffer_config import SnifferConfig
-        
+
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
-        
-        # Legacy support - override config with direct parameters if provided
-        if interface is not None:
-            self.config.interface = interface
-        if max_memory_packets is not None:
-            self.config.max_memory_packets = max_memory_packets
-        if log_dir is not None:
-            self.config.log_dir = log_dir
-        
+
         # Use config values directly
         self.interface = self.config.interface
         self.max_memory_packets = self.config.max_memory_packets
@@ -85,11 +82,15 @@ class PacketCapture:
 
         # Validation using config values
         if self.config.max_memory_packets < 100:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
+            )
             raise ValueError("max_memory_packets must be at least 100")
-        
+
         if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
+            )
             raise ValueError("max_memory_packets must be multiple of 10")
 
         # Initialize other attributes
@@ -105,7 +106,20 @@ class PacketCapture:
             "batch_count": 0,
         }
 
-        self.info_logger.log(f"Initializing PacketCapture for interface: {self.config.interface}")
+        # Real-time display attributes
+        # Use realtime_display parameter if provided, otherwise use config value
+        self.realtime_display = (
+            realtime_display
+            if realtime_display
+            else self.config.enable_realtime_display
+        )
+        self.realtime_packets = deque(maxlen=50)  # Store last 50 packets for display
+        self.display_thread = None
+        self.display_running = False
+
+        self.info_logger.log(
+            f"Initializing PacketCapture for interface: {self.config.interface}"
+        )
 
         if self.config.max_memory_packets < 100:
             self.error_logger.log(
@@ -160,7 +174,6 @@ class PacketCapture:
 
                 self.debug_logger.log(f"Processing batch of {batch_size} packets")
 
-
                 start_time = time()
                 for packet in batch:  # Process each packet in the batch
                     try:
@@ -184,15 +197,12 @@ class PacketCapture:
                     f"Batch processed in {processing_time:.4f} seconds"
                 )
 
-
                 self.packet_queue.task_done()
             except Empty:
                 self.debug_logger.log("Queue empty, waiting for more packets")
                 continue
 
-
         self.info_logger.log("Packet queue processing completed")
-
 
     @perf.monitor("process_packet_layers")
     def process_packet_layers(self, packet: ScapyPacket) -> Packet:
@@ -359,26 +369,85 @@ class PacketCapture:
 
         result = Packet(timestamp=timestamp, layers=packet_layers, raw_size=raw_size)
 
-
         return result
 
     def packet_callback(self, packet: ScapyPacket) -> None:
         """
-            Process packets as they arrive in scapy sniff clalback
-        :param packet:
-        :return:
+        Process packets as they arrive in scapy sniff callback.
+
+        Note: This method is not directly used in the current implementation,
+        which uses packet_callback_wrapper inside the capture method instead.
+        It's kept for backward compatibility and potential future use.
+
+        Args:
+            packet (ScapyPacket): The packet captured by scapy
         """
         try:
+            # Process packet normally
             processed_packet = self.process_packet_layers(packet)
             self.packets.append(processed_packet)
-        except Exception:
-            # Create but don't raise the exception - this would be a good place for logging
-            # in a production environment
-            # packet_id = getattr(packet, "time", "unknown")
-            # Just log the error in a production environment
-            pass
+
+        except Exception as e:
+            # Log the error but continue processing
+            self.error_logger.log(f"Error in packet callback: {e}")
             with self.stats_lock:
                 self.stats["dropped_packets"] += 1
+
+    def start_realtime_display(self):
+        """Start the real-time display thread."""
+        if self.realtime_display and not self.display_running:
+            self.display_running = True
+            self.display_thread = Thread(target=self._realtime_display_loop)
+            self.display_thread.daemon = True
+            self.display_thread.start()
+            self.info_logger.log("Started real-time display thread")
+
+    def stop_realtime_display(self):
+        """Stop the real-time display thread."""
+        self.display_running = False
+        if self.display_thread:
+            self.display_thread.join(
+                timeout=2
+            )  # Wait up to 2 seconds for thread to finish
+            self.info_logger.log("Stopped real-time display thread")
+
+    def _realtime_display_loop(self):
+        """Real-time display loop that runs in a separate thread."""
+        while self.display_running:
+            # Clear screen (Linux/Mac)
+            os.system("clear" if os.name == "posix" else "cls")
+
+            print("=" * 80)
+            print(
+                f"REAL-TIME PACKET CAPTURE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            print(f"Interface: {self.interface}")
+            print(f"Total Packets: {len(self.packets)}")
+            print("=" * 80)
+
+            # Display last few packets
+            if self.realtime_packets:
+                print("\nLAST 10 PACKETS:")
+                print("-" * 80)
+                for i, packet in enumerate(list(self.realtime_packets)[-10:]):
+                    print(
+                        f"{i+1:2d}. {packet.timestamp} | "
+                        f"Size: {packet.raw_size:4d} | "
+                        f"Layers: {len(packet.layers):2d} | "
+                        f"Proto: {packet.layers[0].layer_name if packet.layers else 'Unknown'}"
+                    )
+
+                    # Show some layer details
+                    if packet.layers:
+                        layer = packet.layers[0]
+                        if hasattr(layer, "fields") and layer.fields:
+                            # Show first few fields
+                            fields = list(layer.fields.items())[:3]
+                            field_str = ", ".join([f"{k}={v}" for k, v in fields])
+                            print(f"    {field_str}")
+                    print()
+
+            sleep(1)  # Update every second
 
     def _get_session_info(self) -> Dict[str, str]:
         """
@@ -422,6 +491,7 @@ class PacketCapture:
         bpf_filter: str | None = None,
         num_threads: int = None,
         log: bool = False,
+        realtime: bool = None,
     ) -> None:
         """
         Capture network packets from the specified interface.
@@ -435,13 +505,16 @@ class PacketCapture:
             bpf_filter (str | None, optional): Berkeley Packet Filter string. If None, uses config value.
             num_threads (int, optional): Number of processing threads to use. If None, uses config value.
             log (bool, optional): Whether to log detailed session information. Defaults to False.
+            realtime (bool, optional): Enable real-time display of packets. If None, uses the value from config.enable_realtime_display. Defaults to None.
 
         Raises:
             Exception: If there's an error during packet capture or processing.
         """
         # Use configuration values if parameters are not provided
         if max_packets is None:
-            max_packets = self.config.packet_count if self.config.packet_count > 0 else 10000
+            max_packets = (
+                self.config.packet_count if self.config.packet_count > 0 else 10000
+            )
 
         if bpf_filter is None:
             bpf_filter = self.config.filter_expression
@@ -449,9 +522,15 @@ class PacketCapture:
         if num_threads is None:
             num_threads = self.config.num_threads
 
+        # Set realtime display flag
+        # Use realtime parameter if provided, otherwise use config value
+        if realtime is None:
+            realtime = self.config.enable_realtime_display
+        self.realtime_display = realtime
+
         self.info_logger.log(f"Starting packet capture on interface {self.interface}")
         self.debug_logger.log(
-            f"Capture parameters: max_packets={max_packets}, filter='{bpf_filter}', threads={num_threads}"
+            f"Capture parameters: max_packets={max_packets}, filter='{bpf_filter}', threads={num_threads}, realtime={realtime}"
         )
 
         # Log detailed session information if requested
@@ -473,6 +552,11 @@ class PacketCapture:
 
         self.is_running = True
 
+        # Start real-time display if requested
+        if realtime:
+            self.debug_logger.log("Starting real-time display thread")
+            self.start_realtime_display()
+
         # Start multiple processing threads
         self.debug_logger.log(f"Starting {num_threads} processing threads")
         processors = []
@@ -491,6 +575,17 @@ class PacketCapture:
                 )
                 self.packets = self.packets[-self.max_memory_packets :]
                 gc.collect()
+
+            # Process packet for real-time display if enabled
+            if self.realtime_display:
+                try:
+                    processed_packet = self.process_packet_layers(packet)
+                    self.realtime_packets.append(processed_packet)
+                except Exception as e:
+                    self.error_logger.log(
+                        f"Error processing packet for real-time display: {e}"
+                    )
+
             packet_buffer.append(packet)
             if len(packet_buffer) >= self.max_processing_batch:
                 self.packet_logger.log(
@@ -533,6 +628,11 @@ class PacketCapture:
 
             self.info_logger.log("Packet capture and processing completed")
 
+            # Stop real-time display if it was started
+            if realtime:
+                self.debug_logger.log("Stopping real-time display thread")
+                self.stop_realtime_display()
+
             # Log session completion details if requested
             if log:
                 with self.stats_lock:
@@ -565,7 +665,6 @@ class PacketCapture:
                     self.info_logger.log(f"  {layer_name}: {count}")
 
                 self.info_logger.log("=================================")
-
 
     def show_packets(self) -> None:
         """
@@ -770,10 +869,8 @@ class PacketCapture:
             # Create DataFrame from flattened packet data
             result = pd.DataFrame(flattened_packets)
 
-
             return result
         except Exception as e:
-
             raise DataConversionError(
                 source_format="packets",
                 target_format="pandas DataFrame",
@@ -872,11 +969,9 @@ class PacketCapture:
                 ]
             )
 
-
             return df
 
         except Exception as e:
-
             raise DataConversionError(
                 source_format="packets",
                 target_format="Polars DataFrame",

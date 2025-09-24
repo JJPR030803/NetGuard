@@ -1,15 +1,15 @@
-
-
+import logging
+import os
+import threading
 import time
 import tracemalloc
-import polars as pl
 from datetime import datetime
-import os
-import psutil
-import threading
 from functools import wraps
-from typing import Callable, Any, Optional, Dict
-import logging
+from typing import Any, Callable, Dict, Optional
+
+import polars as pl
+import psutil
+
 
 class PerformanceMetrics:
     """
@@ -22,7 +22,7 @@ class PerformanceMetrics:
         def my_function():
             pass
 
-        @perf.memory()  
+        @perf.memory()
         def memory_intensive():
             pass
 
@@ -36,7 +36,7 @@ class PerformanceMetrics:
         enabled: bool = True,
         log_to_file: bool = True,
         log_dir: str = "logs/performance_metrics",
-        parquet_path: Optional[str] = None
+        parquet_path: Optional[str] = None,
     ):
         """
         Initialize the PerformanceMetrics instance.
@@ -91,6 +91,7 @@ class PerformanceMetrics:
             def query_db():
                 pass
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -109,7 +110,9 @@ class PerformanceMetrics:
                 }
                 self._log_metric(metric_data)
                 return result
+
             return wrapper
+
         return decorator
 
     def memory(self, label: Optional[str] = None):
@@ -128,6 +131,7 @@ class PerformanceMetrics:
             def process_data():
                 pass
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -148,7 +152,9 @@ class PerformanceMetrics:
                 }
                 self._log_metric(metric_data)
                 return result
+
             return wrapper
+
         return decorator
 
     def monitor(self, label: Optional[str] = None):
@@ -167,6 +173,7 @@ class PerformanceMetrics:
             def process_packet():
                 pass
         """
+
         def decorator(func: Callable) -> Callable:
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -192,7 +199,9 @@ class PerformanceMetrics:
                 }
                 self._log_metric(metric_data)
                 return result
+
             return wrapper
+
         return decorator
 
     def system_monitor(self, interval: int = 5):
@@ -269,6 +278,7 @@ class PerformanceMetrics:
 # Create a module-level variable to hold the singleton instance
 _perf_instance = None
 
+
 # Define a function to get the singleton instance
 def get_perf_instance():
     """Get the singleton PerformanceMetrics instance."""
@@ -277,6 +287,7 @@ def get_perf_instance():
         _perf_instance = PerformanceMetrics(log_to_file=False)
     return _perf_instance
 
+
 # Define a class to provide the same interface as PerformanceMetrics
 class PerformanceMetricsProxy:
     """A proxy class that forwards calls to the singleton PerformanceMetrics instance."""
@@ -284,6 +295,7 @@ class PerformanceMetricsProxy:
     def __getattr__(self, name):
         """Forward attribute access to the singleton instance."""
         return getattr(get_perf_instance(), name)
+
 
 # Create a module-level proxy object
 perf = PerformanceMetricsProxy()

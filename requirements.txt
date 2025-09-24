@@ -1,0 +1,67 @@
+# Network Security Suite Requirements
+# This file lists all dependencies used in the project, organized by category
+
+# ===== Core Dependencies =====
+# Base Python version
+python>=3.9,<4.0
+
+# ===== Sniffer Dependencies =====
+# Network packet capture and analysis
+scapy>=2.5.0,<3.0.0
+
+# ===== API Dependencies =====
+# FastAPI framework and related libraries
+fastapi>=0.104.1,<0.105.0
+uvicorn[standard]>=0.24.0,<0.25.0
+pydantic>=2.5.0,<3.0.0
+python-multipart>=0.0.6,<0.1.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0,<4.0.0
+passlib[bcrypt]>=1.7.4,<2.0.0
+
+# ===== ML (Machine Learning) Dependencies =====
+# Data processing and machine learning
+pandas>=2.1.0,<3.0.0
+numpy>=1.24.0,<2.0.0
+scikit-learn>=1.3.0,<2.0.0
+
+# ===== Database Dependencies =====
+# Database ORM and migrations
+sqlalchemy>=2.0.0,<3.0.0
+alembic>=1.12.0,<2.0.0
+
+# ===== Async Dependencies =====
+# Asynchronous programming
+asyncio>=3.4.3,<4.0.0
+
+# ===== Testing Dependencies =====
+# Testing frameworks and utilities
+pytest>=7.4.0,<8.0.0
+pytest-asyncio>=0.21.0,<0.22.0
+pytest-cov>=4.1.0,<5.0.0
+pytest-mock>=3.12.0,<4.0.0
+httpx>=0.25.0,<0.26.0  # HTTP client for testing FastAPI
+factory-boy>=3.3.0,<4.0.0
+faker>=19.12.0,<20.0.0
+
+# ===== Development Dependencies =====
+# Code formatting and linting
+black>=23.9.0,<24.0.0
+mypy>=1.6.0,<2.0.0
+pylint>=3.0.0,<4.0.0
+ruff>=0.1.6,<0.2.0
+isort>=5.12.0,<6.0.0
+
+# Security checking
+bandit>=1.7.5,<2.0.0
+safety>=2.3.0,<3.0.0
+
+# Development workflow
+pre-commit>=3.5.0,<4.0.0
+polars~=0.19.19
+pydantic-extra-types~=2.10.5
+netifaces~=0.11.0
+
+psutil~=7.0.0
+pyyaml~=6.0.2

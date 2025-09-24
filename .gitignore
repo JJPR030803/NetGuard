@@ -76,3 +76,11 @@ Thumbs.db
 captured_packets/
 ml_models_cache/
 config/local.env
+
+# LaTeX
+*.aux
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls

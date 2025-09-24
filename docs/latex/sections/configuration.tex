@@ -1,0 +1,181 @@
+\subsection{Configuration Overview}
+The Network Security Suite uses a YAML-based configuration system that allows for flexible customization of all aspects of the system. The main configuration file is \texttt{config.yaml}, which is located in the root directory of the project.
+
+\subsection{Configuration File Structure}
+The configuration file is structured into several sections, each controlling different aspects of the system:
+
+\begin{lstlisting}[language=yaml, caption=Configuration File Structure]
+# Network Security Suite Configuration
+
+# General settings
+general:
+  log_level: INFO
+  log_file: logs/network_security_suite.log
+  debug_mode: false
+
+# Network settings
+network:
+  interfaces:
+    - eth0
+  promiscuous_mode: true
+  capture_filter: "tcp or udp"
+  packet_buffer_size: 1024
+
+# Database settings
+database:
+  url: "sqlite:///data/network_security.db"
+  pool_size: 5
+  max_overflow: 10
+  echo: false
+
+# API settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://example.com"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+
+# Authentication settings
+auth:
+  secret_key: "your-secret-key"
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+
+# Machine Learning settings
+ml:
+  model_path: "models/"
+  training_data_path: "data/training/"
+  anomaly_detection:
+    algorithm: "isolation_forest"
+    contamination: 0.01
+  classification:
+    algorithm: "random_forest"
+    n_estimators: 100
+
+# Alerting settings
+alerting:
+  enabled: true
+  methods:
+    email:
+      enabled: true
+      smtp_server: "smtp.example.com"
+      smtp_port: 587
+      smtp_user: "alerts@example.com"
+      smtp_password: "your-password"
+      recipients:
+        - "admin@example.com"
+    webhook:
+      enabled: false
+      url: "https://hooks.example.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
+\end{lstlisting}
+
+\subsection{Configuration Sections}
+
+\subsubsection{General Settings}
+The \texttt{general} section controls basic system settings:
+
+\begin{itemize}
+    \item \texttt{log\_level}: The logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    \item \texttt{log\_file}: Path to the log file
+    \item \texttt{debug\_mode}: Enable/disable debug mode
+\end{itemize}
+
+\subsubsection{Network Settings}
+The \texttt{network} section configures network packet capture:
+
+\begin{itemize}
+    \item \texttt{interfaces}: List of network interfaces to monitor
+    \item \texttt{promiscuous\_mode}: Enable/disable promiscuous mode
+    \item \texttt{capture\_filter}: BPF filter for packet capture
+    \item \texttt{packet\_buffer\_size}: Size of the packet buffer
+\end{itemize}
+
+\subsubsection{Database Settings}
+The \texttt{database} section configures the database connection:
+
+\begin{itemize}
+    \item \texttt{url}: Database connection URL
+    \item \texttt{pool\_size}: Connection pool size
+    \item \texttt{max\_overflow}: Maximum number of connections to overflow
+    \item \texttt{echo}: Enable/disable SQL query logging
+\end{itemize}
+
+\subsubsection{API Settings}
+The \texttt{api} section configures the REST API:
+
+\begin{itemize}
+    \item \texttt{host}: Host to bind the API server
+    \item \texttt{port}: Port to bind the API server
+    \item \texttt{workers}: Number of worker processes
+    \item \texttt{cors\_origins}: Allowed CORS origins
+    \item \texttt{rate\_limit}: Rate limiting configuration
+\end{itemize}
+
+\subsubsection{Authentication Settings}
+The \texttt{auth} section configures authentication:
+
+\begin{itemize}
+    \item \texttt{secret\_key}: Secret key for JWT token generation
+    \item \texttt{algorithm}: JWT algorithm
+    \item \texttt{access\_token\_expire\_minutes}: Access token expiration time
+    \item \texttt{refresh\_token\_expire\_days}: Refresh token expiration time
+\end{itemize}
+
+\subsubsection{Machine Learning Settings}
+The \texttt{ml} section configures machine learning models:
+
+\begin{itemize}
+    \item \texttt{model\_path}: Path to store trained models
+    \item \texttt{training\_data\_path}: Path to training data
+    \item \texttt{anomaly\_detection}: Anomaly detection algorithm configuration
+    \item \texttt{classification}: Classification algorithm configuration
+\end{itemize}
+
+\subsubsection{Alerting Settings}
+The \texttt{alerting} section configures the alerting system:
+
+\begin{itemize}
+    \item \texttt{enabled}: Enable/disable alerting
+    \item \texttt{methods}: Configuration for different alerting methods (email, webhook, etc.)
+\end{itemize}
+
+\subsection{Environment Variables}
+In addition to the configuration file, the Network Security Suite supports configuration through environment variables. Environment variables take precedence over values in the configuration file.
+
+Environment variables should be prefixed with \texttt{NSS\_} and use underscores to separate sections and keys. For example:
+
+\begin{lstlisting}[language=bash, caption=Environment Variables Example]
+# Set the database URL
+export NSS_DATABASE_URL="postgresql://user:password@localhost/network_security"
+
+# Set the API port
+export NSS_API_PORT=9000
+
+# Enable debug mode
+export NSS_GENERAL_DEBUG_MODE=true
+\end{lstlisting}
+
+\subsection{Configuration Management}
+The Network Security Suite provides utilities for managing configuration:
+
+\begin{lstlisting}[language=bash, caption=Configuration Management Commands]
+# Validate configuration
+poetry run python -m network_security_suite.utils.validate_config config.yaml
+
+# Generate default configuration
+poetry run python -m network_security_suite.utils.generate_config > config.yaml
+
+# Show current configuration (including environment variables)
+poetry run python -m network_security_suite.utils.show_config
+\end{lstlisting}
+
+\subsection{Sensitive Configuration}
+For sensitive configuration values (passwords, API keys, etc.), it is recommended to use environment variables or a secure secrets management solution rather than storing them in the configuration file.
+
+For production deployments, consider using a secrets management solution such as HashiCorp Vault, AWS Secrets Manager, or Docker secrets.

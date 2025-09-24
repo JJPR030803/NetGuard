@@ -1,0 +1,74 @@
+\subsection{High-Level Architecture}
+The Network Security Suite follows a modular, microservices-based architecture designed for scalability, maintainability, and extensibility. The system is composed of several key components that work together to provide comprehensive network security monitoring and threat detection.
+
+\begin{figure}[H]
+    \centering
+
+    \caption{High-level architecture of the Network Security Suite}
+    \label{fig:architecture}
+\end{figure}
+
+\subsection{Core Components}
+The architecture consists of the following core components:
+
+\begin{itemize}
+    \item \textbf{Packet Sniffer Module}: Captures and processes network packets in real-time using Scapy
+    \item \textbf{Analysis Engine}: Performs deep packet inspection and preliminary analysis
+    \item \textbf{Machine Learning Module}: Applies ML algorithms to detect anomalies and potential threats
+    \item \textbf{API Layer}: Provides RESTful endpoints for integration and data access
+    \item \textbf{Database}: Stores packet metadata, analysis results, and system configuration
+    \item \textbf{Frontend Dashboard}: Provides visualization and management interface
+\end{itemize}
+
+\subsection{Data Flow}
+The data flows through the system as follows:
+
+\begin{enumerate}
+    \item Network packets are captured by the Packet Sniffer Module
+    \item Captured packets are processed and relevant metadata is extracted
+    \item Packet metadata is stored in the database and forwarded to the Analysis Engine
+    \item The Analysis Engine performs initial analysis based on predefined rules
+    \item The Machine Learning Module analyzes patterns to detect anomalies
+    \item Analysis results are stored in the database
+    \item The API Layer provides access to the data for the Frontend Dashboard and external systems
+    \item The Frontend Dashboard visualizes the data and alerts for user interaction
+\end{enumerate}
+
+\subsection{Deployment Architecture}
+The Network Security Suite is designed to be deployed in various configurations:
+
+\begin{itemize}
+    \item \textbf{Standalone Deployment}: All components run on a single machine
+    \item \textbf{Distributed Deployment}: Components are distributed across multiple machines for improved performance and scalability
+    \item \textbf{Containerized Deployment}: Components run in Docker containers, managed by Docker Compose or Kubernetes
+\end{itemize}
+
+\subsection{Technology Stack}
+The system is built using the following technologies:
+
+\begin{itemize}
+    \item \textbf{Backend}: Python 3.9+
+    \item \textbf{Packet Capture}: Scapy 2.5.0+
+    \item \textbf{API Framework}: FastAPI 0.104.1+
+    \item \textbf{ASGI Server}: Uvicorn with standard extras
+    \item \textbf{Data Validation}: Pydantic 2.5.0+
+    \item \textbf{Data Processing}: Pandas 2.1.0+, NumPy 1.24.0+
+    \item \textbf{Machine Learning}: Scikit-learn 1.3.0+
+    \item \textbf{Asynchronous Processing}: Asyncio 3.4.3+
+    \item \textbf{Authentication}: Python-jose with cryptography, Passlib with bcrypt
+    \item \textbf{Database ORM}: SQLAlchemy 2.0.0+
+    \item \textbf{Database Migrations}: Alembic 1.12.0+
+    \item \textbf{Frontend}: React (JavaScript/TypeScript)
+    \item \textbf{Containerization}: Docker, Docker Compose
+\end{itemize}
+
+\subsection{Security Architecture}
+The security architecture of the system includes:
+
+\begin{itemize}
+    \item \textbf{Authentication}: JWT-based authentication for API access
+    \item \textbf{Authorization}: Role-based access control for different user types
+    \item \textbf{Encryption}: TLS/SSL for all communications
+    \item \textbf{Secure Storage}: Encrypted storage for sensitive data
+    \item \textbf{Audit Logging}: Comprehensive logging of all system activities
+\end{itemize}
