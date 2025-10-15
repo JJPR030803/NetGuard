@@ -1,0 +1,189 @@
+site_name: ML Network Analysis Module
+site_description: Machine Learning and Network Traffic Analysis Module for Network Security Suite
+site_author: Your Name
+
+# Repository (optional - update with your repo)
+# repo_url: https://github.com/yourusername/netguard
+# repo_name: netguard
+# edit_uri: edit/main/src/network_security_suite/ml/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+  icon:
+    repo: fontawesome/brands/github
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Plugins
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            docstring_section_style: spacy
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+            show_if_no_docstring: false
+            inherited_members: true
+            members_order: source
+            separate_signature: true
+            unwrap_annotated: true
+            filters:
+              - "!^_"
+            merge_init_into_class: true
+            signature_crossrefs: true
+
+# Navigation
+nav:
+  - Home:
+      - Overview: index.md
+      - Quick Start: quickstart.md
+      - Installation: installation.md
+      - Architecture: architecture.md
+
+  - User Guide:
+      - Getting Started: user-guide/getting-started.md
+      - Workflows:
+          - Overview: user-guide/workflows/index.md
+          - Daily Security Audit: user-guide/workflows/daily-audit.md
+          - IP Investigation: user-guide/workflows/ip-investigation.md
+          - Threat Hunting: user-guide/workflows/threat-hunting.md
+          - Custom Workflows: user-guide/workflows/custom-workflows.md
+      - CLI Reference: user-guide/cli-reference.md
+      - Configuration: user-guide/configuration.md
+
+  - Analyzers:
+      - Overview: analyzers/index.md
+      - TCP Analyzer: analyzers/tcp.md
+      - UDP Analyzer: analyzers/udp.md
+      - DNS Analyzer: analyzers/dns.md
+      - IP Analyzer: analyzers/ip.md
+      - Flow Analyzer: analyzers/flow.md
+      - ARP Analyzer: analyzers/arp.md
+      - ICMP Analyzer: analyzers/icmp.md
+      - Anomaly Analyzer: analyzers/anomaly.md
+
+  - API Reference:
+      - Overview: api/index.md
+      - NetworkParquetAnalysis: api/parquet-analysis.md
+      - Workflows: api/workflows.md
+      - Analyzers:
+          - TCP: api/analyzers/tcp.md
+          - UDP: api/analyzers/udp.md
+          - DNS: api/analyzers/dns.md
+          - IP: api/analyzers/ip.md
+          - Flow: api/analyzers/flow.md
+          - ARP: api/analyzers/arp.md
+          - ICMP: api/analyzers/icmp.md
+          - Anomaly: api/analyzers/anomaly.md
+      - Utilities: api/utils.md
+      - Errors: api/errors.md
+
+  - Development:
+      - Contributing: development/contributing.md
+      - Development Setup: development/setup.md
+      - Testing: development/testing.md
+      - Code Philosophy: development/philosophy.md
+      - Changelog: development/changelog.md
+
+  - Examples:
+      - Overview: examples/index.md
+      - Daily Audit Script: examples/daily-audit.md
+      - IP Investigation Script: examples/ip-investigation.md
+      - Threat Hunting Script: examples/threat-hunting.md
+      - Custom Analysis: examples/custom-analysis.md
+
+# Extra CSS/JS
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername
+
+  # Version selector (for when you have multiple versions)
+  version:
+    provider: mike
+    default: latest
+
+# Copyright
+copyright: Copyright &copy; 2024-2025 Your Name

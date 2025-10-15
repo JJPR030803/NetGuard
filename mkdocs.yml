@@ -1,0 +1,193 @@
+site_name: Network Security Suite
+site_description: Enterprise-level Network Security Monitoring and Analysis Platform with ML Capabilities
+site_author: NetGuard Team
+
+# Repository
+# repo_url: https://github.com/yourusername/netguard
+# repo_name: netguard
+# edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+  icon:
+    repo: fontawesome/brands/github
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Plugins
+plugins:
+  - search:
+      lang: en
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_section_style: spacy
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+            show_if_no_docstring: false
+            inherited_members: true
+            members_order: source
+            separate_signature: true
+            unwrap_annotated: true
+            filters:
+              - "!^_"
+            merge_init_into_class: true
+            signature_crossrefs: true
+
+# Navigation
+nav:
+  - Home:
+      - Overview: index.md
+
+  - Sniffer Module:
+      - Overview: sniffer/index.md
+      - User Guide:
+          - Getting Started: sniffer/getting-started.md
+          - Configuration: sniffer/configuration.md
+          - Packet Filtering: sniffer/packet-filtering.md
+      - API Reference:
+          - PacketCapture: sniffer/api/packet-capture.md
+          - ParquetProcessing: sniffer/api/parquet-processing.md
+          - Interfaces: sniffer/api/interfaces.md
+          - Loggers: sniffer/api/loggers.md
+          - Exceptions: sniffer/api/exceptions.md
+          - Configuration: sniffer/api/sniffer-config.md
+      - Examples:
+          - Basic Capture: sniffer/examples/basic-capture.md
+          - Advanced Filtering: sniffer/examples/advanced-filtering.md
+
+  - ML Module:
+      - Overview: ml/index.md
+      - Quick Start: ml/quickstart.md
+      - Installation: ml/installation.md
+      - Architecture: ml/architecture.md
+      - User Guide:
+          - Getting Started: ml/user-guide/getting-started.md
+          - Workflows:
+              - Overview: ml/user-guide/workflows/index.md
+      - API Reference:
+          - Overview: ml/api/index.md
+          # - Workflows: ml/api/workflows.md  # Commented out until module imports are fixed
+      - Development:
+          - Changelog: ml/development/changelog.md
+
+  - Models Module:
+      - Overview: models/index.md
+      - User Guide:
+          - Getting Started: models/getting-started.md
+          - Data Structures: models/data-structures.md
+      - API Reference:
+          - Packet Data Structures: models/api/packet-data-structures.md
+          - Database Schemas: models/api/database-schemas.md
+
+  - Utils Module:
+      - Overview: utils/index.md
+      - User Guide:
+          - Logging: utils/logging.md
+          - Performance Metrics: utils/performance-metrics.md
+          - Configuration: utils/configuration.md
+      - API Reference:
+          - Logger: utils/api/logger.md
+          - Performance Metrics: utils/api/performance-metrics.md
+          - Config Builder: utils/api/config-builder.md
+
+  - API Module:
+      - Overview: api/index.md
+      - Getting Started: api/getting-started.md
+      - Endpoints: api/endpoints.md
+
+# Extra CSS/JS
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername
+
+  # Version selector (for when you have multiple versions)
+  version:
+    provider: mike
+    default: latest
+
+# Copyright
+copyright: Copyright &copy; 2024-2025 NetGuard Team
