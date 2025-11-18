@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Formatter, Handler
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from typing import Dict, Optional, TypedDict
+from typing import Optional, TypedDict
 
 
 @dataclass

@@ -12,8 +12,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from network_security_suite.ml.preprocessing.workflows import DailyAudit
 from datetime import time
+
+from network_security_suite.ml.preprocessing.workflows import DailyAudit
 
 
 def main():
@@ -34,7 +35,7 @@ def main():
     audit = DailyAudit(
         parquet_file,
         business_hours=business_hours,
-        lazy_load=True  # Use lazy loading for better memory efficiency
+        lazy_load=True,  # Use lazy loading for better memory efficiency
     )
 
     # Run the audit

@@ -14,8 +14,7 @@ class InvalidProtocolError(ParquetAnalysisError):
         self.protocol = protocol
         self.valid_protocols = valid_protocols
         super().__init__(
-            f"Invalid protocol: '{protocol}'. "
-            f"Valid protocols are: {', '.join(sorted(valid_protocols))}"
+            f"Invalid protocol: '{protocol}'. Valid protocols are: {', '.join(sorted(valid_protocols))}"
         )
 
 
@@ -81,8 +80,7 @@ class AnalyzerNotInitializedError(ParquetAnalysisError):
     def __init__(self, analyzer_name: str):
         self.analyzer_name = analyzer_name
         super().__init__(
-            f"Analyzer '{analyzer_name}' not initialized. "
-            "Make sure the DataFrame contains the required protocol columns."
+            f"Analyzer '{analyzer_name}' not initialized. Make sure the DataFrame contains the required protocol columns."
         )
 
 

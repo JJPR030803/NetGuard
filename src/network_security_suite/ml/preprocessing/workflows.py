@@ -6,13 +6,13 @@ This module provides simplified interfaces for common security analysis workflow
 making it easier to perform routine checks without dealing with individual analyzers.
 """
 
-from pathlib import Path
-from typing import Optional, Dict, Any, List
-from datetime import datetime, time
 import json
+from datetime import datetime, time
+from pathlib import Path
+from typing import Any, Optional
 
-from .parquet_analysis import NetworkParquetAnalysis
 from .logger import get_logger
+from .parquet_analysis import NetworkParquetAnalysis
 
 
 class WorkflowReport:
@@ -23,13 +23,21 @@ class WorkflowReport:
         self.timestamp = datetime.now()
         self.sections = {}
         self.findings = []
-        self.severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+        self.severity_counts = {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "info": 0,
+        }
 
     def add_section(self, name: str, data: Any):
         """Add a section to the report."""
         self.sections[name] = data
 
-    def add_finding(self, severity: str, category: str, description: str, details: Any = None):
+    def add_finding(
+        self, severity: str, category: str, description: str, details: Any = None
+    ):
         """
         Add a security finding.
 
@@ -39,13 +47,15 @@ class WorkflowReport:
             description: Human-readable description
             details: Additional details (dict, dataframe, etc.)
         """
-        self.findings.append({
-            "severity": severity,
-            "category": category,
-            "description": description,
-            "details": details,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.findings.append(
+            {
+                "severity": severity,
+                "category": category,
+                "description": description,
+                "details": details,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
         if severity in self.severity_counts:
             self.severity_counts[severity] += 1
 
@@ -86,10 +96,12 @@ class WorkflowReport:
                     "high": "🟠",
                     "medium": "🟡",
                     "low": "🔵",
-                    "info": "⚪"
+                    "info": "⚪",
                 }.get(finding["severity"], "•")
 
-                lines.append(f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}")
+                lines.append(
+                    f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}"
+                )
                 lines.append(f"   {finding['description']}")
                 if finding["details"]:
                     lines.append(f"   Details: {finding['details']}")
@@ -114,7 +126,7 @@ class WorkflowReport:
             "timestamp": self.timestamp.isoformat(),
             "severity_counts": self.severity_counts,
             "findings": self.findings,
-            "sections": {k: str(v) for k, v in self.sections.items()}
+            "sections": {k: str(v) for k, v in self.sections.items()},
         }
 
     def to_json(self, file_path: Optional[str] = None) -> str:
@@ -149,7 +161,7 @@ class DailyAudit:
         self,
         parquet_file: str,
         business_hours: tuple = (time(9, 0), time(17, 0)),
-        lazy_load: bool = False
+        lazy_load: bool = False,
     ):
         """
         Initialize daily audit.
@@ -211,14 +223,12 @@ class DailyAudit:
                 "total_packets": f"{total_packets:,}",
                 "start_time": date_range.get("start"),
                 "end_time": date_range.get("end"),
-                "duration": date_range.get("duration")
+                "duration": date_range.get("duration"),
             }
 
             report.add_section("Network Statistics", stats)
             report.add_finding(
-                "info",
-                "Statistics",
-                f"Analyzed {total_packets:,} packets"
+                "info", "Statistics", f"Analyzed {total_packets:,} packets"
             )
         except Exception as e:
             self.logger.error(f"Failed to get basic stats: {e}")
@@ -227,8 +237,7 @@ class DailyAudit:
         """Detect port scanning activity."""
         try:
             port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=100,
-                time_window="1m"
+                threshold=100, time_window="1m"
             )
 
             if len(port_scans) > 0:
@@ -236,7 +245,7 @@ class DailyAudit:
                     "high",
                     "Port Scan",
                     f"Detected {len(port_scans)} potential port scanning sources",
-                    f"Top scanner: {port_scans[0] if len(port_scans) > 0 else 'N/A'}"
+                    f"Top scanner: {port_scans[0] if len(port_scans) > 0 else 'N/A'}",
                 )
         except Exception as e:
             self.logger.warning(f"Port scan detection failed: {e}")
@@ -245,8 +254,7 @@ class DailyAudit:
         """Detect SYN flood attacks."""
         try:
             syn_floods = self.analysis.anomaly.detect_syn_flood(
-                threshold=1000,
-                time_window="1m"
+                threshold=1000, time_window="1m"
             )
 
             if len(syn_floods) > 0:
@@ -254,7 +262,7 @@ class DailyAudit:
                     "critical",
                     "SYN Flood",
                     f"Detected {len(syn_floods)} potential SYN flood attacks",
-                    f"Affected targets: {len(syn_floods)}"
+                    f"Affected targets: {len(syn_floods)}",
                 )
         except Exception as e:
             self.logger.warning(f"SYN flood detection failed: {e}")
@@ -263,15 +271,14 @@ class DailyAudit:
         """Detect UDP flood attacks."""
         try:
             udp_floods = self.analysis.anomaly.detect_udp_flood(
-                threshold=500,
-                time_window="1m"
+                threshold=500, time_window="1m"
             )
 
             if len(udp_floods) > 0:
                 report.add_finding(
                     "high",
                     "UDP Flood",
-                    f"Detected {len(udp_floods)} potential UDP flood attacks"
+                    f"Detected {len(udp_floods)} potential UDP flood attacks",
                 )
         except Exception as e:
             self.logger.warning(f"UDP flood detection failed: {e}")
@@ -286,7 +293,7 @@ class DailyAudit:
                     "high",
                     "DNS Tunneling",
                     f"Detected {len(tunneling)} potential DNS tunneling queries",
-                    f"Longest query length: {tunneling['query_length'].max() if len(tunneling) > 0 else 'N/A'}"
+                    f"Longest query length: {tunneling['query_length'].max() if len(tunneling) > 0 else 'N/A'}",
                 )
 
             # DGA domains
@@ -295,7 +302,7 @@ class DailyAudit:
                 report.add_finding(
                     "high",
                     "DGA Domains",
-                    f"Detected {len(dga)} potential DGA-generated domains"
+                    f"Detected {len(dga)} potential DGA-generated domains",
                 )
 
             # DNS amplification
@@ -304,7 +311,7 @@ class DailyAudit:
                 report.add_finding(
                     "medium",
                     "DNS Amplification",
-                    f"Detected {len(amplification)} potential DNS amplification attempts"
+                    f"Detected {len(amplification)} potential DNS amplification attempts",
                 )
         except Exception as e:
             self.logger.warning(f"DNS threat detection failed: {e}")
@@ -319,7 +326,7 @@ class DailyAudit:
                     "critical",
                     "ARP Spoofing",
                     f"Detected {len(spoofing)} potential ARP spoofing attempts",
-                    f"Conflicting IP-MAC pairs: {len(spoofing)}"
+                    f"Conflicting IP-MAC pairs: {len(spoofing)}",
                 )
 
             # ARP scanning
@@ -328,7 +335,7 @@ class DailyAudit:
                 report.add_finding(
                     "medium",
                     "ARP Scanning",
-                    f"Detected {len(scanning)} hosts performing ARP scanning"
+                    f"Detected {len(scanning)} hosts performing ARP scanning",
                 )
         except Exception as e:
             self.logger.warning(f"ARP threat detection failed: {e}")
@@ -342,7 +349,7 @@ class DailyAudit:
                 report.add_finding(
                     "medium",
                     "ICMP Flood",
-                    f"Detected {len(flood)} potential ICMP flood sources"
+                    f"Detected {len(flood)} potential ICMP flood sources",
                 )
 
             # ICMP tunneling
@@ -351,7 +358,7 @@ class DailyAudit:
                 report.add_finding(
                     "high",
                     "ICMP Tunneling",
-                    f"Detected {len(tunneling)} potential ICMP tunneling packets"
+                    f"Detected {len(tunneling)} potential ICMP tunneling packets",
                 )
         except Exception as e:
             self.logger.warning(f"ICMP threat detection failed: {e}")
@@ -363,7 +370,7 @@ class DailyAudit:
             if len(top_ips) > 0:
                 report.add_section(
                     "Top 5 Bandwidth Consumers",
-                    top_ips.to_pandas() if hasattr(top_ips, 'to_pandas') else top_ips
+                    top_ips.to_pandas() if hasattr(top_ips, "to_pandas") else top_ips,
                 )
         except Exception as e:
             self.logger.warning(f"Top talkers analysis failed: {e}")
@@ -377,7 +384,7 @@ class DailyAudit:
                     "medium",
                     "Failed Connections",
                     f"High number of incomplete TCP connections: {len(incomplete)}",
-                    "May indicate connection timeouts or scanning"
+                    "May indicate connection timeouts or scanning",
                 )
         except Exception as e:
             self.logger.warning(f"Failed connection check failed: {e}")
@@ -392,7 +399,7 @@ class DailyAudit:
                     "medium",
                     "Hub IPs",
                     f"Detected {len(hubs)} IPs communicating with >50 unique hosts",
-                    "May indicate scanning or botnet activity"
+                    "May indicate scanning or botnet activity",
                 )
 
             # Asymmetric traffic
@@ -402,7 +409,7 @@ class DailyAudit:
                     "low",
                     "Asymmetric Traffic",
                     f"Detected {len(asymmetric)} IPs with >90% traffic imbalance",
-                    "One-way communication patterns"
+                    "One-way communication patterns",
                 )
         except Exception as e:
             self.logger.warning(f"Suspicious IP check failed: {e}")
@@ -418,7 +425,7 @@ class DailyAudit:
                     "critical",
                     "Data Exfiltration",
                     f"Detected {len(exfiltration)} IPs with >100MB outbound transfer",
-                    "Potential data exfiltration or backup activity"
+                    "Potential data exfiltration or backup activity",
                 )
         except Exception as e:
             self.logger.warning(f"Data exfiltration check failed: {e}")
@@ -434,7 +441,7 @@ class DailyAudit:
                     "low",
                     "Off-Hours Activity",
                     f"Detected {len(off_hours)} packets outside business hours",
-                    f"Business hours: {self.business_hours[0]}-{self.business_hours[1]}"
+                    f"Business hours: {self.business_hours[0]}-{self.business_hours[1]}",
                 )
         except Exception as e:
             self.logger.warning(f"Off-hours activity check failed: {e}")
@@ -449,7 +456,7 @@ class DailyAudit:
                     "high",
                     "Beaconing Detected",
                     f"Detected {len(beacons)} flows with periodic communication patterns",
-                    "May indicate C2 (Command & Control) communication"
+                    "May indicate C2 (Command & Control) communication",
                 )
         except Exception as e:
             self.logger.warning(f"Beaconing detection failed: {e}")
@@ -463,7 +470,7 @@ class DailyAudit:
                 report.add_finding(
                     "medium",
                     "Vertical Scan",
-                    f"Detected {len(vertical)} vertical scanning patterns"
+                    f"Detected {len(vertical)} vertical scanning patterns",
                 )
 
             # Horizontal scanning (multiple ports, same host)
@@ -472,7 +479,7 @@ class DailyAudit:
                 report.add_finding(
                     "medium",
                     "Horizontal Scan",
-                    f"Detected {len(horizontal)} horizontal scanning patterns"
+                    f"Detected {len(horizontal)} horizontal scanning patterns",
                 )
         except Exception as e:
             self.logger.warning(f"Scanning pattern detection failed: {e}")
@@ -548,9 +555,13 @@ class IPInvestigation:
                 {
                     "IP Address": self.ip,
                     "Total Packets": f"{total_packets:,}",
-                    "First Seen": ip_traffic["timestamp"].min() if total_packets > 0 else "N/A",
-                    "Last Seen": ip_traffic["timestamp"].max() if total_packets > 0 else "N/A"
-                }
+                    "First Seen": (
+                        ip_traffic["timestamp"].min() if total_packets > 0 else "N/A"
+                    ),
+                    "Last Seen": (
+                        ip_traffic["timestamp"].max() if total_packets > 0 else "N/A"
+                    ),
+                },
             )
         except Exception as e:
             self.logger.error(f"Failed to get basic info: {e}")
@@ -580,7 +591,10 @@ class IPInvestigation:
             ip_traffic = self.analysis.find_ip_information(self.ip)
 
             # Count unique remote IPs
-            if "source_ip" in ip_traffic.columns and "destination_ip" in ip_traffic.columns:
+            if (
+                "source_ip" in ip_traffic.columns
+                and "destination_ip" in ip_traffic.columns
+            ):
                 remote_ips = set()
                 for row in ip_traffic.iter_rows():
                     if row[0] == self.ip:  # source_ip
@@ -591,7 +605,7 @@ class IPInvestigation:
                 report.add_finding(
                     "info",
                     "Connections",
-                    f"IP communicated with {len(remote_ips)} unique hosts"
+                    f"IP communicated with {len(remote_ips)} unique hosts",
                 )
         except Exception as e:
             self.logger.warning(f"Connection analysis failed: {e}")
@@ -601,15 +615,12 @@ class IPInvestigation:
         try:
             # Check if IP appears in port scan detection
             port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=50,
-                time_window="1m"
+                threshold=50, time_window="1m"
             )
 
             if self.ip in str(port_scans):  # Simple check
                 report.add_finding(
-                    "high",
-                    "Port Scanning",
-                    f"IP {self.ip} is performing port scanning"
+                    "high", "Port Scanning", f"IP {self.ip} is performing port scanning"
                 )
         except Exception as e:
             self.logger.warning(f"Scanning behavior check failed: {e}")
@@ -619,26 +630,22 @@ class IPInvestigation:
         try:
             # Check SYN flood
             syn_floods = self.analysis.anomaly.detect_syn_flood(
-                threshold=500,
-                time_window="1m"
+                threshold=500, time_window="1m"
             )
             if self.ip in str(syn_floods):
                 report.add_finding(
                     "critical",
                     "SYN Flood",
-                    f"IP {self.ip} is source of SYN flood attack"
+                    f"IP {self.ip} is source of SYN flood attack",
                 )
 
             # Check UDP flood
             udp_floods = self.analysis.anomaly.detect_udp_flood(
-                threshold=300,
-                time_window="1m"
+                threshold=300, time_window="1m"
             )
             if self.ip in str(udp_floods):
                 report.add_finding(
-                    "high",
-                    "UDP Flood",
-                    f"IP {self.ip} is source of UDP flood attack"
+                    "high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack"
                 )
         except Exception as e:
             self.logger.warning(f"Attack pattern check failed: {e}")
@@ -650,9 +657,7 @@ class IPInvestigation:
             top_queriers = self.analysis.dns.get_top_querying_ips(n=20)
             if self.ip in str(top_queriers):
                 report.add_finding(
-                    "info",
-                    "DNS Activity",
-                    f"IP {self.ip} is among top 20 DNS queriers"
+                    "info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers"
                 )
         except Exception as e:
             self.logger.warning(f"DNS activity check failed: {e}")
@@ -689,19 +694,21 @@ class ThreatHunting:
                     "high",
                     "Beaconing",
                     f"Detected {len(beacons)} potential C2 beaconing patterns",
-                    beacons
+                    beacons,
                 )
         except Exception as e:
             self.logger.error(f"Beaconing detection failed: {e}")
 
         # Long-lived connections
         try:
-            long_lived = self.analysis.tcp.identify_long_lived_connections(threshold="30m")
+            long_lived = self.analysis.tcp.identify_long_lived_connections(
+                threshold="30m"
+            )
             if len(long_lived) > 0:
                 report.add_finding(
                     "medium",
                     "Long-lived Connections",
-                    f"Detected {len(long_lived)} connections lasting >30 minutes"
+                    f"Detected {len(long_lived)} connections lasting >30 minutes",
                 )
         except Exception as e:
             self.logger.error(f"Long-lived connection detection failed: {e}")
@@ -713,7 +720,7 @@ class ThreatHunting:
                 report.add_finding(
                     "high",
                     "DNS Tunneling",
-                    f"Detected {len(tunneling)} potential DNS tunneling queries"
+                    f"Detected {len(tunneling)} potential DNS tunneling queries",
                 )
         except Exception as e:
             self.logger.error(f"DNS tunneling detection failed: {e}")
@@ -731,7 +738,7 @@ class ThreatHunting:
                 report.add_finding(
                     "critical",
                     "Large Outbound Transfer",
-                    f"Detected {len(exfil)} IPs with >50MB outbound"
+                    f"Detected {len(exfil)} IPs with >50MB outbound",
                 )
         except Exception as e:
             self.logger.error(f"Data exfiltration detection failed: {e}")
@@ -743,7 +750,7 @@ class ThreatHunting:
                 report.add_finding(
                     "high",
                     "DNS Tunneling",
-                    f"Detected {len(tunneling)} potential DNS tunneling queries"
+                    f"Detected {len(tunneling)} potential DNS tunneling queries",
                 )
         except Exception as e:
             self.logger.error(f"DNS tunneling detection failed: {e}")
@@ -755,7 +762,7 @@ class ThreatHunting:
                 report.add_finding(
                     "high",
                     "ICMP Tunneling",
-                    f"Detected {len(icmp_tunnel)} potential ICMP tunneling packets"
+                    f"Detected {len(icmp_tunnel)} potential ICMP tunneling packets",
                 )
         except Exception as e:
             self.logger.error(f"ICMP tunneling detection failed: {e}")
@@ -773,7 +780,7 @@ class ThreatHunting:
                 report.add_finding(
                     "medium",
                     "Hub IPs",
-                    f"Detected {len(hubs)} IPs communicating with >30 hosts"
+                    f"Detected {len(hubs)} IPs communicating with >30 hosts",
                 )
         except Exception as e:
             self.logger.error(f"Hub detection failed: {e}")
@@ -781,14 +788,13 @@ class ThreatHunting:
         # Port scanning within network
         try:
             port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=20,
-                time_window="5m"
+                threshold=20, time_window="5m"
             )
             if len(port_scans) > 0:
                 report.add_finding(
                     "high",
                     "Internal Port Scanning",
-                    f"Detected {len(port_scans)} sources performing port scans"
+                    f"Detected {len(port_scans)} sources performing port scans",
                 )
         except Exception as e:
             self.logger.error(f"Port scan detection failed: {e}")

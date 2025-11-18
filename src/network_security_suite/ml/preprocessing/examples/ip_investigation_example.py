@@ -37,11 +37,7 @@ def main():
     print(f"Data source: {parquet_file}")
     print()
 
-    investigation = IPInvestigation(
-        parquet_file,
-        ip=target_ip,
-        lazy_load=True
-    )
+    investigation = IPInvestigation(parquet_file, ip=target_ip, lazy_load=True)
 
     # Run investigation
     print("Analyzing all activity related to this IP...")

@@ -17,7 +17,11 @@ from typing import Dict, List, Optional
 import netifaces
 
 from network_security_suite.sniffer.loggers import ConsoleLogger  # Import ConsoleLogger
-from network_security_suite.sniffer.loggers import DebugLogger, ErrorLogger, InfoLogger
+from network_security_suite.sniffer.loggers import (
+    DebugLogger,
+    ErrorLogger,
+    InfoLogger,
+)
 
 from .sniffer_config import SnifferConfig
 

@@ -28,9 +28,9 @@ Example:
 """
 
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 import yaml
 
@@ -840,12 +840,12 @@ class SnifferConfig:
           Interface Settings:
             - Interface: {self.interface}
             - Detection Method: {self.interface_detection_method}
-            - Preferred Types: {', '.join(self.preferred_interface_types)}
+            - Preferred Types: {", ".join(self.preferred_interface_types)}
 
           Capture Settings:
-            - Filter Expression: {self.filter_expression if self.filter_expression else 'None'}
-            - Packet Count: {self.packet_count if self.packet_count > 0 else 'Unlimited'}
-            - Timeout: {self.timeout if self.timeout > 0 else 'None'}
+            - Filter Expression: {self.filter_expression if self.filter_expression else "None"}
+            - Packet Count: {self.packet_count if self.packet_count > 0 else "Unlimited"}
+            - Timeout: {self.timeout if self.timeout > 0 else "None"}
             - Promiscuous Mode: {self.promiscuous_mode}
             - Max Memory Packets: {self.max_memory_packets}
             - Batch Size: {self.max_processing_batch_size}

@@ -5,7 +5,6 @@ This script creates instances of SnifferConfig with various parameter combinatio
 to ensure that the documented parameters work as expected.
 """
 
-import os
 import sys
 from pathlib import Path
 

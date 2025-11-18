@@ -1,6 +1,7 @@
 """Flow analyzer for network traffic analysis."""
 
 import polars as pl
+
 from ..parquet_analysis import NetworkParquetAnalysis
 
 
@@ -17,8 +18,8 @@ class FlowAnalyzer(NetworkParquetAnalysis):
 
     # Flow timeout thresholds
     DEFAULT_FLOW_TIMEOUT = 300  # 5 minutes in seconds
-    TCP_FLOW_TIMEOUT = 3600     # 1 hour for TCP
-    UDP_FLOW_TIMEOUT = 120      # 2 minutes for UDP
+    TCP_FLOW_TIMEOUT = 3600  # 1 hour for TCP
+    UDP_FLOW_TIMEOUT = 120  # 2 minutes for UDP
 
     # Protocol numbers for flow analysis
     PROTOCOL_NUMBERS = {

@@ -2,14 +2,13 @@
 Unit tests for the PacketCapture class
 """
 
-import platform
 from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-from scapy.layers.inet import ICMP, IP, TCP, UDP
-from scapy.layers.l2 import ARP, STP, Ether
+from scapy.layers.inet import ICMP, IP, TCP
+from scapy.layers.l2 import Ether
 
 from src.network_security_suite.models.packet_data_structures import (
     POLARS_AVAILABLE,

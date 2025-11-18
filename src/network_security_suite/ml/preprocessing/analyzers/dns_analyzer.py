@@ -1,6 +1,7 @@
 """DNS protocol analyzer for network traffic analysis."""
 
 import polars as pl
+
 from ..parquet_analysis import NetworkParquetAnalysis
 
 
@@ -20,26 +21,26 @@ class DnsAnalyzer(NetworkParquetAnalysis):
 
     # DNS Query Types
     QUERY_TYPES = {
-        1: "A",          # IPv4 address
-        2: "NS",         # Name server
-        5: "CNAME",      # Canonical name
-        6: "SOA",        # Start of authority
-        12: "PTR",       # Pointer record
-        15: "MX",        # Mail exchange
-        16: "TXT",       # Text record
-        28: "AAAA",      # IPv6 address
-        33: "SRV",       # Service record
-        255: "ANY",      # All records
+        1: "A",  # IPv4 address
+        2: "NS",  # Name server
+        5: "CNAME",  # Canonical name
+        6: "SOA",  # Start of authority
+        12: "PTR",  # Pointer record
+        15: "MX",  # Mail exchange
+        16: "TXT",  # Text record
+        28: "AAAA",  # IPv6 address
+        33: "SRV",  # Service record
+        255: "ANY",  # All records
     }
 
     # DNS Response Codes
     RESPONSE_CODES = {
-        0: "NOERROR",    # No error
-        1: "FORMERR",    # Format error
-        2: "SERVFAIL",   # Server failure
-        3: "NXDOMAIN",   # Non-existent domain
-        4: "NOTIMP",     # Not implemented
-        5: "REFUSED",    # Query refused
+        0: "NOERROR",  # No error
+        1: "FORMERR",  # Format error
+        2: "SERVFAIL",  # Server failure
+        3: "NXDOMAIN",  # Non-existent domain
+        4: "NOTIMP",  # Not implemented
+        5: "REFUSED",  # Query refused
     }
 
     def __init__(self, path: str):

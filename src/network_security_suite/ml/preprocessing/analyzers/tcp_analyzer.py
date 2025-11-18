@@ -1,8 +1,9 @@
 """TCP protocol analyzer for network traffic analysis."""
 
 import polars as pl
-from ..utils import classify_port, has_column, parse_time_window
-from ..errors import MissingColumnError, EmptyDataFrameError, InvalidTimeWindowError
+
+from ..errors import EmptyDataFrameError, MissingColumnError
+from ..utils import has_column, parse_time_window
 
 
 class TcpAnalyzer:
@@ -86,10 +87,7 @@ class TcpAnalyzer:
 
     def __repr__(self) -> str:
         """Technical representation for debugging."""
-        return (
-            f"TcpAnalyzer(packets={self._packet_count}, "
-            f"shape={self.df.shape}, has_tcp_cols={self._has_tcp_columns})"
-        )
+        return f"TcpAnalyzer(packets={self._packet_count}, shape={self.df.shape}, has_tcp_cols={self._has_tcp_columns})"
 
     def __str__(self) -> str:
         """Human-readable string representation."""
@@ -129,7 +127,8 @@ class TcpAnalyzer:
 
         # Count SYN-ACK packets (contains both S and A)
         syn_ack_count = self.df.filter(
-            pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")
+            pl.col("TCP_flags").str.contains("S")
+            & pl.col("TCP_flags").str.contains("A")
         ).height
 
         # Count RST packets
@@ -162,12 +161,19 @@ class TcpAnalyzer:
 
         # Group by 5-tuple and count SYN and FIN flags
         result = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("TCP_flags").filter(pl.col("TCP_flags").str.contains("S")).count().alias("syn_count"),
-                pl.col("TCP_flags").filter(pl.col("TCP_flags").str.contains("F")).count().alias("fin_count"),
-            ])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
+            .agg(
+                [
+                    pl.col("TCP_flags")
+                    .filter(pl.col("TCP_flags").str.contains("S"))
+                    .count()
+                    .alias("syn_count"),
+                    pl.col("TCP_flags")
+                    .filter(pl.col("TCP_flags").str.contains("F"))
+                    .count()
+                    .alias("fin_count"),
+                ]
+            )
             .filter(pl.col("syn_count") > 0, pl.col("fin_count") == 0)
             .sort("syn_count", descending=True)
         )
@@ -188,19 +194,33 @@ class TcpAnalyzer:
         Note:
             Requires columns: IP_src, IP_dst, TCP_sport, TCP_dport, TCP_flags, timestamp
         """
-        required_cols = ["IP_src", "IP_dst", "TCP_sport", "TCP_dport", "TCP_flags", "timestamp"]
+        required_cols = [
+            "IP_src",
+            "IP_dst",
+            "TCP_sport",
+            "TCP_dport",
+            "TCP_flags",
+            "timestamp",
+        ]
         for col in required_cols:
             if not has_column(self.df, col):
                 raise MissingColumnError(col, self.df.columns)
 
         # Get first SYN and last FIN for each connection
         durations = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("timestamp").filter(pl.col("TCP_flags").str.contains("S")).min().alias("first_syn"),
-                pl.col("timestamp").filter(pl.col("TCP_flags").str.contains("F")).max().alias("last_fin"),
-            ])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
+            .agg(
+                [
+                    pl.col("timestamp")
+                    .filter(pl.col("TCP_flags").str.contains("S"))
+                    .min()
+                    .alias("first_syn"),
+                    pl.col("timestamp")
+                    .filter(pl.col("TCP_flags").str.contains("F"))
+                    .max()
+                    .alias("last_fin"),
+                ]
+            )
             .filter(pl.col("first_syn").is_not_null(), pl.col("last_fin").is_not_null())
             .with_columns((pl.col("last_fin") - pl.col("first_syn")).alias("duration"))
             .select("duration")
@@ -244,12 +264,13 @@ class TcpAnalyzer:
 
         # Calculate connection durations
         durations = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("timestamp").min().alias("start_time"),
-                pl.col("timestamp").max().alias("end_time"),
-            ])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
+            .agg(
+                [
+                    pl.col("timestamp").min().alias("start_time"),
+                    pl.col("timestamp").max().alias("end_time"),
+                ]
+            )
             .with_columns((pl.col("end_time") - pl.col("start_time")).alias("duration"))
             .filter(pl.col("duration") > threshold_seconds)
             .sort("duration", descending=True)
@@ -285,12 +306,13 @@ class TcpAnalyzer:
 
         # Calculate connection durations
         durations = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("timestamp").min().alias("start_time"),
-                pl.col("timestamp").max().alias("end_time"),
-            ])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
+            .agg(
+                [
+                    pl.col("timestamp").min().alias("start_time"),
+                    pl.col("timestamp").max().alias("end_time"),
+                ]
+            )
             .with_columns((pl.col("end_time") - pl.col("start_time")).alias("duration"))
             .filter(pl.col("duration") < threshold_seconds)
             .sort("duration")
@@ -321,12 +343,14 @@ class TcpAnalyzer:
 
         # Count SYN packets (S but not A)
         syn_count = self.df.filter(
-            pl.col("TCP_flags").str.contains("S") & ~pl.col("TCP_flags").str.contains("A")
+            pl.col("TCP_flags").str.contains("S")
+            & ~pl.col("TCP_flags").str.contains("A")
         ).height
 
         # Count SYN-ACK packets (both S and A)
         syn_ack_count = self.df.filter(
-            pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")
+            pl.col("TCP_flags").str.contains("S")
+            & pl.col("TCP_flags").str.contains("A")
         ).height
 
         # Count ACK-only packets (A but not S, R, F)
@@ -375,12 +399,16 @@ class TcpAnalyzer:
         flag_counts = []
         for flag_char, flag_name in self.TCP_FLAGS.items():
             count = self.df.filter(pl.col("TCP_flags").str.contains(flag_char)).height
-            flag_counts.append({
-                "flag": flag_name,
-                "flag_char": flag_char,
-                "count": count,
-                "percentage": (count / total_packets * 100) if total_packets > 0 else 0.0
-            })
+            flag_counts.append(
+                {
+                    "flag": flag_name,
+                    "flag_char": flag_char,
+                    "count": count,
+                    "percentage": (
+                        (count / total_packets * 100) if total_packets > 0 else 0.0
+                    ),
+                }
+            )
 
         return pl.DataFrame(flag_counts).sort("count", descending=True)
 
@@ -475,20 +503,28 @@ class TcpAnalyzer:
         Note:
             Requires columns: IP_src, IP_dst, TCP_sport, TCP_dport, TCP_flags, timestamp
         """
-        required_cols = ["IP_src", "IP_dst", "TCP_sport", "TCP_dport", "TCP_flags", "timestamp"]
+        required_cols = [
+            "IP_src",
+            "IP_dst",
+            "TCP_sport",
+            "TCP_dport",
+            "TCP_flags",
+            "timestamp",
+        ]
         for col in required_cols:
             if not has_column(self.df, col):
                 raise MissingColumnError(col, self.df.columns)
 
         # Group by connection and create flag sequence
         result = (
-            self.df
-            .sort("timestamp")
+            self.df.sort("timestamp")
             .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("TCP_flags").str.concat(" ").alias("flag_sequence"),
-                pl.col("TCP_flags").count().alias("packet_count"),
-            ])
+            .agg(
+                [
+                    pl.col("TCP_flags").str.concat(" ").alias("flag_sequence"),
+                    pl.col("TCP_flags").count().alias("packet_count"),
+                ]
+            )
             .sort("packet_count", descending=True)
         )
 
@@ -551,8 +587,7 @@ class TcpAnalyzer:
 
         # Find duplicate sequence numbers per connection
         result = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport", "TCP_seq"])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport", "TCP_seq"])
             .agg(pl.count().alias("seq_count"))
             .filter(pl.col("seq_count") > 1)
             .sort("seq_count", descending=True)
@@ -575,20 +610,31 @@ class TcpAnalyzer:
         Note:
             Requires columns: IP_src, IP_dst, TCP_sport, TCP_dport, IP_len, timestamp
         """
-        required_cols = ["IP_src", "IP_dst", "TCP_sport", "TCP_dport", "IP_len", "timestamp"]
+        required_cols = [
+            "IP_src",
+            "IP_dst",
+            "TCP_sport",
+            "TCP_dport",
+            "IP_len",
+            "timestamp",
+        ]
         for col in required_cols:
             if not has_column(self.df, col):
                 raise MissingColumnError(col, self.df.columns)
 
         # Calculate throughput per connection
         result = (
-            self.df
-            .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
-            .agg([
-                pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes"),
-                pl.col("timestamp").min().alias("start_time"),
-                pl.col("timestamp").max().alias("end_time"),
-            ])
+            self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
+            .agg(
+                [
+                    pl.col("IP_len")
+                    .cast(pl.Int64, strict=False)
+                    .sum()
+                    .alias("total_bytes"),
+                    pl.col("timestamp").min().alias("start_time"),
+                    pl.col("timestamp").max().alias("end_time"),
+                ]
+            )
             .with_columns((pl.col("end_time") - pl.col("start_time")).alias("duration"))
             .with_columns(
                 (pl.col("total_bytes") / pl.col("duration")).alias("bytes_per_sec")
@@ -623,18 +669,21 @@ class TcpAnalyzer:
 
         # Count destination ports
         result = (
-            self.df
-            .group_by("TCP_dport")
+            self.df.group_by("TCP_dport")
             .agg(pl.count().alias("count"))
             .sort("count", descending=True)
             .head(n)
-            .with_columns([
-                pl.col("TCP_dport").map_elements(
-                    lambda p: self.COMMON_PORTS.get(p, "Unknown"),
-                    return_dtype=pl.Utf8
-                ).alias("service_name"),
-                (pl.col("count") / total_packets * 100).alias("percentage")
-            ])
+            .with_columns(
+                [
+                    pl.col("TCP_dport")
+                    .map_elements(
+                        lambda p: self.COMMON_PORTS.get(p, "Unknown"),
+                        return_dtype=pl.Utf8,
+                    )
+                    .alias("service_name"),
+                    (pl.col("count") / total_packets * 100).alias("percentage"),
+                ]
+            )
         )
 
         return result
@@ -658,8 +707,7 @@ class TcpAnalyzer:
 
         # Find traffic on ephemeral ports with high volume
         result = (
-            self.df
-            .filter(
+            self.df.filter(
                 (pl.col("TCP_dport") >= 49152) & (pl.col("TCP_dport") < 65536)
             )
             .group_by(["IP_dst", "TCP_dport"])
@@ -712,5 +760,5 @@ class TcpAnalyzer:
                 "well_known_pct": (well_known / total * 100) if total > 0 else 0.0,
                 "registered_pct": (registered / total * 100) if total > 0 else 0.0,
                 "ephemeral_pct": (ephemeral / total * 100) if total > 0 else 0.0,
-            }
+            },
         }

@@ -211,8 +211,7 @@ class BasePacket(pyd.BaseModel):
         """
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. "
-                "Please install it with 'pip install polars' or 'poetry add polars'."
+                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
             )
 
         try:

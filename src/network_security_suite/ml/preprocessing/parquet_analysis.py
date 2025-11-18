@@ -1,17 +1,20 @@
 """Base parquet analysis logic"""
 
-import polars as pl
-import polars.selectors as cs
-from typing import Optional, Dict, Any
 import json
 from pathlib import Path
-from .logger import get_logger
+from typing import Any, Dict, Optional
+
+import polars as pl
+import polars.selectors as cs
+
 from .errors import (
-    ParquetAnalysisError,
     AnalyzerNotInitializedError,
-    FileNotFoundError as ParquetFileNotFoundError,
-    InvalidFileFormatError
-) 
+)
+from .errors import FileNotFoundError as ParquetFileNotFoundError
+from .errors import (
+    InvalidFileFormatError,
+)
+from .logger import get_logger
 
 
 class NetworkParquetAnalysis:
@@ -19,13 +22,14 @@ class NetworkParquetAnalysis:
     NetworkParquetAnalysis.
 
     Class to initialize and have parquet files filtered, processed, etc.
-    
+
     Args:
         path:str: Path where the parquet file is.
 
     Returns:
         NetworkParquetAnalysis object
     """
+
     def __init__(self, path: str, lazy_load: bool = False):
         """
         Initialize NetworkParquetAnalysis.
@@ -53,7 +57,7 @@ class NetworkParquetAnalysis:
             self.logger.log_dataframe_info(
                 "loaded_parquet",
                 shape=self.df.shape,
-                memory_mb=self.df.estimated_size("mb")
+                memory_mb=self.df.estimated_size("mb"),
             )
         except Exception as e:
             raise InvalidFileFormatError(path, e)
@@ -76,14 +80,14 @@ class NetworkParquetAnalysis:
 
     def _initialize_analyzers(self):
         """Initialize all analyzer instances."""
+        from .analyzers.anomaly_analyzer import AnomalyAnalyzer
+        from .analyzers.arp_analyzer import ArpAnalyzer
+        from .analyzers.dns_analyzer import DnsAnalyzer
+        from .analyzers.flow_analyzer import FlowAnalyzer
+        from .analyzers.icmp_analyzer import IcmpAnalyzer
+        from .analyzers.ip_analyzer import IpAnalyzer
         from .analyzers.tcp_analyzer import TcpAnalyzer
         from .analyzers.udp_analyzer import UdpAnalyzer
-        from .analyzers.dns_analyzer import DnsAnalyzer
-        from .analyzers.arp_analyzer import ArpAnalyzer
-        from .analyzers.icmp_analyzer import IcmpAnalyzer
-        from .analyzers.flow_analyzer import FlowAnalyzer
-        from .analyzers.ip_analyzer import IpAnalyzer
-        from .analyzers.anomaly_analyzer import AnomalyAnalyzer
 
         # Try to initialize each analyzer (some may fail if protocol not present)
         try:
@@ -141,6 +145,7 @@ class NetworkParquetAnalysis:
         if self._tcp is None:
             if self._lazy_load:
                 from .analyzers.tcp_analyzer import TcpAnalyzer
+
                 try:
                     self._tcp = TcpAnalyzer(self.df)
                 except Exception as e:
@@ -155,6 +160,7 @@ class NetworkParquetAnalysis:
         if self._udp is None:
             if self._lazy_load:
                 from .analyzers.udp_analyzer import UdpAnalyzer
+
                 try:
                     self._udp = UdpAnalyzer(self.df)
                 except Exception as e:
@@ -169,6 +175,7 @@ class NetworkParquetAnalysis:
         if self._dns is None:
             if self._lazy_load:
                 from .analyzers.dns_analyzer import DnsAnalyzer
+
                 try:
                     self._dns = DnsAnalyzer(self.df)
                 except Exception as e:
@@ -183,6 +190,7 @@ class NetworkParquetAnalysis:
         if self._arp is None:
             if self._lazy_load:
                 from .analyzers.arp_analyzer import ArpAnalyzer
+
                 try:
                     self._arp = ArpAnalyzer(self.df)
                 except Exception as e:
@@ -197,6 +205,7 @@ class NetworkParquetAnalysis:
         if self._icmp is None:
             if self._lazy_load:
                 from .analyzers.icmp_analyzer import IcmpAnalyzer
+
                 try:
                     self._icmp = IcmpAnalyzer(self.df)
                 except Exception as e:
@@ -211,6 +220,7 @@ class NetworkParquetAnalysis:
         if self._flow is None:
             if self._lazy_load:
                 from .analyzers.flow_analyzer import FlowAnalyzer
+
                 try:
                     self._flow = FlowAnalyzer(self.df)
                 except Exception as e:
@@ -225,6 +235,7 @@ class NetworkParquetAnalysis:
         if self._ip is None:
             if self._lazy_load:
                 from .analyzers.ip_analyzer import IpAnalyzer
+
                 try:
                     self._ip = IpAnalyzer(self.df)
                 except Exception as e:
@@ -239,6 +250,7 @@ class NetworkParquetAnalysis:
         if self._anomaly is None:
             if self._lazy_load:
                 from .analyzers.anomaly_analyzer import AnomalyAnalyzer
+
                 try:
                     self._anomaly = AnomalyAnalyzer(self.df)
                 except Exception as e:
@@ -247,7 +259,7 @@ class NetworkParquetAnalysis:
                 raise AnalyzerNotInitializedError("anomaly")
         return self._anomaly
 
-    def get_by_protocol(self,protocol:str):
+    def get_by_protocol(self, protocol: str):
         """
         get_by_protocol:
             gets a specific packet information based on it protocol.
@@ -258,10 +270,12 @@ class NetworkParquetAnalysis:
             polars.DataFrame
         """
         if protocol not in self.PROTOCOLS:
-            raise ValueError(f"Invalid protocol: {protocol}\nValid protocols are: {', '.join(self.PROTOCOLS)}")
+            raise ValueError(
+                f"Invalid protocol: {protocol}\nValid protocols are: {', '.join(self.PROTOCOLS)}"
+            )
         return self.df.select(cs.contains(protocol))
 
-    def find_ip_information(self, ip_address: str)->pl.DataFrame:
+    def find_ip_information(self, ip_address: str) -> pl.DataFrame:
         """
         find_ip_information:
             gets specific data packets based on its ip
@@ -275,13 +289,13 @@ class NetworkParquetAnalysis:
             pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)
         )
 
-    def get_timestamps(self)->pl.DataFrame:
+    def get_timestamps(self) -> pl.DataFrame:
         """
         Returns timestamps in the parquet
         """
         return self.df.select(cs.contains("timestamp"))
 
-    def get_timestamps_by_ip(self, ip_address: str)->pl.DataFrame:
+    def get_timestamps_by_ip(self, ip_address: str) -> pl.DataFrame:
         """
         Returns timestamps using ip as filter
         """
@@ -290,8 +304,9 @@ class NetworkParquetAnalysis:
             pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)
         ).select(cs.contains("timestamp"))
 
-
-    def behavioral_summary(self, time_window: str = "1m", group_by_col: str = "source_ip"):
+    def behavioral_summary(
+        self, time_window: str = "1m", group_by_col: str = "source_ip"
+    ):
         """
         Generates a behavioral summary of network traffic, grouped by source or destination IP.
 
@@ -303,7 +318,9 @@ class NetworkParquetAnalysis:
             pl.DataFrame: A DataFrame with behavioral features aggregated over the time window.
         """
         if group_by_col not in ["source_ip", "destination_ip"]:
-            raise ValueError("group_by_col must be one of 'source_ip' or 'destination_ip'")
+            raise ValueError(
+                "group_by_col must be one of 'source_ip' or 'destination_ip'"
+            )
 
         existing_cols = self.df.columns
         src_ip_cols = [c for c in ["IP_src", "IPv6_src"] if c in existing_cols]
@@ -317,44 +334,56 @@ class NetworkParquetAnalysis:
         # Single unified source and destination IP
         df_with_unified_ips = self.df.with_columns(
             pl.coalesce(src_ip_cols).alias("source_ip"),
-            pl.coalesce(dst_ip_cols).alias("destination_ip")
+            pl.coalesce(dst_ip_cols).alias("destination_ip"),
         ).drop_nulls(group_by_col)
 
         if group_by_col == "source_ip":
-            unique_ip_agg = pl.col("destination_ip").n_unique().alias("unique_dst_ip_count")
-            bytes_agg = pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_sent")
+            unique_ip_agg = (
+                pl.col("destination_ip").n_unique().alias("unique_dst_ip_count")
+            )
+            bytes_agg = (
+                pl.col("IP_len")
+                .cast(pl.Int64, strict=False)
+                .sum()
+                .alias("total_bytes_sent")
+            )
         else:  # destination_ip
             unique_ip_agg = pl.col("source_ip").n_unique().alias("unique_src_ip_count")
-            bytes_agg = pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_received")
+            bytes_agg = (
+                pl.col("IP_len")
+                .cast(pl.Int64, strict=False)
+                .sum()
+                .alias("total_bytes_received")
+            )
 
         behavioral_df = df_with_unified_ips.group_by_dynamic(
-            index_column="timestamp",
-            every=time_window,
-            by=group_by_col
+            index_column="timestamp", every=time_window, by=group_by_col
         ).agg(
             # Volume
             pl.count().alias("packet_count"),
             bytes_agg,
-
             # Diversity unique
             unique_ip_agg,
             pl.col("TCP_dport").n_unique().alias("unique_tcp_dst_port_count"),
             pl.col("UDP_dport").n_unique().alias("unique_udp_dst_port_count"),
-
             # Per protocol
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6).sum().alias("tcp_packet_count"),
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17).sum().alias("udp_packet_count"),
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1).sum().alias("icmp_packet_count"),
-
+            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6)
+            .sum()
+            .alias("tcp_packet_count"),
+            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17)
+            .sum()
+            .alias("udp_packet_count"),
+            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1)
+            .sum()
+            .alias("icmp_packet_count"),
             # TCP flag features check for SYN and RST count
             pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
             pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
             pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
             pl.col("TCP_flags").str.contains("P").sum().alias("psh_count"),
-
             # IP flags
             (pl.col("IP_flags") == "MF").sum().alias("ip_fragment_count"),
-            (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count")
+            (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count"),
         )
         return behavioral_df
 
@@ -383,31 +412,45 @@ class NetworkParquetAnalysis:
 
         # TCP summary
         if "TCP_dport" in df_with_src_ip.columns:
-            tcp_summary = df_with_src_ip.filter(pl.col("TCP_dport").is_not_null()).group_by_dynamic(
-                index_column="timestamp",
-                every=time_window,
-                by="TCP_dport"
-            ).agg(
-                pl.count().alias("packet_count"),
-                pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes"),
-                pl.col("source_ip").n_unique().alias("unique_src_ip_count"),
-                pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
-                pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
-                pl.col("TCP_flags").str.contains("F").sum().alias("fin_count")
-            ).rename({"TCP_dport": "destination_port"}).with_columns(pl.lit("TCP").alias("protocol"))
+            tcp_summary = (
+                df_with_src_ip.filter(pl.col("TCP_dport").is_not_null())
+                .group_by_dynamic(
+                    index_column="timestamp", every=time_window, by="TCP_dport"
+                )
+                .agg(
+                    pl.count().alias("packet_count"),
+                    pl.col("IP_len")
+                    .cast(pl.Int64, strict=False)
+                    .sum()
+                    .alias("total_bytes"),
+                    pl.col("source_ip").n_unique().alias("unique_src_ip_count"),
+                    pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
+                    pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
+                    pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
+                )
+                .rename({"TCP_dport": "destination_port"})
+                .with_columns(pl.lit("TCP").alias("protocol"))
+            )
             summaries.append(tcp_summary)
 
         # UDP summary
         if "UDP_dport" in df_with_src_ip.columns:
-            udp_summary = df_with_src_ip.filter(pl.col("UDP_dport").is_not_null()).group_by_dynamic(
-                index_column="timestamp",
-                every=time_window,
-                by="UDP_dport"
-            ).agg(
-                pl.count().alias("packet_count"),
-                pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes"),
-                pl.col("source_ip").n_unique().alias("unique_src_ip_count")
-            ).rename({"UDP_dport": "destination_port"}).with_columns(pl.lit("UDP").alias("protocol"))
+            udp_summary = (
+                df_with_src_ip.filter(pl.col("UDP_dport").is_not_null())
+                .group_by_dynamic(
+                    index_column="timestamp", every=time_window, by="UDP_dport"
+                )
+                .agg(
+                    pl.count().alias("packet_count"),
+                    pl.col("IP_len")
+                    .cast(pl.Int64, strict=False)
+                    .sum()
+                    .alias("total_bytes"),
+                    pl.col("source_ip").n_unique().alias("unique_src_ip_count"),
+                )
+                .rename({"UDP_dport": "destination_port"})
+                .with_columns(pl.lit("UDP").alias("protocol"))
+            )
             summaries.append(udp_summary)
 
         if not summaries:
@@ -463,11 +506,7 @@ class NetworkParquetAnalysis:
             except:
                 duration = None
 
-        return {
-            "start": min_ts,
-            "end": max_ts,
-            "duration": duration
-        }
+        return {"start": min_ts, "end": max_ts, "duration": duration}
 
     def generate_network_summary(self) -> Dict[str, Any]:
         """
@@ -491,20 +530,18 @@ class NetworkParquetAnalysis:
             },
             "protocols": {},
             "top_ips": {},
-            "analyzers_available": {}
+            "analyzers_available": {},
         }
 
         # Protocol distribution
         if "IP_proto" in self.df.columns:
             protocol_counts = (
-                self.df
-                .group_by("IP_proto")
+                self.df.group_by("IP_proto")
                 .agg(pl.count().alias("count"))
                 .sort("count", descending=True)
             )
             summary["protocols"] = {
-                str(row[0]): int(row[1])
-                for row in protocol_counts.iter_rows()
+                str(row[0]): int(row[1]) for row in protocol_counts.iter_rows()
             }
 
         # Get unique host counts
@@ -514,9 +551,19 @@ class NetworkParquetAnalysis:
         if src_cols or dst_cols:
             all_ips = []
             if src_cols:
-                all_ips.extend(self.df.select(pl.coalesce(src_cols)).to_series().drop_nulls().to_list())
+                all_ips.extend(
+                    self.df.select(pl.coalesce(src_cols))
+                    .to_series()
+                    .drop_nulls()
+                    .to_list()
+                )
             if dst_cols:
-                all_ips.extend(self.df.select(pl.coalesce(dst_cols)).to_series().drop_nulls().to_list())
+                all_ips.extend(
+                    self.df.select(pl.coalesce(dst_cols))
+                    .to_series()
+                    .drop_nulls()
+                    .to_list()
+                )
 
             summary["unique_hosts"] = len(set(all_ips))
 
@@ -537,7 +584,11 @@ class NetworkParquetAnalysis:
             try:
                 summary["tcp"] = {
                     "packet_count": len(self._tcp.df),
-                    "syn_count": self._tcp.get_syn_count() if hasattr(self._tcp, 'get_syn_count') else None,
+                    "syn_count": (
+                        self._tcp.get_syn_count()
+                        if hasattr(self._tcp, "get_syn_count")
+                        else None
+                    ),
                 }
             except Exception as e:
                 self.logger.debug(f"Error generating TCP summary: {e}")
@@ -565,9 +616,7 @@ class NetworkParquetAnalysis:
         return summary
 
     def export_summary_report(
-        self,
-        format: str = "json",
-        output: Optional[str] = None
+        self, format: str = "json", output: Optional[str] = None
     ) -> Optional[str]:
         """
         Export analysis summary to file.
@@ -598,17 +647,17 @@ class NetworkParquetAnalysis:
             for key, value in summary.items():
                 if isinstance(value, dict):
                     for sub_key, sub_value in value.items():
-                        flat_data.append({
-                            "category": key,
-                            "metric": sub_key,
-                            "value": str(sub_value)
-                        })
+                        flat_data.append(
+                            {
+                                "category": key,
+                                "metric": sub_key,
+                                "value": str(sub_value),
+                            }
+                        )
                 else:
-                    flat_data.append({
-                        "category": "general",
-                        "metric": key,
-                        "value": str(value)
-                    })
+                    flat_data.append(
+                        {"category": "general", "metric": key, "value": str(value)}
+                    )
 
             df = pl.DataFrame(flat_data)
             if output:
@@ -622,17 +671,17 @@ class NetworkParquetAnalysis:
             for key, value in summary.items():
                 if isinstance(value, dict):
                     for sub_key, sub_value in value.items():
-                        flat_data.append({
-                            "category": key,
-                            "metric": sub_key,
-                            "value": str(sub_value)
-                        })
+                        flat_data.append(
+                            {
+                                "category": key,
+                                "metric": sub_key,
+                                "value": str(sub_value),
+                            }
+                        )
                 else:
-                    flat_data.append({
-                        "category": "general",
-                        "metric": key,
-                        "value": str(value)
-                    })
+                    flat_data.append(
+                        {"category": "general", "metric": key, "value": str(value)}
+                    )
 
             df = pl.DataFrame(flat_data)
             if output:
@@ -642,22 +691,26 @@ class NetworkParquetAnalysis:
 
         else:
             raise ValueError(
-                f"Unsupported format: {format}. "
-                "Supported formats: 'json', 'csv', 'parquet'"
+                f"Unsupported format: {format}. Supported formats: 'json', 'csv', 'parquet'"
             )
 
+
 if __name__ == "__main__":
-    path = "/mnt/shared/tesis/netguard/src/network_security_suite/data/ml_testing.parquet"
+    path = (
+        "/mnt/shared/tesis/netguard/src/network_security_suite/data/ml_testing.parquet"
+    )
     analysis = NetworkParquetAnalysis(path)
 
-    print("---\"Behavioral Summary by Source IP\"---")
+    print('---"Behavioral Summary by Source IP"---')
     src_df = analysis.behavioral_summary(time_window="10m", group_by_col="source_ip")
     print(src_df.describe())
 
-    print("\n---\"Behavioral Summary by Destination IP\"---")
-    dst_df = analysis.behavioral_summary(time_window="10m", group_by_col="destination_ip")
+    print('\n---"Behavioral Summary by Destination IP"---')
+    dst_df = analysis.behavioral_summary(
+        time_window="10m", group_by_col="destination_ip"
+    )
     print(dst_df.describe())
 
-    print("\n---\"Behavioral Summary by Service Port\"---")
+    print('\n---"Behavioral Summary by Service Port"---')
     service_df = analysis.service_behavioral_summary(time_window="10m")
     print(service_df)

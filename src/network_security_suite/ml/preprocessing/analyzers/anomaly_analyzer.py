@@ -1,6 +1,7 @@
 """Anomaly detection analyzer for network traffic analysis."""
 
 import polars as pl
+
 from ..parquet_analysis import NetworkParquetAnalysis
 
 
@@ -41,10 +42,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
 
     def __repr__(self) -> str:
         """Technical representation for debugging."""
-        return (
-            f"AnomalyAnalyzer(path={self.path!r}, packets={self._packet_count}, "
-            f"shape={self.df.shape})"
-        )
+        return f"AnomalyAnalyzer(path={self.path!r}, packets={self._packet_count}, shape={self.df.shape})"
 
     def __str__(self) -> str:
         """Human-readable string representation."""

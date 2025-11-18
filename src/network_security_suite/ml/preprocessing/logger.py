@@ -4,19 +4,12 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
-
 
 # Default log format
-DEFAULT_FORMAT = (
-    "%(asctime)s | %(name)s | %(levelname)8s | %(message)s"
-)
+DEFAULT_FORMAT = "%(asctime)s | %(name)s | %(levelname)8s | %(message)s"
 
 # Detailed format with more context
-DETAILED_FORMAT = (
-    "%(asctime)s | %(name)s | %(levelname)8s | "
-    "%(filename)s:%(lineno)d | %(funcName)s | %(message)s"
-)
+DETAILED_FORMAT = "%(asctime)s | %(name)s | %(levelname)8s | %(filename)s:%(lineno)d | %(funcName)s | %(message)s"
 
 
 class PreprocessingLogger:
@@ -27,7 +20,7 @@ class PreprocessingLogger:
         name: str = "preprocessing",
         level: int = logging.INFO,
         log_file: Optional[Path] = None,
-        detailed: bool = False
+        detailed: bool = False,
     ):
         """
         Initialize preprocessing logger.
@@ -121,7 +114,10 @@ class PreprocessingLogger:
             **params: Analysis parameters
         """
         params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-        self.info(f"Starting {analysis_type} analysis" + (f" with {params_str}" if params_str else ""))
+        self.info(
+            f"Starting {analysis_type} analysis"
+            + (f" with {params_str}" if params_str else "")
+        )
 
     def log_analysis_complete(self, analysis_type: str, result_count: int = None):
         """
@@ -143,7 +139,7 @@ def get_logger(
     name: str = "preprocessing",
     level: int = logging.INFO,
     log_file: Optional[Path] = None,
-    detailed: bool = False
+    detailed: bool = False,
 ) -> PreprocessingLogger:
     """
     Get or create a preprocessing logger.
@@ -161,10 +157,7 @@ def get_logger(
 
     if _global_logger is None:
         _global_logger = PreprocessingLogger(
-            name=name,
-            level=level,
-            log_file=log_file,
-            detailed=detailed
+            name=name, level=level, log_file=log_file, detailed=detailed
         )
 
     return _global_logger

@@ -62,7 +62,6 @@ class PacketCapture:
             realtime_display (bool, optional): Enable real-time packet display. Defaults to False.
         """
         # Import here to avoid circular imports
-        import os
 
         from .sniffer_config import SnifferConfig
 
@@ -431,7 +430,7 @@ class PacketCapture:
                 print("-" * 80)
                 for i, packet in enumerate(list(self.realtime_packets)[-10:]):
                     print(
-                        f"{i+1:2d}. {packet.timestamp} | "
+                        f"{i + 1:2d}. {packet.timestamp} | "
                         f"Size: {packet.raw_size:4d} | "
                         f"Layers: {len(packet.layers):2d} | "
                         f"Proto: {packet.layers[0].layer_name if packet.layers else 'Unknown'}"
@@ -564,7 +563,7 @@ class PacketCapture:
             processor = Thread(target=self.process_queue)
             processor.start()
             processors.append(processor)
-            self.debug_logger.log(f"Thread {i+1} started")
+            self.debug_logger.log(f"Thread {i + 1} started")
 
         packet_buffer: list[ScapyPacket] = []
 
@@ -622,9 +621,9 @@ class PacketCapture:
             self.is_running = False
 
             for i, processor in enumerate(processors):
-                self.debug_logger.log(f"Waiting for thread {i+1} to finish")
+                self.debug_logger.log(f"Waiting for thread {i + 1} to finish")
                 processor.join()
-                self.debug_logger.log(f"Thread {i+1} finished")
+                self.debug_logger.log(f"Thread {i + 1} finished")
 
             self.info_logger.log("Packet capture and processing completed")
 
@@ -674,7 +673,7 @@ class PacketCapture:
         including timestamp, raw size, and all layers with their fields.
         """
         for i, packet in enumerate(self.packets):
-            print(f"\nPacket {i+1}:")
+            print(f"\nPacket {i + 1}:")
             print(f"  Timestamp: {packet.timestamp}")
             print(f"  Raw Size: {packet.raw_size} bytes")
             print(f"  Layers: {len(packet.layers)}")
@@ -764,8 +763,7 @@ class PacketCapture:
         """
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. "
-                "Please install it with 'pip install polars' or 'poetry add polars'."
+                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
             )
 
         result = []
@@ -891,8 +889,7 @@ class PacketCapture:
 
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. "
-                "Please install it with 'pip install polars' or 'poetry add polars'."
+                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
             )
 
         if not self.packets:

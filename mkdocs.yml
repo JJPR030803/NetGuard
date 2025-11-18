@@ -175,6 +175,14 @@ nav:
       - Getting Started: api/getting-started.md
       - Endpoints: api/endpoints.md
 
+  - Development:
+      - Overview: development/index.md
+      - Project Review: development/project-review.md
+      - Architecture: development/architecture.md
+      - Setup Guide: development/setup.md
+      - Contributing: development/contributing.md
+      - Testing Guide: development/testing.md
+
 # Extra CSS/JS
 extra_css:
   - stylesheets/extra.css

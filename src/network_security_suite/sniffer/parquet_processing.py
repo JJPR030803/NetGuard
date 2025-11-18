@@ -514,7 +514,7 @@ class ParquetProcessing:
                 print("-" * 80)
                 for i, packet in enumerate(list(self.realtime_packets)[-10:]):
                     print(
-                        f"{i+1:2d}. {packet.timestamp} | "
+                        f"{i + 1:2d}. {packet.timestamp} | "
                         f"Size: {packet.raw_size:4d} | "
                         f"Layers: {len(packet.layers):2d} | "
                         f"Proto: {packet.layers[0].layer_name if packet.layers else 'Unknown'}"

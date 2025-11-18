@@ -1,11 +1,13 @@
 """Utility functions for parquet analysis."""
 
-import re
 import ipaddress
+import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Union
+
 import polars as pl
-from .errors import InvalidTimeWindowError, InvalidIPAddressError
+
+from .errors import InvalidIPAddressError, InvalidTimeWindowError
 
 
 def parse_tcp_flags(flags: str) -> Dict[str, bool]:
@@ -24,17 +26,17 @@ def parse_tcp_flags(flags: str) -> Dict[str, bool]:
          'ACK': True, 'URG': False, 'ECE': False, 'CWR': False}
     """
     flag_map = {
-        'F': 'FIN',
-        'S': 'SYN',
-        'R': 'RST',
-        'P': 'PSH',
-        'A': 'ACK',
-        'U': 'URG',
-        'E': 'ECE',
-        'C': 'CWR'
+        "F": "FIN",
+        "S": "SYN",
+        "R": "RST",
+        "P": "PSH",
+        "A": "ACK",
+        "U": "URG",
+        "E": "ECE",
+        "C": "CWR",
     }
 
-    result = {name: False for name in flag_map.values()}
+    result = dict.fromkeys(flag_map.values(), False)
 
     if flags:
         for char in flags.upper():
@@ -139,7 +141,7 @@ def format_bytes(bytes_count: int) -> str:
     if bytes_count < 0:
         return "0 B"
 
-    units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
     unit_index = 0
 
     size = float(bytes_count)
@@ -205,7 +207,7 @@ def create_flow_id(
     dst_ip: str,
     src_port: Union[int, None],
     dst_port: Union[int, None],
-    protocol: str
+    protocol: str,
 ) -> str:
     """
     Create a unique flow identifier from 5-tuple.
@@ -314,7 +316,7 @@ def parse_time_window(time_window: str) -> timedelta:
         >>> parse_time_window("1h")
         datetime.timedelta(seconds=3600)
     """
-    pattern = r'^(\d+(?:\.\d+)?)(ms|s|m|h|d)$'
+    pattern = r"^(\d+(?:\.\d+)?)(ms|s|m|h|d)$"
     match = re.match(pattern, time_window.lower())
 
     if not match:
@@ -324,11 +326,11 @@ def parse_time_window(time_window: str) -> timedelta:
     value = float(value)
 
     unit_map = {
-        'ms': timedelta(milliseconds=value),
-        's': timedelta(seconds=value),
-        'm': timedelta(minutes=value),
-        'h': timedelta(hours=value),
-        'd': timedelta(days=value),
+        "ms": timedelta(milliseconds=value),
+        "s": timedelta(seconds=value),
+        "m": timedelta(minutes=value),
+        "h": timedelta(hours=value),
+        "d": timedelta(days=value),
     }
 
     return unit_map[unit]

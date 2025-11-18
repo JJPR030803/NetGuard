@@ -1,19 +1,18 @@
 """UDP protocol analyzer for network traffic analysis."""
 
 import polars as pl
-from typing import Optional
+
 from ..errors import (
     EmptyDataFrameError,
-    MissingColumnError,
     InvalidThresholdError,
+    MissingColumnError,
 )
 from ..utils import (
-    validate_dataframe_columns,
-    has_column,
-    time_window_to_polars,
-    safe_cast_to_int,
     classify_port,
-    create_flow_id,
+    has_column,
+    safe_cast_to_int,
+    time_window_to_polars,
+    validate_dataframe_columns,
 )
 
 
@@ -67,7 +66,9 @@ class UdpAnalyzer:
             MissingColumnError: If required columns are missing
         """
         if df.is_empty():
-            raise EmptyDataFrameError("Cannot initialize UdpAnalyzer with empty DataFrame")
+            raise EmptyDataFrameError(
+                "Cannot initialize UdpAnalyzer with empty DataFrame"
+            )
 
         # Validate required columns
         validate_dataframe_columns(df, ["IP_proto"])
@@ -86,10 +87,7 @@ class UdpAnalyzer:
 
     def __repr__(self) -> str:
         """Technical representation for debugging."""
-        return (
-            f"UdpAnalyzer(packets={self._packet_count}, "
-            f"shape={self.df.shape}, has_udp_cols={self._has_udp_columns})"
-        )
+        return f"UdpAnalyzer(packets={self._packet_count}, shape={self.df.shape}, has_udp_cols={self._has_udp_columns})"
 
     def __str__(self) -> str:
         """Human-readable string representation."""
@@ -137,31 +135,38 @@ class UdpAnalyzer:
 
         if not has_column(self.df, src_ip_col) or not has_column(self.df, dst_ip_col):
             raise MissingColumnError(
-                "IP_src/IP_dst or IPv6_src/IPv6_dst",
-                self.df.columns
+                "IP_src/IP_dst or IPv6_src/IPv6_dst", self.df.columns
             )
 
         # Create flow identifiers for both directions
-        df_with_flow = self.df.with_columns([
-            pl.col(src_ip_col).alias("src_ip"),
-            pl.col(dst_ip_col).alias("dst_ip"),
-            safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
-            safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
-            # Forward flow: src->dst
-            (
-                pl.col(src_ip_col).cast(pl.Utf8) + ":" +
-                pl.col("UDP_sport").cast(pl.Utf8) + "->" +
-                pl.col(dst_ip_col).cast(pl.Utf8) + ":" +
-                pl.col("UDP_dport").cast(pl.Utf8)
-            ).alias("forward_flow"),
-            # Reverse flow: dst->src
-            (
-                pl.col(dst_ip_col).cast(pl.Utf8) + ":" +
-                pl.col("UDP_dport").cast(pl.Utf8) + "->" +
-                pl.col(src_ip_col).cast(pl.Utf8) + ":" +
-                pl.col("UDP_sport").cast(pl.Utf8)
-            ).alias("reverse_flow"),
-        ])
+        df_with_flow = self.df.with_columns(
+            [
+                pl.col(src_ip_col).alias("src_ip"),
+                pl.col(dst_ip_col).alias("dst_ip"),
+                safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
+                safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
+                # Forward flow: src->dst
+                (
+                    pl.col(src_ip_col).cast(pl.Utf8)
+                    + ":"
+                    + pl.col("UDP_sport").cast(pl.Utf8)
+                    + "->"
+                    + pl.col(dst_ip_col).cast(pl.Utf8)
+                    + ":"
+                    + pl.col("UDP_dport").cast(pl.Utf8)
+                ).alias("forward_flow"),
+                # Reverse flow: dst->src
+                (
+                    pl.col(dst_ip_col).cast(pl.Utf8)
+                    + ":"
+                    + pl.col("UDP_dport").cast(pl.Utf8)
+                    + "->"
+                    + pl.col(src_ip_col).cast(pl.Utf8)
+                    + ":"
+                    + pl.col("UDP_sport").cast(pl.Utf8)
+                ).alias("reverse_flow"),
+            ]
+        )
 
         # Get all unique flows
         forward_flows = df_with_flow.select("forward_flow").unique()
@@ -169,21 +174,25 @@ class UdpAnalyzer:
 
         # Find flows that exist in forward but not in reverse (no response)
         unidirectional_flows = forward_flows.join(
-            reverse_flows,
-            left_on="forward_flow",
-            right_on="reverse_flow",
-            how="anti"
+            reverse_flows, left_on="forward_flow", right_on="reverse_flow", how="anti"
         )
 
         # Get statistics for unidirectional flows
-        result = df_with_flow.filter(
-            pl.col("forward_flow").is_in(unidirectional_flows["forward_flow"])
-        ).group_by(["src_ip", "dst_ip", "src_port", "dst_port"]).agg([
-            pl.count().alias("packet_count"),
-            safe_cast_to_int(pl.col("IP_len")).sum().alias("total_bytes"),
-            pl.col("timestamp").min().alias("first_seen"),
-            pl.col("timestamp").max().alias("last_seen"),
-        ]).sort("packet_count", descending=True)
+        result = (
+            df_with_flow.filter(
+                pl.col("forward_flow").is_in(unidirectional_flows["forward_flow"])
+            )
+            .group_by(["src_ip", "dst_ip", "src_port", "dst_port"])
+            .agg(
+                [
+                    pl.count().alias("packet_count"),
+                    safe_cast_to_int(pl.col("IP_len")).sum().alias("total_bytes"),
+                    pl.col("timestamp").min().alias("first_seen"),
+                    pl.col("timestamp").max().alias("last_seen"),
+                ]
+            )
+            .sort("packet_count", descending=True)
+        )
 
         return result
 
@@ -217,24 +226,40 @@ class UdpAnalyzer:
             raise MissingColumnError("IP_src or IPv6_src", self.df.columns)
 
         # Count packets per destination port
-        port_stats = self.df.group_by("UDP_dport").agg([
-            pl.count().alias("count"),
-            pl.col(src_ip_col).n_unique().alias("unique_sources"),
-        ]).sort("count", descending=True).head(n)
+        port_stats = (
+            self.df.group_by("UDP_dport")
+            .agg(
+                [
+                    pl.count().alias("count"),
+                    pl.col(src_ip_col).n_unique().alias("unique_sources"),
+                ]
+            )
+            .sort("count", descending=True)
+            .head(n)
+        )
 
         # Add port names and classifications
-        result = port_stats.with_columns([
-            safe_cast_to_int(pl.col("UDP_dport")).alias("port"),
-        ]).drop("UDP_dport").with_columns([
-            pl.col("port").map_elements(
-                lambda x: self.COMMON_PORTS.get(x, "Unknown"),
-                return_dtype=pl.Utf8
-            ).alias("port_name"),
-            pl.col("port").map_elements(
-                classify_port,
-                return_dtype=pl.Utf8
-            ).alias("port_class"),
-        ])
+        result = (
+            port_stats.with_columns(
+                [
+                    safe_cast_to_int(pl.col("UDP_dport")).alias("port"),
+                ]
+            )
+            .drop("UDP_dport")
+            .with_columns(
+                [
+                    pl.col("port")
+                    .map_elements(
+                        lambda x: self.COMMON_PORTS.get(x, "Unknown"),
+                        return_dtype=pl.Utf8,
+                    )
+                    .alias("port_name"),
+                    pl.col("port")
+                    .map_elements(classify_port, return_dtype=pl.Utf8)
+                    .alias("port_class"),
+                ]
+            )
+        )
 
         return result
 
@@ -268,42 +293,55 @@ class UdpAnalyzer:
 
         if not has_column(self.df, src_ip_col) or not has_column(self.df, dst_ip_col):
             raise MissingColumnError(
-                "IP_src/IP_dst or IPv6_src/IPv6_dst",
-                self.df.columns
+                "IP_src/IP_dst or IPv6_src/IPv6_dst", self.df.columns
             )
 
         # Prepare DataFrame with flow identifiers
-        df_with_flow = self.df.with_columns([
-            pl.col(src_ip_col).alias("src_ip"),
-            pl.col(dst_ip_col).alias("dst_ip"),
-            safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
-            safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
-        ])
+        df_with_flow = self.df.with_columns(
+            [
+                pl.col(src_ip_col).alias("src_ip"),
+                pl.col(dst_ip_col).alias("dst_ip"),
+                safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
+                safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
+            ]
+        )
 
         # Group by 5-tuple and calculate statistics
-        flow_stats = df_with_flow.group_by(
-            ["src_ip", "dst_ip", "src_port", "dst_port"]
-        ).agg([
-            pl.count().alias("packet_count"),
-            safe_cast_to_int(pl.col("IP_len")).sum().alias("total_bytes"),
-            safe_cast_to_int(pl.col("IP_len")).mean().alias("avg_packet_size"),
-            pl.col("timestamp").min().alias("first_seen"),
-            pl.col("timestamp").max().alias("last_seen"),
-        ]).with_columns([
-            (
-                (pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()
-            ).alias("duration_seconds")
-        ])
+        flow_stats = (
+            df_with_flow.group_by(["src_ip", "dst_ip", "src_port", "dst_port"])
+            .agg(
+                [
+                    pl.count().alias("packet_count"),
+                    safe_cast_to_int(pl.col("IP_len")).sum().alias("total_bytes"),
+                    safe_cast_to_int(pl.col("IP_len")).mean().alias("avg_packet_size"),
+                    pl.col("timestamp").min().alias("first_seen"),
+                    pl.col("timestamp").max().alias("last_seen"),
+                ]
+            )
+            .with_columns(
+                [
+                    (
+                        (pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()
+                    ).alias("duration_seconds")
+                ]
+            )
+        )
 
         # Add flow ID
-        result = flow_stats.with_columns([
-            (
-                pl.col("src_ip").cast(pl.Utf8) + ":" +
-                pl.col("src_port").cast(pl.Utf8) + "->" +
-                pl.col("dst_ip").cast(pl.Utf8) + ":" +
-                pl.col("dst_port").cast(pl.Utf8) + ":UDP"
-            ).alias("flow_id")
-        ]).sort("packet_count", descending=True)
+        result = flow_stats.with_columns(
+            [
+                (
+                    pl.col("src_ip").cast(pl.Utf8)
+                    + ":"
+                    + pl.col("src_port").cast(pl.Utf8)
+                    + "->"
+                    + pl.col("dst_ip").cast(pl.Utf8)
+                    + ":"
+                    + pl.col("dst_port").cast(pl.Utf8)
+                    + ":UDP"
+                ).alias("flow_id")
+            ]
+        ).sort("packet_count", descending=True)
 
         return result
 
@@ -333,22 +371,26 @@ class UdpAnalyzer:
 
         # Group by time window
         result = self.df.group_by_dynamic(
-            index_column="timestamp",
-            every=polars_window
-        ).agg([
-            pl.count().alias("packet_count"),
-            safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
-        ])
+            index_column="timestamp", every=polars_window
+        ).agg(
+            [
+                pl.count().alias("packet_count"),
+                safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
+            ]
+        )
 
         # Calculate window duration in seconds for rate calculation
         from ..utils import parse_time_window
+
         window_seconds = parse_time_window(time_window).total_seconds()
 
         # Add rate calculations
-        result = result.with_columns([
-            (pl.col("packet_count") / window_seconds).alias("packets_per_second"),
-            (pl.col("byte_count") / window_seconds).alias("bytes_per_second"),
-        ]).sort("timestamp")
+        result = result.with_columns(
+            [
+                (pl.col("packet_count") / window_seconds).alias("packets_per_second"),
+                (pl.col("byte_count") / window_seconds).alias("bytes_per_second"),
+            ]
+        ).sort("timestamp")
 
         return result
 
@@ -356,7 +398,9 @@ class UdpAnalyzer:
     # ANOMALY DETECTION METHODS
     # ============================================================================
 
-    def detect_udp_flood(self, threshold: int = 1000, time_window: str = "1m") -> pl.DataFrame:
+    def detect_udp_flood(
+        self, threshold: int = 1000, time_window: str = "1m"
+    ) -> pl.DataFrame:
         """
         Detect abnormal UDP packet volume (potential DDoS).
 
@@ -393,45 +437,56 @@ class UdpAnalyzer:
         polars_window = time_window_to_polars(time_window)
 
         # Prepare DataFrame
-        df_prepared = self.df.with_columns([
-            pl.col(src_ip_col).alias("src_ip"),
-        ])
+        df_prepared = self.df.with_columns(
+            [
+                pl.col(src_ip_col).alias("src_ip"),
+            ]
+        )
 
         # Group by source IP and time window
         flood_candidates = df_prepared.group_by_dynamic(
-            index_column="timestamp",
-            every=polars_window,
-            by="src_ip"
-        ).agg([
-            pl.count().alias("packet_count"),
-            safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
-        ])
+            index_column="timestamp", every=polars_window, by="src_ip"
+        ).agg(
+            [
+                pl.count().alias("packet_count"),
+                safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
+            ]
+        )
 
         # Add additional metrics if destination data is available
         if has_column(self.df, dst_ip_col):
-            df_prepared = df_prepared.with_columns([
-                pl.col(dst_ip_col).alias("dst_ip"),
-            ])
+            df_prepared = df_prepared.with_columns(
+                [
+                    pl.col(dst_ip_col).alias("dst_ip"),
+                ]
+            )
             flood_candidates = df_prepared.group_by_dynamic(
-                index_column="timestamp",
-                every=polars_window,
-                by="src_ip"
-            ).agg([
-                pl.count().alias("packet_count"),
-                safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
-                pl.col("dst_ip").n_unique().alias("unique_destinations"),
-                safe_cast_to_int(pl.col("UDP_dport")).n_unique().alias("unique_ports")
-                if has_column(self.df, "UDP_dport") else pl.lit(0).alias("unique_ports"),
-            ])
+                index_column="timestamp", every=polars_window, by="src_ip"
+            ).agg(
+                [
+                    pl.count().alias("packet_count"),
+                    safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
+                    pl.col("dst_ip").n_unique().alias("unique_destinations"),
+                    (
+                        safe_cast_to_int(pl.col("UDP_dport"))
+                        .n_unique()
+                        .alias("unique_ports")
+                        if has_column(self.df, "UDP_dport")
+                        else pl.lit(0).alias("unique_ports")
+                    ),
+                ]
+            )
 
         # Filter sources exceeding threshold
-        result = flood_candidates.filter(
-            pl.col("packet_count") >= threshold
-        ).sort("packet_count", descending=True)
+        result = flood_candidates.filter(pl.col("packet_count") >= threshold).sort(
+            "packet_count", descending=True
+        )
 
         return result
 
-    def detect_udp_amplification(self, min_amplification_ratio: float = 10.0) -> pl.DataFrame:
+    def detect_udp_amplification(
+        self, min_amplification_ratio: float = 10.0
+    ) -> pl.DataFrame:
         """
         Detect UDP amplification attacks (small request, large response).
 
@@ -455,7 +510,7 @@ class UdpAnalyzer:
         if min_amplification_ratio <= 1.0:
             raise InvalidThresholdError(
                 min_amplification_ratio,
-                "min_amplification_ratio must be greater than 1.0"
+                "min_amplification_ratio must be greater than 1.0",
             )
 
         required_cols = ["UDP_sport", "UDP_dport"]
@@ -467,8 +522,7 @@ class UdpAnalyzer:
 
         if not has_column(self.df, src_ip_col) or not has_column(self.df, dst_ip_col):
             raise MissingColumnError(
-                "IP_src/IP_dst or IPv6_src/IPv6_dst",
-                self.df.columns
+                "IP_src/IP_dst or IPv6_src/IPv6_dst", self.df.columns
             )
 
         # Common amplification service ports
@@ -476,69 +530,92 @@ class UdpAnalyzer:
 
         # Filter to traffic involving amplification-prone services
         df_amp = self.df.filter(
-            pl.col("UDP_dport").is_in(amplification_ports) |
-            pl.col("UDP_sport").is_in(amplification_ports)
+            pl.col("UDP_dport").is_in(amplification_ports)
+            | pl.col("UDP_sport").is_in(amplification_ports)
         )
 
         if df_amp.is_empty():
             return pl.DataFrame()
 
         # Prepare data
-        df_prepared = df_amp.with_columns([
-            pl.col(src_ip_col).alias("src_ip"),
-            pl.col(dst_ip_col).alias("dst_ip"),
-            safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
-            safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
-            safe_cast_to_int(pl.col("IP_len")).alias("packet_size"),
-        ])
+        df_prepared = df_amp.with_columns(
+            [
+                pl.col(src_ip_col).alias("src_ip"),
+                pl.col(dst_ip_col).alias("dst_ip"),
+                safe_cast_to_int(pl.col("UDP_sport")).alias("src_port"),
+                safe_cast_to_int(pl.col("UDP_dport")).alias("dst_port"),
+                safe_cast_to_int(pl.col("IP_len")).alias("packet_size"),
+            ]
+        )
 
         # Identify requests (to service port) and responses (from service port)
-        requests = df_prepared.filter(
-            pl.col("dst_port").is_in(amplification_ports)
-        ).group_by(["dst_ip", "dst_port", "src_ip"]).agg([
-            pl.count().alias("request_count"),
-            pl.col("packet_size").mean().alias("avg_request_size"),
-        ]).rename({
-            "dst_ip": "reflector_ip",
-            "dst_port": "service_port",
-            "src_ip": "client_ip",
-        })
+        requests = (
+            df_prepared.filter(pl.col("dst_port").is_in(amplification_ports))
+            .group_by(["dst_ip", "dst_port", "src_ip"])
+            .agg(
+                [
+                    pl.count().alias("request_count"),
+                    pl.col("packet_size").mean().alias("avg_request_size"),
+                ]
+            )
+            .rename(
+                {
+                    "dst_ip": "reflector_ip",
+                    "dst_port": "service_port",
+                    "src_ip": "client_ip",
+                }
+            )
+        )
 
-        responses = df_prepared.filter(
-            pl.col("src_port").is_in(amplification_ports)
-        ).group_by(["src_ip", "src_port", "dst_ip"]).agg([
-            pl.count().alias("response_count"),
-            pl.col("packet_size").mean().alias("avg_response_size"),
-        ]).rename({
-            "src_ip": "reflector_ip",
-            "src_port": "service_port",
-            "dst_ip": "client_ip",
-        })
+        responses = (
+            df_prepared.filter(pl.col("src_port").is_in(amplification_ports))
+            .group_by(["src_ip", "src_port", "dst_ip"])
+            .agg(
+                [
+                    pl.count().alias("response_count"),
+                    pl.col("packet_size").mean().alias("avg_response_size"),
+                ]
+            )
+            .rename(
+                {
+                    "src_ip": "reflector_ip",
+                    "src_port": "service_port",
+                    "dst_ip": "client_ip",
+                }
+            )
+        )
 
         # Match requests with responses
         matched = requests.join(
-            responses,
-            on=["reflector_ip", "service_port", "client_ip"],
-            how="inner"
+            responses, on=["reflector_ip", "service_port", "client_ip"], how="inner"
         )
 
         if matched.is_empty():
             return pl.DataFrame()
 
         # Calculate amplification ratio and filter
-        result = matched.with_columns([
-            (pl.col("avg_response_size") / pl.col("avg_request_size")).alias("amplification_ratio")
-        ]).filter(
-            pl.col("amplification_ratio") >= min_amplification_ratio
-        ).select([
-            pl.col("client_ip").alias("victim_ip"),
-            pl.col("reflector_ip"),
-            pl.col("service_port"),
-            pl.col("request_count"),
-            pl.col("avg_request_size"),
-            pl.col("avg_response_size"),
-            pl.col("amplification_ratio"),
-        ]).sort("amplification_ratio", descending=True)
+        result = (
+            matched.with_columns(
+                [
+                    (pl.col("avg_response_size") / pl.col("avg_request_size")).alias(
+                        "amplification_ratio"
+                    )
+                ]
+            )
+            .filter(pl.col("amplification_ratio") >= min_amplification_ratio)
+            .select(
+                [
+                    pl.col("client_ip").alias("victim_ip"),
+                    pl.col("reflector_ip"),
+                    pl.col("service_port"),
+                    pl.col("request_count"),
+                    pl.col("avg_request_size"),
+                    pl.col("avg_response_size"),
+                    pl.col("amplification_ratio"),
+                ]
+            )
+            .sort("amplification_ratio", descending=True)
+        )
 
         return result
 
@@ -577,37 +654,51 @@ class UdpAnalyzer:
             raise MissingColumnError("IP_src or IPv6_src", self.df.columns)
 
         # Prepare DataFrame
-        df_prepared = self.df.with_columns([
-            pl.col(src_ip_col).alias("src_ip"),
-        ])
+        df_prepared = self.df.with_columns(
+            [
+                pl.col(src_ip_col).alias("src_ip"),
+            ]
+        )
 
         # Group by source IP and count unique ports
-        scan_candidates = df_prepared.group_by("src_ip").agg([
-            safe_cast_to_int(pl.col("UDP_dport")).n_unique().alias("unique_ports_scanned"),
-            pl.count().alias("total_packets"),
-            pl.col("timestamp").min().alias("first_seen"),
-            pl.col("timestamp").max().alias("last_seen"),
-        ])
-
-        # Add additional metrics if destination IP is available
-        if has_column(self.df, dst_ip_col):
-            df_prepared = df_prepared.with_columns([
-                pl.col(dst_ip_col).alias("dst_ip"),
-            ])
-            scan_candidates = df_prepared.group_by("src_ip").agg([
-                safe_cast_to_int(pl.col("UDP_dport")).n_unique().alias("unique_ports_scanned"),
-                pl.col("dst_ip").n_unique().alias("unique_destinations"),
+        scan_candidates = df_prepared.group_by("src_ip").agg(
+            [
+                safe_cast_to_int(pl.col("UDP_dport"))
+                .n_unique()
+                .alias("unique_ports_scanned"),
                 pl.count().alias("total_packets"),
                 pl.col("timestamp").min().alias("first_seen"),
                 pl.col("timestamp").max().alias("last_seen"),
-            ])
+            ]
+        )
+
+        # Add additional metrics if destination IP is available
+        if has_column(self.df, dst_ip_col):
+            df_prepared = df_prepared.with_columns(
+                [
+                    pl.col(dst_ip_col).alias("dst_ip"),
+                ]
+            )
+            scan_candidates = df_prepared.group_by("src_ip").agg(
+                [
+                    safe_cast_to_int(pl.col("UDP_dport"))
+                    .n_unique()
+                    .alias("unique_ports_scanned"),
+                    pl.col("dst_ip").n_unique().alias("unique_destinations"),
+                    pl.count().alias("total_packets"),
+                    pl.col("timestamp").min().alias("first_seen"),
+                    pl.col("timestamp").max().alias("last_seen"),
+                ]
+            )
 
         # Calculate scan duration
-        scan_candidates = scan_candidates.with_columns([
-            (
-                (pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()
-            ).alias("scan_duration_seconds")
-        ])
+        scan_candidates = scan_candidates.with_columns(
+            [
+                ((pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()).alias(
+                    "scan_duration_seconds"
+                )
+            ]
+        )
 
         # Filter sources exceeding threshold
         result = scan_candidates.filter(

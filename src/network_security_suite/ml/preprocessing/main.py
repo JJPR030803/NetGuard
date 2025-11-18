@@ -7,17 +7,16 @@ parquet files using the NetworkParquetAnalysis framework.
 """
 
 import argparse
-import sys
-import logging
-from pathlib import Path
-from typing import Optional
 import json
-
-from .parquet_analysis import NetworkParquetAnalysis
-from .logger import get_logger, set_log_level
-from .errors import ParquetAnalysisError
-from .workflows import DailyAudit, IPInvestigation, ThreatHunting
+import logging
+import sys
 from datetime import time
+from pathlib import Path
+
+from .errors import ParquetAnalysisError
+from .logger import get_logger, set_log_level
+from .parquet_analysis import NetworkParquetAnalysis
+from .workflows import DailyAudit, IPInvestigation, ThreatHunting
 
 
 def setup_argparser() -> argparse.ArgumentParser:
@@ -49,215 +48,138 @@ Examples:
 
   # Detect anomalies
   %(prog)s analyze capture.parquet --anomalies --port-scan
-        """
+        """,
     )
 
     # Global options
     parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose debug logging"
+        "-v", "--verbose", action="store_true", help="Enable verbose debug logging"
     )
     parser.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Suppress all output except errors"
+        "-q", "--quiet", action="store_true", help="Suppress all output except errors"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Analyze command
-    analyze_parser = subparsers.add_parser(
-        "analyze",
-        help="Analyze a parquet file"
-    )
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze a parquet file")
+    analyze_parser.add_argument("file", type=str, help="Path to parquet file")
     analyze_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
-    analyze_parser.add_argument(
-        "--summary",
-        action="store_true",
-        help="Generate and display network summary"
+        "--summary", action="store_true", help="Generate and display network summary"
     )
     analyze_parser.add_argument(
         "--export",
         type=str,
         metavar="FILE",
-        help="Export summary to file (format auto-detected from extension)"
+        help="Export summary to file (format auto-detected from extension)",
     )
     analyze_parser.add_argument(
         "--format",
         type=str,
         choices=["json", "csv", "parquet"],
         default="json",
-        help="Export format (default: json)"
+        help="Export format (default: json)",
     )
     analyze_parser.add_argument(
-        "--lazy",
-        action="store_true",
-        help="Use lazy loading for analyzers"
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
     )
 
     # Protocol-specific analysis
     analyze_parser.add_argument(
-        "--tcp",
-        action="store_true",
-        help="Analyze TCP traffic"
+        "--tcp", action="store_true", help="Analyze TCP traffic"
     )
     analyze_parser.add_argument(
-        "--udp",
-        action="store_true",
-        help="Analyze UDP traffic"
+        "--udp", action="store_true", help="Analyze UDP traffic"
     )
     analyze_parser.add_argument(
-        "--dns",
-        action="store_true",
-        help="Analyze DNS traffic"
+        "--dns", action="store_true", help="Analyze DNS traffic"
     )
     analyze_parser.add_argument(
         "--top-ports",
         type=int,
         metavar="N",
-        help="Show top N ports (requires --tcp or --udp)"
+        help="Show top N ports (requires --tcp or --udp)",
     )
 
     # Anomaly detection
     analyze_parser.add_argument(
-        "--anomalies",
-        action="store_true",
-        help="Run anomaly detection"
+        "--anomalies", action="store_true", help="Run anomaly detection"
     )
     analyze_parser.add_argument(
         "--port-scan",
         action="store_true",
-        help="Detect port scanning (requires --anomalies)"
+        help="Detect port scanning (requires --anomalies)",
     )
     analyze_parser.add_argument(
         "--syn-flood",
         action="store_true",
-        help="Detect SYN flood attacks (requires --anomalies)"
+        help="Detect SYN flood attacks (requires --anomalies)",
     )
 
     # IP analysis
     analyze_parser.add_argument(
-        "--ip",
-        type=str,
-        metavar="IP_ADDRESS",
-        help="Analyze specific IP address"
+        "--ip", type=str, metavar="IP_ADDRESS", help="Analyze specific IP address"
     )
     analyze_parser.add_argument(
-        "--top-ips",
-        type=int,
-        metavar="N",
-        help="Show top N most active IPs"
+        "--top-ips", type=int, metavar="N", help="Show top N most active IPs"
     )
 
     # Info command
-    info_parser = subparsers.add_parser(
-        "info",
-        help="Display basic file information"
-    )
-    info_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
+    info_parser = subparsers.add_parser("info", help="Display basic file information")
+    info_parser.add_argument("file", type=str, help="Path to parquet file")
 
     # Schema command
-    schema_parser = subparsers.add_parser(
-        "schema",
-        help="Display parquet file schema"
-    )
-    schema_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
+    schema_parser = subparsers.add_parser("schema", help="Display parquet file schema")
+    schema_parser.add_argument("file", type=str, help="Path to parquet file")
 
     # Daily Audit workflow
     audit_parser = subparsers.add_parser(
-        "daily-audit",
-        help="Run automated daily security audit"
+        "daily-audit", help="Run automated daily security audit"
     )
-    audit_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
+    audit_parser.add_argument("file", type=str, help="Path to parquet file")
     audit_parser.add_argument(
         "--business-hours",
         type=str,
         default="9-17",
-        help="Business hours for off-hours detection (format: START-END, e.g., 9-17)"
+        help="Business hours for off-hours detection (format: START-END, e.g., 9-17)",
     )
     audit_parser.add_argument(
-        "--export",
-        type=str,
-        metavar="FILE",
-        help="Export report to JSON file"
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
     )
     audit_parser.add_argument(
-        "--lazy",
-        action="store_true",
-        help="Use lazy loading for analyzers"
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
     )
 
     # IP Investigation workflow
     investigate_parser = subparsers.add_parser(
-        "investigate-ip",
-        help="Investigate specific IP address"
+        "investigate-ip", help="Investigate specific IP address"
+    )
+    investigate_parser.add_argument("file", type=str, help="Path to parquet file")
+    investigate_parser.add_argument("ip", type=str, help="IP address to investigate")
+    investigate_parser.add_argument(
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
     )
     investigate_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
-    investigate_parser.add_argument(
-        "ip",
-        type=str,
-        help="IP address to investigate"
-    )
-    investigate_parser.add_argument(
-        "--export",
-        type=str,
-        metavar="FILE",
-        help="Export report to JSON file"
-    )
-    investigate_parser.add_argument(
-        "--lazy",
-        action="store_true",
-        help="Use lazy loading for analyzers"
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
     )
 
     # Threat Hunting workflow
     threat_parser = subparsers.add_parser(
-        "threat-hunt",
-        help="Proactive threat hunting"
+        "threat-hunt", help="Proactive threat hunting"
     )
-    threat_parser.add_argument(
-        "file",
-        type=str,
-        help="Path to parquet file"
-    )
+    threat_parser.add_argument("file", type=str, help="Path to parquet file")
     threat_parser.add_argument(
         "--type",
         type=str,
         choices=["c2", "data-theft", "lateral", "all"],
         default="all",
-        help="Type of threat to hunt for (default: all)"
+        help="Type of threat to hunt for (default: all)",
     )
     threat_parser.add_argument(
-        "--export",
-        type=str,
-        metavar="FILE",
-        help="Export report to JSON file"
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
     )
     threat_parser.add_argument(
-        "--lazy",
-        action="store_true",
-        help="Use lazy loading for analyzers"
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
     )
 
     return parser
@@ -265,9 +187,9 @@ Examples:
 
 def command_info(args, analysis: NetworkParquetAnalysis):
     """Execute info command."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"File: {args.file}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Total packets: {analysis.get_packet_count():,}")
 
     date_range = analysis.get_date_range()
@@ -276,23 +198,24 @@ def command_info(args, analysis: NetworkParquetAnalysis):
         print(f"End time:      {date_range['end']}")
         if date_range["duration"]:
             from .utils import format_duration
+
             print(f"Duration:      {format_duration(date_range['duration'])}")
 
     print(f"DataFrame size: {analysis.df.estimated_size('mb'):.2f} MB")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
 
 def command_schema(args, analysis: NetworkParquetAnalysis):
     """Execute schema command."""
     schema = analysis.get_schema()
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Schema for: {args.file}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"{'Column':<40} {'Type':<20}")
     print("-" * 60)
     for col, dtype in schema.items():
         print(f"{col:<40} {dtype:<20}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Total columns: {len(schema)}")
     print()
 
@@ -304,9 +227,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     # Summary
     if args.summary:
         summary = analysis.generate_network_summary()
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("NETWORK TRAFFIC SUMMARY")
-        print("="*60)
+        print("=" * 60)
         print(json.dumps(summary, indent=2, default=str))
         print()
 
@@ -314,8 +237,8 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.export:
         # Auto-detect format from extension if not specified
         fmt = args.format
-        ext = Path(args.export).suffix.lstrip('.')
-        if ext in ['json', 'csv', 'parquet']:
+        ext = Path(args.export).suffix.lstrip(".")
+        if ext in ["json", "csv", "parquet"]:
             fmt = ext
 
         analysis.export_summary_report(format=fmt, output=args.export)
@@ -325,9 +248,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.tcp:
         try:
             tcp = analysis.tcp
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("TCP ANALYSIS")
-            print("="*60)
+            print("=" * 60)
             print(f"Total TCP packets: {len(tcp.df):,}")
 
             if args.top_ports:
@@ -342,9 +265,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.udp:
         try:
             udp = analysis.udp
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("UDP ANALYSIS")
-            print("="*60)
+            print("=" * 60)
             print(f"Total UDP packets: {len(udp.df):,}")
 
             if args.top_ports:
@@ -359,9 +282,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.dns:
         try:
             dns = analysis.dns
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("DNS ANALYSIS")
-            print("="*60)
+            print("=" * 60)
             print(f"Total DNS packets: {len(dns.df):,}")
 
             top_queries = dns.get_top_queries(n=10)
@@ -374,9 +297,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     # IP analysis
     if args.ip:
         ip_info = analysis.find_ip_information(args.ip)
-        print(f"\n" + "="*60)
+        print("\n" + "=" * 60)
         print(f"IP ANALYSIS: {args.ip}")
-        print("="*60)
+        print("=" * 60)
         print(f"Total packets: {len(ip_info):,}")
         print("\nPacket details:")
         print(ip_info)
@@ -385,9 +308,9 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
         try:
             ip_analyzer = analysis.ip
             top_ips = ip_analyzer.get_most_active_ips(n=args.top_ips, by="packets")
-            print(f"\n" + "="*60)
+            print("\n" + "=" * 60)
             print(f"TOP {args.top_ips} MOST ACTIVE IPs")
-            print("="*60)
+            print("=" * 60)
             print(top_ips)
 
         except Exception as e:
@@ -397,12 +320,14 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.anomalies:
         try:
             anomaly = analysis.anomaly
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("ANOMALY DETECTION")
-            print("="*60)
+            print("=" * 60)
 
             if args.port_scan:
-                port_scans = anomaly.detect_port_scanning(threshold=100, time_window="1m")
+                port_scans = anomaly.detect_port_scanning(
+                    threshold=100, time_window="1m"
+                )
                 print("\nPort scan detection:")
                 print(port_scans)
 
@@ -432,11 +357,7 @@ def command_daily_audit(args):
 
     # Run audit
     logger.info("Starting daily security audit...")
-    audit = DailyAudit(
-        args.file,
-        business_hours=business_hours,
-        lazy_load=args.lazy
-    )
+    audit = DailyAudit(args.file, business_hours=business_hours, lazy_load=args.lazy)
     report = audit.run()
 
     # Display report
@@ -460,11 +381,7 @@ def command_investigate_ip(args):
     logger = get_logger()
 
     logger.info(f"Investigating IP: {args.ip}")
-    investigation = IPInvestigation(
-        args.file,
-        ip=args.ip,
-        lazy_load=args.lazy
-    )
+    investigation = IPInvestigation(args.file, ip=args.ip, lazy_load=args.lazy)
     report = investigation.run()
 
     # Display report
@@ -571,7 +488,7 @@ def main():
             return 1
 
         # Create analysis instance
-        lazy = args.lazy if hasattr(args, 'lazy') else False
+        lazy = args.lazy if hasattr(args, "lazy") else False
         analysis = NetworkParquetAnalysis(file_path, lazy_load=lazy)
 
         # Execute command
@@ -591,7 +508,10 @@ def main():
         logger.info("\nInterrupted by user")
         return 130
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=args.verbose if hasattr(args, 'verbose') else False)
+        logger.error(
+            f"Unexpected error: {e}",
+            exc_info=args.verbose if hasattr(args, "verbose") else False,
+        )
         return 1
 
 
