@@ -133,7 +133,7 @@ NetGuard follows a modular pipeline architecture:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/netguard.git
+git clone https://github.com/JJPR030803/NetGuard.git
 cd netguard
 
 # Install using uv (recommended)
