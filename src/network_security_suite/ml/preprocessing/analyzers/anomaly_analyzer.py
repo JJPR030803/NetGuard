@@ -84,6 +84,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
         """
         # TODO: Implement
         threshold = threshold or self.DEFAULT_PORT_SCAN_THRESHOLD
+        print(threshold)
         raise NotImplementedError("detect_port_scanning not yet implemented")
 
     def detect_host_scanning(

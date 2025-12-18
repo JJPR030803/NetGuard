@@ -31,8 +31,8 @@ Classes:
     InfoLogger: Logger for informational messages
 """
 
-from ..models.packet_data_structures import ARPPacket, EthernetPacket, STPPacket
-from .loggers import (
+from src.network_security_suite.models.packet_data_structures import ARPPacket, EthernetPacket, STPPacket
+from src.network_security_suite.sniffer.loggers import (
     ConsoleLogger,
     CriticalLogger,
     DebugLogger,

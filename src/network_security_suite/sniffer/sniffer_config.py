@@ -101,7 +101,7 @@ class SnifferConfig:
         log_to_file (bool): Whether to write log messages to files.
                            Default: True
         log_dir (str): Directory where log files will be stored.
-                      Default: "/home/batman/Documents/networkguard2/logs/logs"
+                      Default: "/home/batman/Documents/networkguard2/logs"
         log_format (str): Format string for log messages.
                          Default: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
         enable_console_logging (bool): Whether to enable logging to the console.
@@ -319,13 +319,13 @@ class SnifferConfig:
     Default: True
     """
 
-    log_dir: str = "/home/batman/Documents/networkguard2/logs/logs"
+    log_dir: str = "/home/batman/Documents/networkguard2/logs"
     """
     Directory where log files will be stored.
 
     This directory will be created if it doesn't exist when the configuration is initialized.
 
-    Default: "/home/batman/Documents/networkguard2/logs/logs"
+    Default: "/home/batman/Documents/networkguard2/logs"
     """
 
     log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

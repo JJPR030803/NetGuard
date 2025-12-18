@@ -58,9 +58,9 @@ def main():
 
     # Summary
     total_findings = (
-        len(c2_report.findings) +
-        len(data_theft_report.findings) +
-        len(lateral_report.findings)
+        len(c2_report.findings)
+        + len(data_theft_report.findings)
+        + len(lateral_report.findings)
     )
 
     print("\n" + "=" * 80)

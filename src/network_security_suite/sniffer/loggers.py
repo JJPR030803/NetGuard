@@ -54,7 +54,7 @@ class SecurityLogger(Logger):
                 "security",
                 logging.WARNING,
                 Formatter("%(asctime)s [SECURITY] %(message)s"),
-                filepath="logs/security.log",
+                filepath="security.log",
                 log_dir=log_dir,
             )
         }
@@ -84,7 +84,7 @@ class PacketLogger(Logger):
                 "packet",
                 logging.DEBUG,
                 Formatter("%(asctime)s [PACKET] %(message)s"),
-                filepath="logs/packets.log",
+                filepath="packets.log",
                 log_dir=log_dir,
             )
         }
@@ -108,7 +108,7 @@ class FileLogger(Logger):
 
     def __init__(
         self,
-        filepath: str = "logs/general.log",
+        filepath: str = "general.log",
         log_format: Optional[Formatter] = None,
         log_dir: Optional[str] = None,
     ):
@@ -141,7 +141,7 @@ class RotatingFileLogger(Logger):
 
     def __init__(
         self,
-        filepath: str = "logs/rotating.log",
+        filepath: str = "rotating.log",
         max_bytes: int = 10485760,  # 10MB
         backup_count: int = 5,
         log_format: Optional[Formatter] = None,
@@ -178,7 +178,7 @@ class TimedRotatingFileLogger(Logger):
 
     def __init__(
         self,
-        filepath: str = "logs/timed_rotating.log",
+        filepath: str = "timed_rotating.log",
         log_format: Optional[Formatter] = None,
         log_dir: Optional[str] = None,
     ):
@@ -219,7 +219,7 @@ class ErrorLogger(Logger):
                 "error",
                 logging.ERROR,
                 Formatter("%(asctime)s [ERROR] %(message)s"),
-                filepath="logs/error.log",
+                filepath="error.log",
                 log_dir=log_dir,
             )
         }
@@ -249,7 +249,7 @@ class DebugLogger(Logger):
                 "debug",
                 logging.DEBUG,
                 Formatter("%(asctime)s [DEBUG] %(message)s"),
-                filepath="logs/debug.log",
+                filepath="debug.log",
                 log_dir=log_dir,
             )
         }
@@ -278,7 +278,7 @@ class CriticalLogger(Logger):
                 "critical",
                 logging.CRITICAL,
                 Formatter("%(asctime)s [CRITICAL] %(message)s"),
-                filepath="logs/critical.log",
+                filepath="critical.log",
                 log_dir=log_dir,
             )
         }
@@ -307,7 +307,7 @@ class WarningLogger(Logger):
                 "warning",
                 logging.WARNING,
                 Formatter("%(asctime)s [WARNING] %(message)s"),
-                filepath="logs/warning.log",
+                filepath="warning.log",
                 log_dir=log_dir,
             )
         }
@@ -336,7 +336,7 @@ class InfoLogger(Logger):
                 "info",
                 logging.INFO,
                 Formatter("%(asctime)s [INFO] %(message)s"),
-                filepath="logs/info.log",
+                filepath="info.log",
                 log_dir=log_dir,
             )
         }
