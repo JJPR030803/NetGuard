@@ -10,12 +10,12 @@ import pytest
 from scapy.layers.inet import ICMP, IP, TCP
 from scapy.layers.l2 import Ether
 
-from netguard.capture.packet_capture import PacketCapture
-from netguard.models.packet_data_structures import (
+from src.network_security_suite.models.packet_data_structures import (
     POLARS_AVAILABLE,
     Packet,
     PacketLayer,
 )
+from src.network_security_suite.sniffer.packet_capture import PacketCapture
 
 
 class TestPacketCapture:

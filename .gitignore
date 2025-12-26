@@ -84,3 +84,10 @@ config/local.env
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+
+
+#Misc
+site/
+*.coverage
+.coverage
+project_context.txt

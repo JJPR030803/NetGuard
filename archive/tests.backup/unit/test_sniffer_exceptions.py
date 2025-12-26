@@ -7,7 +7,7 @@ network_security_suite.sniffer.exceptions.md module.
 
 import unittest
 
-from netguard.core.exceptions import (
+from network_security_suite.sniffer.exceptions import (
     CaptureLimitExceededError,
     ConfigurationException,
     ConfigurationNotFoundError,

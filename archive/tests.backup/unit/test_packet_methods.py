@@ -7,7 +7,7 @@ import pytest
 # Add the src directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from netguard.models.packet_data_structures import (
+from network_security_suite.models.packet_data_structures import (
     ARPPacketModel,
     EthernetPacketModel,
     ICMPPacketModel,

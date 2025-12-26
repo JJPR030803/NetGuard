@@ -1,5 +1,5 @@
 [project]
-name = "network-security-suite"
+name = "netguard"
 version = "0.1.0"
 description = "Enterprise-level network security sniffer with ML capabilities"
 authors = [{name = "Juan Julián Paniagua Rico"}]
@@ -206,7 +206,7 @@ exclude = [
 ]
 
 [tool.ruff.isort]
-known-first-party = ["network_security_suite"]
+known-first-party = ["netguard"]
 
 [tool.ruff.mccabe]
 max-complexity = 12
