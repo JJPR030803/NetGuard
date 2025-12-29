@@ -37,9 +37,7 @@ class TestAnalysisConfig:
     def test_all_custom_values(self):
         """Test AnalysisConfig with all custom values."""
         custom_protocols = {"TCP", "SSH"}
-        config = AnalysisConfig(
-            time_window="10m", min_packets_threshold=1000, protocols=custom_protocols
-        )
+        config = AnalysisConfig(time_window="10m", min_packets_threshold=1000, protocols=custom_protocols)
         assert config.time_window == "10m"
         assert config.min_packets_threshold == 1000
         assert config.protocols == custom_protocols

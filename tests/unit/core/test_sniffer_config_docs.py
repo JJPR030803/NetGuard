@@ -160,9 +160,7 @@ def run_all_tests():
     test_security_settings()
     test_mixed_settings()
     print("\n✓ All tests passed successfully!")
-    print(
-        "The SnifferConfig documentation is accurate and all parameters work as expected."
-    )
+    print("The SnifferConfig documentation is accurate and all parameters work as expected.")
 
 
 if __name__ == "__main__":

@@ -35,9 +35,7 @@ class WorkflowReport:
         """Add a section to the report."""
         self.sections[name] = data
 
-    def add_finding(
-        self, severity: str, category: str, description: str, details: Any = None
-    ):
+    def add_finding(self, severity: str, category: str, description: str, details: Any = None):
         """
         Add a security finding.
 
@@ -99,9 +97,7 @@ class WorkflowReport:
                     "info": "⚪",
                 }.get(finding["severity"], "•")
 
-                lines.append(
-                    f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}"
-                )
+                lines.append(f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}")
                 lines.append(f"   {finding['description']}")
                 if finding["details"]:
                     lines.append(f"   Details: {finding['details']}")
@@ -227,18 +223,14 @@ class DailyAudit:
             }
 
             report.add_section("Network Statistics", stats)
-            report.add_finding(
-                "info", "Statistics", f"Analyzed {total_packets:,} packets"
-            )
+            report.add_finding("info", "Statistics", f"Analyzed {total_packets:,} packets")
         except Exception as e:
             self.logger.error(f"Failed to get basic stats: {e}")
 
     def _check_port_scans(self, report: WorkflowReport):
         """Detect port scanning activity."""
         try:
-            port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=100, time_window="1m"
-            )
+            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=100, time_window="1m")
 
             if len(port_scans) > 0:
                 report.add_finding(
@@ -253,9 +245,7 @@ class DailyAudit:
     def _check_syn_floods(self, report: WorkflowReport):
         """Detect SYN flood attacks."""
         try:
-            syn_floods = self.analysis.anomaly.detect_syn_flood(
-                threshold=1000, time_window="1m"
-            )
+            syn_floods = self.analysis.anomaly.detect_syn_flood(threshold=1000, time_window="1m")
 
             if len(syn_floods) > 0:
                 report.add_finding(
@@ -270,9 +260,7 @@ class DailyAudit:
     def _check_udp_floods(self, report: WorkflowReport):
         """Detect UDP flood attacks."""
         try:
-            udp_floods = self.analysis.anomaly.detect_udp_flood(
-                threshold=500, time_window="1m"
-            )
+            udp_floods = self.analysis.anomaly.detect_udp_flood(threshold=500, time_window="1m")
 
             if len(udp_floods) > 0:
                 report.add_finding(
@@ -433,9 +421,7 @@ class DailyAudit:
     def _check_off_hours_activity(self, report: WorkflowReport):
         """Detect activity outside business hours."""
         try:
-            off_hours = self.analysis.anomaly.detect_off_hours_activity(
-                business_hours=self.business_hours
-            )
+            off_hours = self.analysis.anomaly.detect_off_hours_activity(business_hours=self.business_hours)
             if len(off_hours) > 0:
                 report.add_finding(
                     "low",
@@ -555,12 +541,8 @@ class IPInvestigation:
                 {
                     "IP Address": self.ip,
                     "Total Packets": f"{total_packets:,}",
-                    "First Seen": (
-                        ip_traffic["timestamp"].min() if total_packets > 0 else "N/A"
-                    ),
-                    "Last Seen": (
-                        ip_traffic["timestamp"].max() if total_packets > 0 else "N/A"
-                    ),
+                    "First Seen": (ip_traffic["timestamp"].min() if total_packets > 0 else "N/A"),
+                    "Last Seen": (ip_traffic["timestamp"].max() if total_packets > 0 else "N/A"),
                 },
             )
         except Exception as e:
@@ -591,10 +573,7 @@ class IPInvestigation:
             ip_traffic = self.analysis.find_ip_information(self.ip)
 
             # Count unique remote IPs
-            if (
-                "source_ip" in ip_traffic.columns
-                and "destination_ip" in ip_traffic.columns
-            ):
+            if "source_ip" in ip_traffic.columns and "destination_ip" in ip_traffic.columns:
                 remote_ips = set()
                 for row in ip_traffic.iter_rows():
                     if row[0] == self.ip:  # source_ip
@@ -614,14 +593,10 @@ class IPInvestigation:
         """Check if this IP is performing scanning."""
         try:
             # Check if IP appears in port scan detection
-            port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=50, time_window="1m"
-            )
+            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=50, time_window="1m")
 
             if self.ip in str(port_scans):  # Simple check
-                report.add_finding(
-                    "high", "Port Scanning", f"IP {self.ip} is performing port scanning"
-                )
+                report.add_finding("high", "Port Scanning", f"IP {self.ip} is performing port scanning")
         except Exception as e:
             self.logger.warning(f"Scanning behavior check failed: {e}")
 
@@ -629,9 +604,7 @@ class IPInvestigation:
         """Check for attack patterns from this IP."""
         try:
             # Check SYN flood
-            syn_floods = self.analysis.anomaly.detect_syn_flood(
-                threshold=500, time_window="1m"
-            )
+            syn_floods = self.analysis.anomaly.detect_syn_flood(threshold=500, time_window="1m")
             if self.ip in str(syn_floods):
                 report.add_finding(
                     "critical",
@@ -640,13 +613,9 @@ class IPInvestigation:
                 )
 
             # Check UDP flood
-            udp_floods = self.analysis.anomaly.detect_udp_flood(
-                threshold=300, time_window="1m"
-            )
+            udp_floods = self.analysis.anomaly.detect_udp_flood(threshold=300, time_window="1m")
             if self.ip in str(udp_floods):
-                report.add_finding(
-                    "high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack"
-                )
+                report.add_finding("high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack")
         except Exception as e:
             self.logger.warning(f"Attack pattern check failed: {e}")
 
@@ -656,9 +625,7 @@ class IPInvestigation:
             # Check if IP is a top querier
             top_queriers = self.analysis.dns.get_top_querying_ips(n=20)
             if self.ip in str(top_queriers):
-                report.add_finding(
-                    "info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers"
-                )
+                report.add_finding("info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers")
         except Exception as e:
             self.logger.warning(f"DNS activity check failed: {e}")
 
@@ -701,9 +668,7 @@ class ThreatHunting:
 
         # Long-lived connections
         try:
-            long_lived = self.analysis.tcp.identify_long_lived_connections(
-                threshold="30m"
-            )
+            long_lived = self.analysis.tcp.identify_long_lived_connections(threshold="30m")
             if len(long_lived) > 0:
                 report.add_finding(
                     "medium",
@@ -787,9 +752,7 @@ class ThreatHunting:
 
         # Port scanning within network
         try:
-            port_scans = self.analysis.anomaly.detect_port_scanning(
-                threshold=20, time_window="5m"
-            )
+            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=20, time_window="5m")
             if len(port_scans) > 0:
                 report.add_finding(
                     "high",

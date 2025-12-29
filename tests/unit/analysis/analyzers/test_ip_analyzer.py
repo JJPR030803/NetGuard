@@ -5,11 +5,11 @@ from datetime import datetime
 import polars as pl
 import pytest
 
+from netguard.analysis.analyzers.ip_analyzer import IpAnalyzer
 from netguard.core.errors import (
     EmptyDataFrameError,
     InvalidThresholdError,
 )
-from netguard.preprocessing.analyzers.ip_analyzer import IpAnalyzer
 
 
 @pytest.fixture

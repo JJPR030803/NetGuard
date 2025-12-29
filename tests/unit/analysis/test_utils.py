@@ -6,12 +6,7 @@ from datetime import datetime, timedelta
 import polars as pl
 import pytest
 
-from netguard.core.errors import (
-    InvalidIPAddressError,
-    InvalidTimeWindowError,
-    MissingColumnError,
-)
-from netguard.preprocessing.utils import (
+from netguard.analysis.utils import (
     calculate_entropy,
     calculate_packet_rate,
     classify_port,
@@ -29,6 +24,11 @@ from netguard.preprocessing.utils import (
     safe_cast_to_str,
     time_window_to_polars,
     validate_dataframe_columns,
+)
+from netguard.core.errors import (
+    InvalidIPAddressError,
+    InvalidTimeWindowError,
+    MissingColumnError,
 )
 
 

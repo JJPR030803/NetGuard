@@ -221,9 +221,7 @@ class BasePacket(pyd.BaseModel):
             # Pre-process special fields
             for key, value in data.items():
                 # Convert IP addresses and MAC addresses to strings
-                if hasattr(value, "__str__") and (
-                    type(value).__name__ in ("IPvAnyAddress", "MacAddress")
-                ):
+                if hasattr(value, "__str__") and (type(value).__name__ in ("IPvAnyAddress", "MacAddress")):
                     data[key] = str(value)
                 # Convert bytes to hex strings
                 elif isinstance(value, bytes):
@@ -252,11 +250,7 @@ class BasePacket(pyd.BaseModel):
         print(f"  Destination IP: {self.dst_ip}")
         print(f"  Layers: {self.layers}")
         if self.payload:
-            print(
-                f"  Payload: {self.payload[:50]}..."
-                if len(self.payload) > 50
-                else f"  Payload: {self.payload}"
-            )
+            print(f"  Payload: {self.payload[:50]}..." if len(self.payload) > 50 else f"  Payload: {self.payload}")
 
 
 # For backward compatibility
@@ -375,9 +369,7 @@ class STPPacket(BasePacket):
     sender_bridge_id: Optional[str] = None
     root_path_cost: Optional[int] = None
     port_id: Optional[int] = None  # ID del puerto emisor
-    message_age: Optional[int] = (
-        None  # Tiempo de vida del mensaje desde que fue generado
-    )
+    message_age: Optional[int] = None  # Tiempo de vida del mensaje desde que fue generado
     max_age: Optional[int] = None  # Tiempo de vida maximo del mensaje
     hello_time: Optional[int] = None  # Intervalo entre BPDUs
     forward_delay: Optional[int] = None  # Tiempo de espera antes del forwarding

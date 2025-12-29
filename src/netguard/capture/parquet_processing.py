@@ -116,9 +116,7 @@ class ParquetProcessing:
         self.display_thread = None
         self.display_running = False
 
-        self.info_logger.log(
-            f"Initializing ParquetProcessing for interface: {self.interface}"
-        )
+        self.info_logger.log(f"Initializing ParquetProcessing for interface: {self.interface}")
 
     @perf.monitor("save_packets")
     def save_packets(
@@ -174,9 +172,7 @@ class ParquetProcessing:
             interface_type = "wireless"  # Default fallback
 
         if max_packets is None:
-            max_packets = (
-                self.config.packet_count if self.config.packet_count > 0 else 10000
-            )
+            max_packets = self.config.packet_count if self.config.packet_count > 0 else 10000
 
         # Set realtime display flag
         # Use realtime parameter if provided, otherwise use config value
@@ -185,18 +181,14 @@ class ParquetProcessing:
         self.realtime_display = realtime
 
         self.info_logger.log(f"Starting packet capture and save to {filepath}")
-        self.debug_logger.log(
-            f"Using interface type: {interface_type}, realtime={realtime}"
-        )
+        self.debug_logger.log(f"Using interface type: {interface_type}, realtime={realtime}")
 
         # Initialize interface and capture packets
         interface_manager = Interface(log_dir=self.log_dir)
         working_interface = interface_manager.get_interface_by_type(interface_type)
 
         if not working_interface:
-            self.debug_logger.log(
-                f"No interfaces of type {interface_type} found, using first active interface"
-            )
+            self.debug_logger.log(f"No interfaces of type {interface_type} found, using first active interface")
             all_interfaces = interface_manager.get_active_interfaces()
             if not all_interfaces:
                 self.error_logger.log("No network interfaces found")
@@ -261,9 +253,7 @@ class ParquetProcessing:
             self.debug_logger.log("Verifying timestamp data type")
             if df_pl.schema["timestamp"] != pl.Datetime:
                 self.debug_logger.log("Converting timestamp to datetime type")
-                df_pl = df_pl.with_columns(
-                    [pl.col("timestamp").cast(pl.Datetime).alias("timestamp")]
-                )
+                df_pl = df_pl.with_columns([pl.col("timestamp").cast(pl.Datetime).alias("timestamp")])
 
             # Add date and hour columns
             self.debug_logger.log("Adding date and hour columns")
@@ -290,9 +280,7 @@ class ParquetProcessing:
                 if file_extension in ["parquet", "csv"]:
                     export_format = file_extension
 
-            self.info_logger.log(
-                f"Writing DataFrame to {filepath} in {export_format} format"
-            )
+            self.info_logger.log(f"Writing DataFrame to {filepath} in {export_format} format")
 
             if export_format.lower() == "parquet":
                 df_pl.write_parquet(
@@ -354,9 +342,7 @@ class ParquetProcessing:
 
             error_msg = f"Error exporting data to {filepath}: {str(e)}"
             self.error_logger.log(error_msg)
-            raise DataExportError(
-                export_format="Parquet", destination=filepath, error_details=str(e)
-            ) from e
+            raise DataExportError(export_format="Parquet", destination=filepath, error_details=str(e)) from e
 
     @perf.monitor("load_packets")
     def load_packets(self, filepath: str = "") -> pl.DataFrame:
@@ -392,9 +378,7 @@ class ParquetProcessing:
             self.debug_logger.log(f"Reading Parquet file: {filepath}")
             df_pl = pl.read_parquet(filepath)
 
-            self.info_logger.log(
-                f"Successfully loaded DataFrame with shape: {df_pl.shape}"
-            )
+            self.info_logger.log(f"Successfully loaded DataFrame with shape: {df_pl.shape}")
             return df_pl
         except FileNotFoundError as e:
             self.error_logger.log(f"File not found: {filepath}, Error: {e}")
@@ -402,9 +386,7 @@ class ParquetProcessing:
         except Exception as e:
             error_msg = f"Error importing data from {filepath}: {str(e)}"
             self.error_logger.log(error_msg)
-            raise DataImportError(
-                import_format="Parquet", source=filepath, error_details=str(e)
-            ) from e
+            raise DataImportError(import_format="Parquet", source=filepath, error_details=str(e)) from e
 
     @perf.monitor("show_dataframe_stats")
     def show_dataframe_stats(self, df: pl.DataFrame) -> None:
@@ -461,12 +443,8 @@ class ParquetProcessing:
             try:
                 if df[col].dtype in [pl.Utf8, pl.Categorical]:
                     unique_values = df[col].unique()
-                    if (
-                        len(unique_values) <= 10
-                    ):  # Only show if not too many unique values
-                        self.debug_logger.log(
-                            f"Found {len(unique_values)} unique values for column {col}"
-                        )
+                    if len(unique_values) <= 10:  # Only show if not too many unique values
+                        self.debug_logger.log(f"Found {len(unique_values)} unique values for column {col}")
                         print(f"  {col}: {unique_values.to_list()}")
             except Exception as e:
                 self.debug_logger.log(f"Error processing column {col}: {str(e)}")
@@ -489,9 +467,7 @@ class ParquetProcessing:
         """Stop the real-time display thread."""
         self.display_running = False
         if self.display_thread:
-            self.display_thread.join(
-                timeout=2
-            )  # Wait up to 2 seconds for thread to finish
+            self.display_thread.join(timeout=2)  # Wait up to 2 seconds for thread to finish
             self.info_logger.log("Stopped real-time display thread")
 
     def _realtime_display_loop(self):
@@ -501,9 +477,7 @@ class ParquetProcessing:
             os.system("clear" if os.name == "posix" else "cls")
 
             print("=" * 80)
-            print(
-                f"REAL-TIME PARQUET PROCESSING - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
+            print(f"REAL-TIME PARQUET PROCESSING - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Interface: {self.interface}")
             print(f"Total Packets: {len(self.realtime_packets)}")
             print("=" * 80)
@@ -533,9 +507,7 @@ class ParquetProcessing:
             sleep(1)  # Update every second
 
     @perf.monitor("analyze_packet_data")
-    def analyze_packet_data(
-        self, df: pl.DataFrame, group_by: str = "protocol"
-    ) -> pl.DataFrame:
+    def analyze_packet_data(self, df: pl.DataFrame, group_by: str = "protocol") -> pl.DataFrame:
         """
         Analyze packet data by grouping and aggregating.
 
@@ -570,9 +542,7 @@ class ParquetProcessing:
 
         try:
             # Create analysis DataFrame with aggregations
-            self.debug_logger.log(
-                f"Grouping by {group_by} and calculating aggregations"
-            )
+            self.debug_logger.log(f"Grouping by {group_by} and calculating aggregations")
 
             # Check if packet_size column exists
             size_agg = []
@@ -593,9 +563,7 @@ class ParquetProcessing:
                 ]
 
             # Create the analysis DataFrame
-            analysis_df = df.group_by(group_by).agg(
-                [pl.count().alias(f"{group_by}_packet_count"), *size_agg, *time_agg]
-            )
+            analysis_df = df.group_by(group_by).agg([pl.count().alias(f"{group_by}_packet_count"), *size_agg, *time_agg])
 
             # Sort by packet count in descending order
             analysis_df = analysis_df.sort(f"{group_by}_packet_count", descending=True)

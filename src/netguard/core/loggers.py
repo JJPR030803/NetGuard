@@ -28,14 +28,8 @@ class ConsoleLogger(Logger):
     with a simple format focused on readability.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
-        handlers: HandlerTypes = {
-            "console_handler": HandlerConfig(
-                "console", logging.INFO, Formatter("%(message)s")
-            )
-        }
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
+        handlers: HandlerTypes = {"console_handler": HandlerConfig("console", logging.INFO, Formatter("%(message)s"))}
         super().__init__(log_format=log_format, handlers=handlers, log_dir=log_dir)
 
     def log(self, message: str) -> None:
@@ -54,9 +48,7 @@ class SecurityLogger(Logger):
     storing them in a dedicated log file.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "security_handler": HandlerConfig(
                 "security",
@@ -84,9 +76,7 @@ class PacketLogger(Logger):
     information, useful for debugging and analysis.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "packet_handler": HandlerConfig(
                 "packet",
@@ -219,9 +209,7 @@ class ErrorLogger(Logger):
     for debugging and troubleshooting.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "error_handler": HandlerConfig(
                 "error",
@@ -249,9 +237,7 @@ class DebugLogger(Logger):
     development and troubleshooting.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "debug_handler": HandlerConfig(
                 "debug",
@@ -278,9 +264,7 @@ class CriticalLogger(Logger):
     This logger captures critical issues that require immediate attention.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "critical_handler": HandlerConfig(
                 "critical",
@@ -307,9 +291,7 @@ class WarningLogger(Logger):
     This logger captures warning messages that indicate potential issues.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "warning_handler": HandlerConfig(
                 "warning",
@@ -336,9 +318,7 @@ class InfoLogger(Logger):
     This logger captures general informational messages about system operation.
     """
 
-    def __init__(
-        self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None
-    ):
+    def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
             "info_handler": HandlerConfig(
                 "info",
@@ -437,10 +417,7 @@ class PreprocessingLogger:
             **details: Additional details to log
         """
         details_str = ", ".join(f"{k}={v}" for k, v in details.items())
-        self.info(
-            f"Operation '{operation}' completed in {duration:.3f}s"
-            + (f" | {details_str}" if details_str else "")
-        )
+        self.info(f"Operation '{operation}' completed in {duration:.3f}s" + (f" | {details_str}" if details_str else ""))
 
     def log_dataframe_info(self, df_name: str, shape: tuple, memory_mb: float = None):
         """
@@ -463,10 +440,7 @@ class PreprocessingLogger:
             **params: Analysis parameters
         """
         params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-        self.info(
-            f"Starting {analysis_type} analysis"
-            + (f" with {params_str}" if params_str else "")
-        )
+        self.info(f"Starting {analysis_type} analysis" + (f" with {params_str}" if params_str else ""))
 
     def log_analysis_complete(self, analysis_type: str, result_count: int = None):
         """
@@ -505,9 +479,7 @@ def get_logger(
     global _global_logger
 
     if _global_logger is None:
-        _global_logger = PreprocessingLogger(
-            name=name, level=level, log_file=log_file, detailed=detailed
-        )
+        _global_logger = PreprocessingLogger(name=name, level=level, log_file=log_file, detailed=detailed)
 
     return _global_logger
 

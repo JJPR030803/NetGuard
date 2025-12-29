@@ -28,22 +28,14 @@ import pytest
 def pytest_configure(config):
     """Configure pytest with custom markers and settings."""
     # Register custom markers
-    config.addinivalue_line(
-        "markers", "unit: marks tests as unit tests (fast, isolated)"
-    )
+    config.addinivalue_line("markers", "unit: marks tests as unit tests (fast, isolated)")
     config.addinivalue_line(
         "markers",
         "integration: marks tests as integration tests (medium speed, multiple components)",
     )
-    config.addinivalue_line(
-        "markers", "e2e: marks tests as end-to-end tests (slow, full system)"
-    )
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )
-    config.addinivalue_line(
-        "markers", "performance: marks tests as performance/benchmark tests"
-    )
+    config.addinivalue_line("markers", "e2e: marks tests as end-to-end tests (slow, full system)")
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line("markers", "performance: marks tests as performance/benchmark tests")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -243,25 +235,17 @@ def assert_dataframe_equal():
         """Compare two Polars DataFrames."""
         # Check shapes
         if df1.shape != df2.shape:
-            raise AssertionError(
-                f"Shape mismatch:\n" f"  df1: {df1.shape}\n" f"  df2: {df2.shape}"
-            )
+            raise AssertionError(f"Shape mismatch:\n  df1: {df1.shape}\n  df2: {df2.shape}")
 
         # Check columns
         if df1.columns != df2.columns:
-            raise AssertionError(
-                f"Column mismatch:\n" f"  df1: {df1.columns}\n" f"  df2: {df2.columns}"
-            )
+            raise AssertionError(f"Column mismatch:\n  df1: {df1.columns}\n  df2: {df2.columns}")
 
         # Check dtypes
         if check_dtypes:
             for col in df1.columns:
                 if df1[col].dtype != df2[col].dtype:
-                    raise AssertionError(
-                        f"Dtype mismatch in column '{col}':\n"
-                        f"  df1: {df1[col].dtype}\n"
-                        f"  df2: {df2[col].dtype}"
-                    )
+                    raise AssertionError(f"Dtype mismatch in column '{col}':\n  df1: {df1[col].dtype}\n  df2: {df2[col].dtype}")
 
         # Check values
         if check_row_order:
@@ -290,10 +274,7 @@ def assert_has_columns():
         """Check if DataFrame has all required columns."""
         missing = [col for col in required_columns if col not in df.columns]
         if missing:
-            raise AssertionError(
-                f"Missing required columns: {missing}\n"
-                f"Available columns: {df.columns}"
-            )
+            raise AssertionError(f"Missing required columns: {missing}\nAvailable columns: {df.columns}")
 
     return _assert_has_columns
 
@@ -440,11 +421,7 @@ def pytest_assertrepr_compare(op, left, right):
     """
     Provide custom assertion messages for common types.
     """
-    if (
-        isinstance(left, pl.DataFrame)
-        and isinstance(right, pl.DataFrame)
-        and op == "=="
-    ):
+    if isinstance(left, pl.DataFrame) and isinstance(right, pl.DataFrame) and op == "==":
         return [
             "DataFrame comparison failed:",
             f"Left shape:  {left.shape}",

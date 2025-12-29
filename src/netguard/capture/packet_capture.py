@@ -51,9 +51,7 @@ class PacketCapture:
         packets (list[Packet]): A list of captured packet objects.
     """
 
-    def __init__(
-        self, config: Optional[SnifferConfig] = None, realtime_display: bool = False
-    ):
+    def __init__(self, config: Optional[SnifferConfig] = None, realtime_display: bool = False):
         """
         Initialize PacketCapture with configuration.
 
@@ -81,15 +79,11 @@ class PacketCapture:
 
         # Validation using config values
         if self.config.max_memory_packets < 100:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
-            )
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
             raise ValueError("max_memory_packets must be at least 100")
 
         if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
-            )
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
             raise ValueError("max_memory_packets must be multiple of 10")
 
         # Initialize other attributes
@@ -107,31 +101,19 @@ class PacketCapture:
 
         # Real-time display attributes
         # Use realtime_display parameter if provided, otherwise use config value
-        self.realtime_display = (
-            realtime_display
-            if realtime_display
-            else self.config.enable_realtime_display
-        )
+        self.realtime_display = realtime_display if realtime_display else self.config.enable_realtime_display
         self.realtime_packets = deque(maxlen=50)  # Store last 50 packets for display
         self.display_thread = None
         self.display_running = False
 
-        self.info_logger.log(
-            f"Initializing PacketCapture for interface: {self.config.interface}"
-        )
+        self.info_logger.log(f"Initializing PacketCapture for interface: {self.config.interface}")
 
         if self.config.max_memory_packets < 100:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100"
-            )
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100")
             raise ValueError("max_memory_packets must be at least 100")
         if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10"
-            )
-            raise ValueError(
-                "max_memory_packets must be multiple of 10 for faster processing"
-            )
+            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10")
+            raise ValueError("max_memory_packets must be multiple of 10 for faster processing")
 
         self.packets: list[Packet] = []
         self.packet_queue: Queue[list[Packet]] = Queue()
@@ -178,23 +160,17 @@ class PacketCapture:
                     try:
                         processed_packet = self.process_packet_layers(packet)
                         self.packets.append(processed_packet)
-                        self.packet_logger.log(
-                            f"Processed packet: {processed_packet.id}"
-                        )
+                        self.packet_logger.log(f"Processed packet: {processed_packet.id}")
                     except Exception as e:
                         # Log the error but continue processing other packets
                         # We don't want to stop the entire queue processing for one packet
                         packet_id = getattr(packet, "time", "unknown")
-                        self.error_logger.log(
-                            f"Error processing packet {packet_id}: {str(e)}"
-                        )
+                        self.error_logger.log(f"Error processing packet {packet_id}: {str(e)}")
                         self.stats["dropped_packets"] += 1
                 end_time = time()
                 processing_time = end_time - start_time
                 self.update_stats(processing_time, batch_size)
-                self.debug_logger.log(
-                    f"Batch processed in {processing_time:.4f} seconds"
-                )
+                self.debug_logger.log(f"Batch processed in {processing_time:.4f} seconds")
 
                 self.packet_queue.task_done()
             except Empty:
@@ -347,16 +323,12 @@ class PacketCapture:
                         field_value = getattr(packet[layer], field_name.name, None)
                         if field_value is not None:
                             # Convert complex objects to strings to avoid serialization issues
-                            if not isinstance(
-                                field_value, (int, float, str, bool, type(None))
-                            ):
+                            if not isinstance(field_value, (int, float, str, bool, type(None))):
                                 field_value = str(field_value)
                             fields[field_name.name] = field_value
 
                     if fields:  # Only add if we found some fields
-                        packet_layers.append(
-                            PacketLayer(layer_name=layer_name, fields=fields)
-                        )
+                        packet_layers.append(PacketLayer(layer_name=layer_name, fields=fields))
                 except Exception:
                     # Create but don't raise the exception - we want to continue processing other layers
                     # Just log the error in a production environment
@@ -405,9 +377,7 @@ class PacketCapture:
         """Stop the real-time display thread."""
         self.display_running = False
         if self.display_thread:
-            self.display_thread.join(
-                timeout=2
-            )  # Wait up to 2 seconds for thread to finish
+            self.display_thread.join(timeout=2)  # Wait up to 2 seconds for thread to finish
             self.info_logger.log("Stopped real-time display thread")
 
     def _realtime_display_loop(self):
@@ -417,9 +387,7 @@ class PacketCapture:
             os.system("clear" if os.name == "posix" else "cls")
 
             print("=" * 80)
-            print(
-                f"REAL-TIME PACKET CAPTURE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
+            print(f"REAL-TIME PACKET CAPTURE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"Interface: {self.interface}")
             print(f"Total Packets: {len(self.packets)}")
             print("=" * 80)
@@ -511,9 +479,7 @@ class PacketCapture:
         """
         # Use configuration values if parameters are not provided
         if max_packets is None:
-            max_packets = (
-                self.config.packet_count if self.config.packet_count > 0 else 10000
-            )
+            max_packets = self.config.packet_count if self.config.packet_count > 0 else 10000
 
         if bpf_filter is None:
             bpf_filter = self.config.filter_expression
@@ -537,15 +503,9 @@ class PacketCapture:
             session_info = self._get_session_info()
             self.info_logger.log("=== SNIFFING SESSION STARTED ===")
             self.info_logger.log(f"Date/Time: {session_info['date']}")
-            self.info_logger.log(
-                f"Operating System: {session_info['os']} {session_info['os_version']}"
-            )
-            self.info_logger.log(
-                f"Machine: {session_info['machine']} ({session_info['processor']})"
-            )
-            self.info_logger.log(
-                f"Interface: {session_info['interface']} (Type: {session_info['interface_type']})"
-            )
+            self.info_logger.log(f"Operating System: {session_info['os']} {session_info['os_version']}")
+            self.info_logger.log(f"Machine: {session_info['machine']} ({session_info['processor']})")
+            self.info_logger.log(f"Interface: {session_info['interface']} (Type: {session_info['interface_type']})")
             self.info_logger.log(f"Max Packets: {max_packets}")
             self.info_logger.log("================================")
 
@@ -569,9 +529,7 @@ class PacketCapture:
 
         def packet_callback_wrapper(packet: ScapyPacket) -> None:
             if self.max_memory_packets and len(self.packets) >= self.max_memory_packets:
-                self.debug_logger.log(
-                    f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list"
-                )
+                self.debug_logger.log(f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list")
                 self.packets = self.packets[-self.max_memory_packets :]
                 gc.collect()
 
@@ -581,15 +539,11 @@ class PacketCapture:
                     processed_packet = self.process_packet_layers(packet)
                     self.realtime_packets.append(processed_packet)
                 except Exception as e:
-                    self.error_logger.log(
-                        f"Error processing packet for real-time display: {e}"
-                    )
+                    self.error_logger.log(f"Error processing packet for real-time display: {e}")
 
             packet_buffer.append(packet)
             if len(packet_buffer) >= self.max_processing_batch:
-                self.packet_logger.log(
-                    f"Queuing batch of {len(packet_buffer)} packets for processing"
-                )
+                self.packet_logger.log(f"Queuing batch of {len(packet_buffer)} packets for processing")
                 self.packet_queue.put(packet_buffer[:])  # Create a copy of the buffer
                 packet_buffer.clear()
 
@@ -603,18 +557,14 @@ class PacketCapture:
                 timeout=None,
                 filter=bpf_filter,
             )
-            self.info_logger.log(
-                f"Packet sniffing completed, captured up to {max_packets} packets"
-            )
+            self.info_logger.log(f"Packet sniffing completed, captured up to {max_packets} packets")
         except Exception as e:
             self.error_logger.log(f"Error during packet capture: {str(e)}")
             raise
         finally:
             # Process remaining packets in buffer
             if packet_buffer:
-                self.packet_logger.log(
-                    f"Queuing final batch of {len(packet_buffer)} packets"
-                )
+                self.packet_logger.log(f"Queuing final batch of {len(packet_buffer)} packets")
                 self.packet_queue.put(packet_buffer)
 
             self.debug_logger.log("Signaling processing threads to stop")
@@ -640,14 +590,10 @@ class PacketCapture:
                     processing_time = self.stats["processing_time"]
 
                 self.info_logger.log("=== SNIFFING SESSION COMPLETED ===")
-                self.info_logger.log(
-                    f"Date/Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                )
+                self.info_logger.log(f"Date/Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 self.info_logger.log(f"Packets Processed: {processed_packets}")
                 self.info_logger.log(f"Packets Dropped: {dropped_packets}")
-                self.info_logger.log(
-                    f"Total Processing Time: {processing_time:.2f} seconds"
-                )
+                self.info_logger.log(f"Total Processing Time: {processing_time:.2f} seconds")
 
                 # Calculate layer distribution
                 layer_counts = {}
@@ -716,9 +662,7 @@ class PacketCapture:
         # Derived statistics
         if stats["processed_packets"] > 0:
             avg_time_per_packet = stats["processing_time"] / stats["processed_packets"]
-            print(
-                f"Average processing time per packet: {avg_time_per_packet:.6f} seconds"
-            )
+            print(f"Average processing time per packet: {avg_time_per_packet:.6f} seconds")
 
         if stats["batch_count"] > 0:
             avg_batch_size = stats["processed_packets"] / stats["batch_count"]
@@ -773,9 +717,7 @@ class PacketCapture:
 
             # Add layer information
             for layer in packet.layers:
-                layer_data = {
-                    f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()
-                }
+                layer_data = {f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()}
                 packet_data.update(layer_data)
 
             # Convert to Polars DataFrame
@@ -798,9 +740,7 @@ class PacketCapture:
 
             # Add layer information
             for layer in packet.layers:
-                layer_data = {
-                    f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()
-                }
+                layer_data = {f"{layer.layer_name}_{k}": v for k, v in layer.fields.items()}
                 packet_data.update(layer_data)
 
             # Convert to Pandas DataFrame
@@ -826,9 +766,7 @@ class PacketCapture:
                 "total_packets": len(self.packets),
             }
         except Exception as e:
-            raise DataConversionError(
-                source_format="packets", target_format="JSON", error_details=str(e)
-            ) from e
+            raise DataConversionError(source_format="packets", target_format="JSON", error_details=str(e)) from e
 
     @perf.monitor("to_pandas_df")
     def to_pandas_df(self) -> pd.DataFrame:
@@ -939,9 +877,7 @@ class PacketCapture:
                     for field_name, field_value in layer.fields.items():
                         column_name = f"{layer_prefix}{field_name}"
                         converted_value = convert_to_string(field_value)
-                        packet_data[column_name] = (
-                            converted_value if converted_value is not None else ""
-                        )
+                        packet_data[column_name] = converted_value if converted_value is not None else ""
 
                 flattened_packets.append(packet_data)
 
@@ -957,14 +893,7 @@ class PacketCapture:
             df = pl.DataFrame(flattened_packets, schema=schema)
 
             # Convert timestamp to datetime
-            df = df.with_columns(
-                [
-                    pl.col("timestamp")
-                    .cast(pl.Float64)
-                    .cast(pl.Datetime)
-                    .alias("timestamp")
-                ]
-            )
+            df = df.with_columns([pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")])
 
             return df
 

@@ -55,10 +55,7 @@ class IcmpAnalyzer(NetworkParquetAnalysis):
 
         # Filter to ICMP traffic (IP protocol 1)
         if "IP_proto" in self.df.columns:
-            self.df = self.df.filter(
-                pl.col("IP_proto").cast(pl.Int64, strict=False)
-                == self.ICMP_PROTOCOL_NUMBER
-            )
+            self.df = self.df.filter(pl.col("IP_proto").cast(pl.Int64, strict=False) == self.ICMP_PROTOCOL_NUMBER)
 
         # Store metadata for debugging
         self._packet_count = len(self.df)

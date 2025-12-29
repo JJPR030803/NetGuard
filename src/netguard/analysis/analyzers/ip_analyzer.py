@@ -115,10 +115,7 @@ class IpAnalyzer:
         if by not in ["packets", "bytes"]:
             raise ValueError("by must be 'packets' or 'bytes'")
 
-        if (
-            "_source_ip" not in self.df.columns
-            or "_destination_ip" not in self.df.columns
-        ):
+        if "_source_ip" not in self.df.columns or "_destination_ip" not in self.df.columns:
             raise InvalidIPAddressError("No unified IP columns found")
 
         # Get all IPs (as source)
@@ -127,10 +124,7 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_sent"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_sent"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_sent"),
                 ]
             )
             .rename({"_source_ip": "ip_address"})
@@ -142,26 +136,19 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_received"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_received"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_received"),
                 ]
             )
             .rename({"_destination_ip": "ip_address"})
         )
 
         # Combine
-        combined = src_stats.join(
-            dst_stats, on="ip_address", how="outer_coalesce"
-        ).fill_null(0)
+        combined = src_stats.join(dst_stats, on="ip_address", how="outer_coalesce").fill_null(0)
 
         # Calculate totals
         combined = combined.with_columns(
             [
-                (pl.col("packets_sent") + pl.col("packets_received")).alias(
-                    "total_packets"
-                ),
+                (pl.col("packets_sent") + pl.col("packets_received")).alias("total_packets"),
                 (pl.col("bytes_sent") + pl.col("bytes_received")).alias("total_bytes"),
             ]
         )
@@ -180,23 +167,14 @@ class IpAnalyzer:
         if self.df.is_empty():
             raise EmptyDataFrameError("get_sender_only_ips")
 
-        if (
-            "_source_ip" not in self.df.columns
-            or "_destination_ip" not in self.df.columns
-        ):
+        if "_source_ip" not in self.df.columns or "_destination_ip" not in self.df.columns:
             raise InvalidIPAddressError("No unified IP columns found")
 
         # Get unique source IPs
-        source_ips = (
-            self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
-        )
+        source_ips = self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
 
         # Get unique destination IPs
-        dest_ips = (
-            self.df.select("_destination_ip")
-            .unique()
-            .rename({"_destination_ip": "ip_address"})
-        )
+        dest_ips = self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
 
         # Find IPs that are only in source (never in destination)
         sender_only = source_ips.join(dest_ips, on="ip_address", how="anti")
@@ -208,10 +186,7 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_sent"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_sent"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_sent"),
                     pl.col("_destination_ip").n_unique().alias("unique_destinations"),
                 ]
             )
@@ -230,23 +205,14 @@ class IpAnalyzer:
         if self.df.is_empty():
             raise EmptyDataFrameError("get_receiver_only_ips")
 
-        if (
-            "_source_ip" not in self.df.columns
-            or "_destination_ip" not in self.df.columns
-        ):
+        if "_source_ip" not in self.df.columns or "_destination_ip" not in self.df.columns:
             raise InvalidIPAddressError("No unified IP columns found")
 
         # Get unique source IPs
-        source_ips = (
-            self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
-        )
+        source_ips = self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
 
         # Get unique destination IPs
-        dest_ips = (
-            self.df.select("_destination_ip")
-            .unique()
-            .rename({"_destination_ip": "ip_address"})
-        )
+        dest_ips = self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
 
         # Find IPs that are only in destination (never in source)
         receiver_only = dest_ips.join(source_ips, on="ip_address", how="anti")
@@ -258,10 +224,7 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_received"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_received"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_received"),
                     pl.col("_source_ip").n_unique().alias("unique_sources"),
                 ]
             )
@@ -284,14 +247,9 @@ class IpAnalyzer:
             raise EmptyDataFrameError("get_asymmetric_ips")
 
         if not 0.0 <= threshold <= 1.0:
-            raise InvalidThresholdError(
-                threshold, "Threshold must be between 0.0 and 1.0"
-            )
+            raise InvalidThresholdError(threshold, "Threshold must be between 0.0 and 1.0")
 
-        if (
-            "_source_ip" not in self.df.columns
-            or "_destination_ip" not in self.df.columns
-        ):
+        if "_source_ip" not in self.df.columns or "_destination_ip" not in self.df.columns:
             raise InvalidIPAddressError("No unified IP columns found")
 
         # Get sent stats
@@ -300,10 +258,7 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_sent"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_sent"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_sent"),
                 ]
             )
             .rename({"_source_ip": "ip_address"})
@@ -315,42 +270,29 @@ class IpAnalyzer:
             .agg(
                 [
                     pl.count().alias("packets_received"),
-                    pl.col("IP_len")
-                    .cast(pl.Int64, strict=False)
-                    .sum()
-                    .alias("bytes_received"),
+                    pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_received"),
                 ]
             )
             .rename({"_destination_ip": "ip_address"})
         )
 
         # Combine
-        combined = src_stats.join(
-            dst_stats, on="ip_address", how="outer_coalesce"
-        ).fill_null(0)
+        combined = src_stats.join(dst_stats, on="ip_address", how="outer_coalesce").fill_null(0)
 
         # Calculate total and ratio
         combined = combined.with_columns(
             [
-                (pl.col("packets_sent") + pl.col("packets_received")).alias(
-                    "total_packets"
-                ),
+                (pl.col("packets_sent") + pl.col("packets_received")).alias("total_packets"),
                 (
                     pl.when(pl.col("packets_sent") + pl.col("packets_received") > 0)
-                    .then(
-                        pl.col("packets_sent")
-                        / (pl.col("packets_sent") + pl.col("packets_received"))
-                    )
+                    .then(pl.col("packets_sent") / (pl.col("packets_sent") + pl.col("packets_received")))
                     .otherwise(0.5)
                 ).alias("send_ratio"),
             ]
         )
 
         # Filter asymmetric IPs (send_ratio > threshold or < 1-threshold)
-        asymmetric = combined.filter(
-            (pl.col("send_ratio") > threshold)
-            | (pl.col("send_ratio") < (1 - threshold))
-        )
+        asymmetric = combined.filter((pl.col("send_ratio") > threshold) | (pl.col("send_ratio") < (1 - threshold)))
 
         return asymmetric.sort("total_packets", descending=True)
 

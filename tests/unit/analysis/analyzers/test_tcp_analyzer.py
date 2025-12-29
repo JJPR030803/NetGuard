@@ -5,11 +5,11 @@ from datetime import datetime
 import polars as pl
 import pytest
 
+from netguard.analysis.analyzers.tcp_analyzer import TcpAnalyzer
 from netguard.core.errors import (
     EmptyDataFrameError,
     MissingColumnError,
 )
-from netguard.preprocessing.analyzers.tcp_analyzer import TcpAnalyzer
 
 
 @pytest.fixture

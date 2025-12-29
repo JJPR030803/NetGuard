@@ -30,20 +30,12 @@ except ImportError:
 def test_to_json_method():
     """Test the to_json method for all packet types."""
     # Create instances of each packet type
-    network_packet = NetworkPacketModel(
-        payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
-    )
-    arp_packet = ARPPacketModel(
-        hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55"
-    )
+    network_packet = NetworkPacketModel(payload="test", layers=["L2", "L3"], timestamp="2023-01-01")
+    arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
     stp_packet = STPPacketModel(protocol_id=0, version=2, bpdutype=0x00)
-    ethernet_packet = EthernetPacketModel(
-        dst_mac="00:11:22:33:44:55", src_mac="55:44:33:22:11:00"
-    )
+    ethernet_packet = EthernetPacketModel(dst_mac="00:11:22:33:44:55", src_mac="55:44:33:22:11:00")
     ip_packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2")
-    icmp_packet = ICMPPacketModel(
-        type=8, code=0, src_ip="192.168.1.1", dst_ip="192.168.1.2"
-    )
+    icmp_packet = ICMPPacketModel(type=8, code=0, src_ip="192.168.1.1", dst_ip="192.168.1.2")
     tcp_packet = TCPPacketModel(sport=80, dport=443, flags="SYN")
     udp_packet = UDPPacketModel(sport=53, dport=5353, len=8)
 
@@ -66,12 +58,8 @@ def test_to_json_method():
 def test_to_pandas_method():
     """Test the to_pandas method for all packet types."""
     # Create instances of each packet type
-    network_packet = NetworkPacketModel(
-        payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
-    )
-    arp_packet = ARPPacketModel(
-        hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55"
-    )
+    network_packet = NetworkPacketModel(payload="test", layers=["L2", "L3"], timestamp="2023-01-01")
+    arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
 
     # Test to_pandas method for each packet type
     assert isinstance(network_packet.to_pandas(), pd.DataFrame)
@@ -87,12 +75,8 @@ def test_to_pandas_method():
 def test_to_polars_method():
     """Test the to_polars method for all packet types."""
     # Create instances of each packet type
-    network_packet = NetworkPacketModel(
-        payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
-    )
-    arp_packet = ARPPacketModel(
-        hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55"
-    )
+    network_packet = NetworkPacketModel(payload="test", layers=["L2", "L3"], timestamp="2023-01-01")
+    arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
 
     # Test to_polars method for each packet type
     assert isinstance(network_packet.to_polars(), pl.DataFrame)
@@ -157,9 +141,7 @@ def test_udp_packet_model_creation():
 
 def test_ip_packet_model_creation():
     """Test IPPacketModel creation and basic properties."""
-    packet = IPPacketModel(
-        version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2", proto=6
-    )
+    packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2", proto=6)
 
     assert packet.version == 4
     assert packet.ttl == 64

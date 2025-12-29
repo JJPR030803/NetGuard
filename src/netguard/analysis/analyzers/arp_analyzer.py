@@ -43,9 +43,7 @@ class ArpAnalyzer(NetworkParquetAnalysis):
         arp_columns = [col for col in self.df.columns if "ARP" in col]
         if arp_columns:
             # Keep rows where at least one ARP column is not null
-            arp_filter = pl.any_horizontal(
-                [pl.col(c).is_not_null() for c in arp_columns]
-            )
+            arp_filter = pl.any_horizontal([pl.col(c).is_not_null() for c in arp_columns])
             self.df = self.df.filter(arp_filter)
 
         # Store metadata for debugging

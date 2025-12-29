@@ -142,17 +142,13 @@ class TestNetworkParquetAnalysisBehavioralSummary:
     def test_behavioral_summary_by_source_ip(self, sample_parquet_file):
         """Test behavioral summary grouped by source IP."""
         analysis = NetworkParquetAnalysis(sample_parquet_file)
-        summary = analysis.behavioral_summary(
-            time_window="1m", group_by_col="source_ip"
-        )
+        summary = analysis.behavioral_summary(time_window="1m", group_by_col="source_ip")
         assert isinstance(summary, pl.DataFrame)
 
     def test_behavioral_summary_by_destination_ip(self, sample_parquet_file):
         """Test behavioral summary grouped by destination IP."""
         analysis = NetworkParquetAnalysis(sample_parquet_file)
-        summary = analysis.behavioral_summary(
-            time_window="1m", group_by_col="destination_ip"
-        )
+        summary = analysis.behavioral_summary(time_window="1m", group_by_col="destination_ip")
         assert isinstance(summary, pl.DataFrame)
 
     def test_behavioral_summary_invalid_column(self, sample_parquet_file):

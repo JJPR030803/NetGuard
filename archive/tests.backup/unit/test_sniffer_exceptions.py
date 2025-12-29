@@ -48,15 +48,11 @@ class TestSnifferExceptions(unittest.TestCase):
         self.assertEqual(str(exception), "An interface-related error occurred")
 
         exception = InterfaceException("eth0")
-        self.assertEqual(
-            str(exception), "An interface-related error occurred (Interface: eth0)"
-        )
+        self.assertEqual(str(exception), "An interface-related error occurred (Interface: eth0)")
 
         # Test InterfaceNotFoundError
         exception = InterfaceNotFoundError("wlan0")
-        self.assertEqual(
-            str(exception), "Network interface not found (Interface: wlan0)"
-        )
+        self.assertEqual(str(exception), "Network interface not found (Interface: wlan0)")
 
         # Test InterfacePermissionError
         exception = InterfacePermissionError("eth1")
@@ -80,9 +76,7 @@ class TestSnifferExceptions(unittest.TestCase):
 
         # Test PacketProcessingError
         exception = PacketProcessingError("12345", "Invalid packet format")
-        self.assertEqual(
-            str(exception), "Error processing packet (ID: 12345): Invalid packet format"
-        )
+        self.assertEqual(str(exception), "Error processing packet (ID: 12345): Invalid packet format")
 
         # Test CaptureLimitExceededError
         exception = CaptureLimitExceededError("packets", 1000, 1001)
@@ -112,9 +106,7 @@ class TestSnifferExceptions(unittest.TestCase):
         )
 
         # Test DataExportError
-        exception = DataExportError(
-            "parquet", "/path/to/file.parquet", "Permission denied"
-        )
+        exception = DataExportError("parquet", "/path/to/file.parquet", "Permission denied")
         self.assertEqual(
             str(exception),
             "Error exporting data as parquet to /path/to/file.parquet: Permission denied",
@@ -148,9 +140,7 @@ class TestSnifferExceptions(unittest.TestCase):
 
         # Test ConfigurationNotFoundError
         exception = ConfigurationNotFoundError("interface")
-        self.assertEqual(
-            str(exception), "Configuration not found (Configuration: interface)"
-        )
+        self.assertEqual(str(exception), "Configuration not found (Configuration: interface)")
 
     def test_exception_hierarchy(self):
         """Test the exception hierarchy to ensure proper inheritance."""

@@ -30,9 +30,7 @@ class TestPacketCapture:
 
     @pytest.mark.parametrize("max_packets", [1, 10, 100])
     @patch("scapy.all.sniff")
-    def test_capture_with_different_counts(
-        self, mock_sniff: MagicMock, packet_capture: PacketCapture, max_packets: int
-    ) -> None:
+    def test_capture_with_different_counts(self, mock_sniff: MagicMock, packet_capture: PacketCapture, max_packets: int) -> None:
         """Test packet capture with different packet counts"""
         # Mock the sniff function to return empty list
         mock_sniff.return_value = []
@@ -41,14 +39,10 @@ class TestPacketCapture:
         packet_capture.capture(max_packets=max_packets)
 
         # Verify sniff was called with correct parameters
-        mock_sniff.assert_called_once_with(
-            iface=packet_capture.interface, count=max_packets
-        )
+        mock_sniff.assert_called_once_with(iface=packet_capture.interface, count=max_packets)
 
     @patch("scapy.all.sniff")
-    def test_capture_icmp_packet(
-        self, mock_sniff: MagicMock, packet_capture: PacketCapture
-    ) -> None:
+    def test_capture_icmp_packet(self, mock_sniff: MagicMock, packet_capture: PacketCapture) -> None:
         """Test capturing ICMP packet"""
         # Create mock ICMP packet
         mock_packet = MagicMock()
@@ -72,9 +66,7 @@ class TestPacketCapture:
     def test_show_packets(self, packet_capture: PacketCapture) -> None:
         """Test showing captured packets"""
         # Create a packet with layers
-        layer = PacketLayer(
-            layer_name="Test", fields={"field1": "value1", "field2": "value2"}
-        )
+        layer = PacketLayer(layer_name="Test", fields={"field1": "value1", "field2": "value2"})
         packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
         packet_capture.packets = [packet]
 
@@ -96,14 +88,10 @@ class TestPacketCapture:
             layer_name="Ethernet",
             fields={"src_mac": "00:11:22:33:44:55", "dst_mac": "aa:bb:cc:dd:ee:ff"},
         )
-        ip_layer = PacketLayer(
-            layer_name="IP", fields={"src": "192.168.1.1", "dst": "10.0.0.1"}
-        )
+        ip_layer = PacketLayer(layer_name="IP", fields={"src": "192.168.1.1", "dst": "10.0.0.1"})
         tcp_layer = PacketLayer(layer_name="TCP", fields={"sport": 12345, "dport": 80})
 
-        packet1 = Packet(
-            timestamp=1234567890.0, layers=[ethernet_layer, ip_layer], raw_size=100
-        )
+        packet1 = Packet(timestamp=1234567890.0, layers=[ethernet_layer, ip_layer], raw_size=100)
         packet2 = Packet(
             timestamp=1234567891.0,
             layers=[ethernet_layer, ip_layer, tcp_layer],
@@ -137,9 +125,7 @@ class TestPacketCapture:
         mock_ether_packet = MagicMock()
         mock_ether_packet.haslayer.side_effect = lambda x: x == Ether
         mock_ether_packet.__getitem__.side_effect = lambda x: (
-            MagicMock(dst="00:11:22:33:44:55", src="aa:bb:cc:dd:ee:ff", type=0x0800)
-            if x == Ether
-            else None
+            MagicMock(dst="00:11:22:33:44:55", src="aa:bb:cc:dd:ee:ff", type=0x0800) if x == Ether else None
         )
         mock_ether_packet.time = 1234567890.0
         mock_ether_packet.__len__.return_value = 100
@@ -417,9 +403,7 @@ class TestPacketCapture:
         assert packet_capture.packets[0].raw_size == 100
 
         # Test with exception during processing
-        with patch.object(
-            packet_capture, "process_packet_layers", side_effect=Exception("Test error")
-        ):
+        with patch.object(packet_capture, "process_packet_layers", side_effect=Exception("Test error")):
             # Reset packets list
             packet_capture.packets = []
 
@@ -492,9 +476,7 @@ class TestPacketCapture:
         packet_capture.is_running = True
 
         # Mock the process_packet_layers method to raise an exception
-        with patch.object(
-            packet_capture, "process_packet_layers", side_effect=Exception("Test error")
-        ):
+        with patch.object(packet_capture, "process_packet_layers", side_effect=Exception("Test error")):
             # Call process_queue
             packet_capture.process_queue()
 

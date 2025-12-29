@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import polars as pl
 
-from netguard.preprocessing.analyzers.anomaly_config import (
+from netguard.analysis.analyzers.anomaly_config import (
     PortScanConfig,
     ScanProfile,
     create_custom_config,
@@ -124,9 +124,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
 
         return self.df
 
-    def detect_host_scanning(
-        self, threshold: int = None, time_window: str = "1m"
-    ) -> pl.DataFrame:
+    def detect_host_scanning(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
         """
         Detect host scanning activity (many dest IPs, same port).
 
@@ -181,9 +179,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
     # ATTACK DETECTION METHODS
     # ============================================================================
 
-    def detect_syn_flood(
-        self, threshold: int = None, time_window: str = "1m"
-    ) -> pl.DataFrame:
+    def detect_syn_flood(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
         """
         Detect SYN flood attacks.
 
@@ -205,9 +201,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
         threshold = threshold or self.DEFAULT_SYN_FLOOD_THRESHOLD
         raise NotImplementedError("detect_syn_flood not yet implemented")
 
-    def detect_udp_flood(
-        self, threshold: int = None, time_window: str = "1m"
-    ) -> pl.DataFrame:
+    def detect_udp_flood(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
         """
         Detect UDP flood attacks.
 
@@ -331,9 +325,7 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
         # TODO: Implement
         raise NotImplementedError("detect_unusual_protocols not yet implemented")
 
-    def detect_off_hours_activity(
-        self, business_hours: tuple = (9, 17)
-    ) -> pl.DataFrame:
+    def detect_off_hours_activity(self, business_hours: tuple = (9, 17)) -> pl.DataFrame:
         """
         Detect activity outside business hours.
 

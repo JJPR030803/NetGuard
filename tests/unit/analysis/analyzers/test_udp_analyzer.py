@@ -5,12 +5,12 @@ from datetime import datetime
 import polars as pl
 import pytest
 
+from netguard.analysis.analyzers.udp_analyzer import UdpAnalyzer
 from netguard.core.errors import (
     EmptyDataFrameError,
     InvalidThresholdError,
     MissingColumnError,
 )
-from netguard.preprocessing.analyzers.udp_analyzer import UdpAnalyzer
 
 
 @pytest.fixture
