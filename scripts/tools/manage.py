@@ -9,9 +9,22 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from typer.models import Typer
+from typer import Typer
+
+# ============================================================================
+# App & Command Groups
+# ============================================================================
 
 app = Typer(help="Netguard project management commands", add_completion=True)
+code_app = Typer(name="code", help="Code quality, formatting, and checking")
+docs_app = Typer(name="docs", help="Documentation building and serving")
+project_app = Typer(name="project", help="Project utilities and dependency management")
+docker_app = Typer(name="docker", help="Docker-related commands")
+
+app.add_typer(code_app)
+app.add_typer(docs_app)
+app.add_typer(project_app)
+app.add_typer(docker_app)
 
 
 # ============================================================================
@@ -97,10 +110,9 @@ def test_watch():
 # =====================================================
 
 
-@app.command()
+@code_app.command("lint")
 def lint(
     fix: bool = typer.Option(False, "--fix", help="Fix lint errors"),
-    check_only: bool = typer.Option(False, "--check", help="Check without fixing"),
 ) -> None:
     """Run linting with ruff"""
     cmd = ["ruff", "check", "src/", "tests/"]
@@ -115,11 +127,11 @@ def lint(
     sys.exit(result.returncode)
 
 
-@app.command()
-def format(
+@code_app.command("format")
+def format_code(
     check: bool = typer.Option(False, "--check", help="Check without formatting"),
 ) -> None:
-    """Format code"""
+    """Format code with ruff"""
     cmd = ["ruff", "format"]
     if check:
         cmd.append("--check")
@@ -131,79 +143,101 @@ def format(
     sys.exit(result.returncode)
 
 
-@app.command()
-def check() -> None:
-    """Run all checks (linting, formatting, type checking)"""
+@code_app.command("check")
+def check_all() -> None:
+    """Run all checks (linting, formatting, type checking, and unit tests)"""
     typer.echo("Running all checks...")
     results = []
-    # Format checks)
-    typer.echo("1. Formatting code...")
-    format_result = subprocess.run(["ruff", "format", "src/", "tests/"])
+
+    typer.echo("\n1. Checking code formatting...")
+    format_result = subprocess.run(["ruff", "format", "--check", "src/", "tests/"])
     results.append(("Formatting", format_result.returncode == 0))
-    # Lint checks
-    typer.echo("2. Linting code...")
+
+    typer.echo("\n2. Linting code...")
     lint_result = subprocess.run(["ruff", "check", "src/", "tests/"])
     results.append(("Linting", lint_result.returncode == 0))
-    # Type checks
-    typer.echo("3. Type checking code...")
+
+    typer.echo("\n3. Type checking code...")
     type_check_result = subprocess.run(["mypy", "src/netguard"])
     results.append(("Type Checking", type_check_result.returncode == 0))
-    # Tests
-    typer.echo("4. Running tests...")
-    test_result = subprocess.run(["pytest", "-m", "unit", "-q", "--tb=no"])
-    results.append(("Tests", test_result.returncode == 0))
-    typer.echo("\n" + "=" * 50)
-    # Summary
+
+    typer.echo("\n4. Running unit tests...")
+    test_result = subprocess.run(["pytest", "tests/unit/", "-q", "--tb=short"])
+    results.append(("Unit Tests", test_result.returncode == 0))
+
     typer.echo("\n" + "=" * 60)
     typer.echo("Check Summary:")
     typer.echo("=" * 60)
 
     for name, passed in results:
-        status = "Passed" if passed else "Failed"
+        status = "✅ Passed" if passed else "❌ Failed"
         color = typer.colors.GREEN if passed else typer.colors.RED
-        typer.secho(f"{status} {name}", fg=color)
+        typer.secho(f"{name:<20} {status}", fg=color)
+
     typer.echo("=" * 60)
     all_passed = all(passed for _, passed in results)
     if all_passed:
-        typer.secho("All checks passed!", fg=typer.colors.GREEN, bold=True)
+        typer.secho("\nAll checks passed!", fg=typer.colors.GREEN, bold=True)
         sys.exit(0)
     else:
-        typer.secho("Some checks failed!", fg=typer.colors.RED, bold=True)
+        typer.secho("\nSome checks failed!", fg=typer.colors.RED, bold=True)
         sys.exit(1)
 
 
-# ==========================================================
-# Serve Documentation
-# ==========================================================
-@app.command()
-def docs(
-    serve: bool = typer.Option(False, "--serve/--build", help="Serve or build documentation"),
-    port: int = typer.Option(8000, "--port", "-p", help="Port to serve documentation on"),
-    open_browser: bool = typer.Option(False, "--open/--no-open", help="Open browser after serving"),
-) -> None:
-    """Build and serve documentation locally with MkDocs"""
-    if serve:
-        typer.secho("Serving Documentation at http://localhost:8000", color=True, fg=typer.colors.GREEN, bold=True)
-        typer.secho(f"Serving Documentation at http://127.0.0.1:{port}", color=True, fg=typer.colors.GREEN, bold=True)
-        typer.echo("Press Ctrl+C to stop the server.")
+# ============================================================================
+# Documentation
+# ============================================================================
 
-        cmd = ["mkdocs", "serve", "--dev-addr", f"127.0.0.1:{port}"]
 
-        if not open_browser:
-            cmd.append("--no-livereload")
+@docs_app.command("serve")
+def docs_serve(
+    port: int = typer.Option(8000, "--port", "-p", help="Port for serving"),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Open browser on start"),
+):
+    """Serve docs locally with live-reload."""
+    typer.echo(f"📚 Serving documentation at http://127.0.0.1:{port}")
+    typer.echo("   Press Ctrl+C to stop\n")
+    cmd = ["mkdocs", "serve", "--dev-addr", f"127.0.0.1:{port}"]
+    if not open_browser:
+        cmd.append("--no-livereload")
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        typer.echo("\n\n👋 Stopping documentation server.")
+        sys.exit(0)
+    except FileNotFoundError:
+        typer.secho("❌ mkdocs not found. Install with: uv add --dev mkdocs", fg=typer.colors.RED)
+        sys.exit(1)
 
-        try:
-            subprocess.run(cmd)
-        except KeyboardInterrupt:
-            typer.secho("Documentation server stopped.", color=True, fg=typer.colors.GREEN, bold=True)
+
+@docs_app.command("build")
+def docs_build():
+    """Build docs to the site/ directory."""
+    typer.echo("📖 Building documentation...")
+    try:
+        result = subprocess.run(["mkdocs", "build"])
+        if result.returncode == 0:
+            site_dir = Path("site")
+            if site_dir.exists():
+                html_files = list(site_dir.rglob("*.html"))
+                typer.echo(f"\n📊 Build Statistics:")
+                typer.echo(f"   - HTML files: {len(html_files)}")
+                typer.echo(f"   - Output dir: {site_dir.resolve()}")
+            typer.secho("\n✅ Documentation built successfully!", fg=typer.colors.GREEN)
         else:
-            typer.echo("Building Documentation...")
-            result = subprocess.run(["mkdocs", "build"])
-            if result.returncode == 0:
-                typer.secho("Documentation built successfully!", color=True, fg=typer.colors.GREEN, bold=True)
-            else:
-                typer.secho("Documentation build failed!", color=True, fg=typer.colors.RED, bold=True)
-                sys.exit(1)
+            typer.secho("\n❌ Documentation build failed.", fg=typer.colors.RED)
+            sys.exit(1)
+    except FileNotFoundError:
+        typer.secho("❌ mkdocs not found. Install with: uv add --dev mkdocs", fg=typer.colors.RED)
+        sys.exit(1)
+
+
+@docs_app.callback(invoke_without_command=True)
+def docs_main(ctx: typer.Context):
+    """Build and serve documentation. Defaults to 'serve'."""
+    if ctx.invoked_subcommand is None:
+        typer.echo("No subcommand specified. Defaulting to 'docs serve'.\n")
+        ctx.invoke(docs_serve)
 
 
 # ============================================================================
@@ -291,104 +325,321 @@ def serve(
 
 
 # ============================================================================
-# Data & Utilities
+# Project Utilities
+# ============================================================================
+
+
+@project_app.command("clean")
+def clean(
+    cache: bool = typer.Option(True, "--cache/--no-cache", help="Clean __pycache__"),
+    coverage: bool = typer.Option(True, "--coverage/--no-coverage", help="Clean coverage data"),
+    docs: bool = typer.Option(True, "--docs/--no-docs", help="Clean documentation build"),
+    data: bool = typer.Option(True, "--data/--no-data", help="Clean test data files"),
+    all_caches: bool = typer.Option(False, "--all", help="Clean all caches"),
+):
+    """Clean temporary files and caches"""
+    typer.echo("🧹 Cleaning project...\n")
+    removed_count = 0
+
+    def rmtree(path: Path):
+        nonlocal removed_count
+        if path.exists():
+            try:
+                shutil.rmtree(path)
+                typer.echo(f"  - Removed {path}")
+                removed_count += 1
+            except Exception as e:
+                typer.secho(f"  - Failed to remove {path}: {e}", fg=typer.colors.RED)
+
+    def rmfile(path: Path):
+        nonlocal removed_count
+        if path.exists():
+            try:
+                path.unlink()
+                typer.echo(f"  - Removed {path}")
+                removed_count += 1
+            except Exception as e:
+                typer.secho(f"  - Failed to remove {path}: {e}", fg=typer.colors.RED)
+
+    if cache or all_caches:
+        typer.echo("Cleaning Python cache files...")
+        for p in Path(".").rglob("__pycache__"):
+            rmtree(p)
+        for p in Path(".").rglob("*.pyc"):
+            rmfile(p)
+        for p in Path(".").rglob("*.pyo"):
+            rmfile(p)
+
+    if coverage or all_caches:
+        typer.echo("\nCleaning test and coverage caches...")
+        rmfile(Path(".coverage"))
+        rmtree(Path("htmlcov"))
+        rmtree(Path(".pytest_cache"))
+
+    if docs or all_caches:
+        typer.echo("\nCleaning documentation build...")
+        rmtree(Path("site"))
+
+    if data:
+        typer.echo("\nCleaning generated data files...")
+        data_dir = Path("src/netguard/data")
+        # TODO: This could be improved by using a glob pattern from config
+        test_files = [data_dir / "testing.parquet", data_dir / "ml_testing.parquet"]
+        for file in test_files:
+            rmfile(file)
+
+    if all_caches:
+        typer.echo("\nCleaning tool caches...")
+        rmtree(Path(".ruff_cache"))
+        rmtree(Path(".mypy_cache"))
+
+    typer.echo("\n" + "=" * 60)
+    if removed_count > 0:
+        typer.secho(f"✅ Cleanup complete! Removed {removed_count} items.", fg=typer.colors.GREEN, bold=True)
+    else:
+        typer.secho("✨ Project is already clean.", fg=typer.colors.YELLOW, bold=True)
+
+
+@project_app.command("deps")
+def deps(
+    tree: bool = typer.Option(False, "--tree", help="Show dependency tree"),
+    outdated: bool = typer.Option(False, "--outdated", help="Check for outdated packages"),
+    export: bool = typer.Option(False, "--export", help="Export to requirements.txt"),
+):
+    """Manage and inspect project dependencies."""
+    try:
+        subprocess.run(["uv", "--version"], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        typer.secho("❌ uv not found. Make sure uv is installed and in your PATH.", fg=typer.colors.RED)
+        sys.exit(1)
+
+    if tree:
+        typer.echo("🌳 Dependency Tree\n")
+        subprocess.run(["uv", "pip", "tree"])
+    elif outdated:
+        typer.echo("📦 Checking for Outdated Packages...\n")
+        subprocess.run(["uv", "pip", "list", "--outdated"])
+    elif export:
+        output_file = Path("requirements.txt")
+        typer.echo(f"📦 Exporting dependencies to {output_file}...\n")
+        result = subprocess.run(["uv", "pip", "freeze"], capture_output=True, text=True)
+        if result.returncode == 0:
+            output_file.write_text(result.stdout)
+            count = len([line for line in result.stdout.splitlines() if line.strip() and not line.startswith("#")])
+            typer.secho(f"✅ Exported {count} packages to {output_file}", fg=typer.colors.GREEN)
+        else:
+            typer.secho(f"❌ Failed to export dependencies:\n{result.stderr}", fg=typer.colors.RED)
+            sys.exit(1)
+    else:
+        typer.echo("📦 Installed Packages (via uv)\n")
+        subprocess.run(["uv", "pip", "list"])
+
+
+@project_app.command("collect-context")
+def collect_context(
+    output: Path = typer.Option(
+        Path("project_context.txt"), "--output", "-o", help="Output file path"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+    deps_tree: bool = typer.Option(
+        False, "--deps-tree", help="Include dependency tree in context"
+    ),
+    project_tree: bool = typer.Option(
+        False, "--project-tree", help="Include project folder tree in context"
+    ),
+):
+    """Collect project context into a single file."""
+    typer.echo(f"📋 Collecting project context to {output}...\n")
+    script_path = Path("scripts/tools/collect_context.py")
+    if not script_path.exists():
+        typer.secho(
+            f"⚠️ Collection script not found at {script_path}, cannot proceed.",
+            fg=typer.colors.YELLOW,
+        )
+        sys.exit(1)
+
+    cmd = ["python", str(script_path), "--output", str(output)]
+    if verbose:
+        cmd.append("--verbose")
+    if deps_tree:
+        cmd.append("--include-deps-tree")
+    if project_tree:
+        cmd.append("--include-project-tree")
+
+    result = subprocess.run(cmd)
+    if result.returncode == 0:
+        typer.secho(f"✅ Context collected successfully.", fg=typer.colors.GREEN)
+    else:
+        typer.secho("❌ Context collection failed.", fg=typer.colors.RED)
+        sys.exit(1)
+
+
+# ============================================================================
+# Docker Commands
+# ============================================================================
+
+def _get_docker_compose_cmd(prod: bool = False) -> list[str]:
+    cmd = ["docker-compose"]
+    if prod:
+        cmd.extend(["-f", "docker-compose.prod.yml"])
+    return cmd
+
+
+@docker_app.command("up")
+def docker_up(
+    prod: bool = typer.Option(False, "--prod", help="Use production configuration"),
+    build: bool = typer.Option(False, "--build", help="Build images before starting"),
+    detach: bool = typer.Option(True, "-d/--no-detach", help="Run in detached mode"),
+):
+    """Start services with docker-compose."""
+    cmd = _get_docker_compose_cmd(prod)
+    cmd.append("up")
+    if build:
+        cmd.append("--build")
+    if detach:
+        cmd.append("-d")
+    typer.echo(f"🐳 Starting services: {' '.join(cmd)}")
+    subprocess.run(cmd)
+
+
+@docker_app.command("down")
+def docker_down(
+    prod: bool = typer.Option(False, "--prod", help="Use production configuration"),
+    volumes: bool = typer.Option(False, "-v", "--volumes", help="Remove named volumes"),
+):
+    """Stop services with docker-compose."""
+    cmd = _get_docker_compose_cmd(prod)
+    cmd.append("down")
+    if volumes:
+        cmd.append("-v")
+    typer.echo(f"🐳 Stopping services: {' '.join(cmd)}")
+    subprocess.run(cmd)
+
+
+@docker_app.command("logs")
+def docker_logs(
+    prod: bool = typer.Option(False, "--prod", help="Use production configuration"),
+    follow: bool = typer.Option(True, "-f", "--follow/--no-follow", help="Follow log output"),
+    tail: Optional[int] = typer.Option(None, "--tail", help="Number of lines to show from the end"),
+):
+    """View output from containers."""
+    cmd = _get_docker_compose_cmd(prod)
+    cmd.append("logs")
+    if follow:
+        cmd.append("-f")
+    if tail:
+        cmd.extend(["--tail", str(tail)])
+    typer.echo(f"📜 Viewing logs: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        typer.echo("\n👋 Exiting log view.")
+        sys.exit(0)
+
+
+@docker_app.command("build")
+def docker_build(
+    prod: bool = typer.Option(False, "--prod", help="Use production configuration"),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Do not use cache when building"),
+):
+    """Build or rebuild services."""
+    cmd = _get_docker_compose_cmd(prod)
+    cmd.append("build")
+    if no_cache:
+        cmd.append("--no-cache")
+    typer.echo(f"🏗️ Building services: {' '.join(cmd)}")
+    subprocess.run(cmd)
+
+
+# ============================================================================
+# Interactive Shell & Info
 # ============================================================================
 
 
 @app.command()
-def clean(
-    cache: bool = typer.Option(True, "--cache/--no-cache", help="Clean __pycache__"),
-    coverage: bool = typer.Option(True, "--coverage/--no-coverage", help="Clean coverage data"),
-    docs: bool = typer.Option(True, "--docs/--no-docs", help="Clean documentation"),
-    data: bool = typer.Option(True, "--data/--no-data", help="Clean test data files"),
-    all: bool = typer.Option(False, "--all/--no-all", help="Clean everything"),
-):
-    """Clean temporary files and caches"""
-    typer.echo("Cleaning project...\n")
+def shell():
+    """Start an interactive Python shell with pre-imported modules."""
+    import code
+    from importlib.metadata import version
 
-    removed_count = 0
+    typer.echo("🐍 Starting NetGuard interactive shell...")
 
-    if cache or all:
-        typer.echo("Cleaning Python cache files....")
-        for pycache in Path(".").rglob("__pycache__"):
-            try:
-                shutil.rmtree(pycache)
-                typer.echo(f"Removed {pycache}")
-                removed_count += 1
-            except Exception as e:
-                typer.echo(f"Failed to remove {pycache}: {e}")
-        for pyc in Path(".").rglob("*.pyc"):
-            try:
-                pyc.unlink()
-                typer.echo(f"Removed {pyc}")
-                removed_count += 1
-            except Exception as e:
-                typer.echo(f"Failed to remove {pyc}: {e}")
-        for pyo in Path(".").rglob("*.pyo"):
-            try:
-                pyo.unlink()
-                typer.echo(f"Removed {pyo}")
-                removed_count += 1
-            except Exception as e:
-                typer.echo(f"Failed to remove {pyo}: {e}")
-    if coverage or all:
-        typer.echo("Cleaning coverage data...")
-        paths = [Path(".coverage"), Path("htmlcov"), Path(".pytest_cache")]
-        for path in paths:
-            if path.exists():
-                try:
-                    if path.is_dir():
-                        shutil.rmtree(path)
-                    else:
-                        path.unlink()
-                    typer.echo(f"Removed {path}")
-                except Exception as e:
-                    typer.echo(f"Failed to remove {path}: {e}")
-    if docs or all:
-        typer.echo("Cleaning documentation...")
-        site_dir = Path("site")
-        if site_dir.exists():
-            try:
-                shutil.rmtree(site_dir)
-                typer.echo(f"Removed {site_dir}")
-            except Exception as e:
-                typer.echo(f"Failed to remove {site_dir}: {e}")
-    if data or all:
-        typer.echo("Cleaning test data files...")
-        data_dir = Path("src/netguard/data")
-        if data_dir.exists():
-            # TODO: improve hardcoded paths
-            test_files = [data_dir / "testing.parquet", data_dir / "ml_testing.parquet"]
-            for file in test_files:
-                if file.exists():
-                    try:
-                        file.unlink()
-                        typer.echo(f"Removed {file}")
-                        removed_count += 1
-                    except Exception as e:
-                        typer.echo(f"Failed to remove {file}: {e}")
-    ruff_cache = Path(".ruff_cache")
-    if ruff_cache.exists():
+    context = {}
+    imports_successful = []
+    imports_failed = []
+
+    def try_import(name, alias=None):
         try:
-            shutil.rmtree(ruff_cache)
-            typer.echo(f"\n Removed {ruff_cache}")
-            removed_count += 1
-        except Exception as e:
-            typer.echo(f"\n Failed to remove {ruff_cache}: {e}")
+            module = __import__(name)
+            key = alias or name
+            context[key] = module
+            try:
+                ver = version(name)
+                imports_successful.append(f"  - {key} ({ver})")
+            except Exception:
+                imports_successful.append(f"  - {key}")
+        except ImportError:
+            imports_failed.append(f"  - {name}")
 
-    # Clean mypy cache
-    my_py_cache = Path(".mypy_cache")
-    if my_py_cache.exists():
+    try_import("polars", "pl")
+    try:
+        from netguard.capture.packet_capture import PacketCapture
+        context["PacketCapture"] = PacketCapture
+        imports_successful.append("  - PacketCapture")
+    except ImportError:
+        imports_failed.append("  - PacketCapture")
+
+    banner = "\n" + "=" * 60 + "\n"
+    banner += "  Welcome to the NetGuard Interactive Shell!\n"
+    banner += "=" * 60 + "\n"
+
+    if imports_successful:
+        banner += "Available imports:\n" + "\n".join(imports_successful)
+    if imports_failed:
+        banner += "\nFailed imports:\n" + "\n".join(imports_failed)
+    banner += "\n" + "=" * 60
+
+    code.interact(banner=banner, local=context)
+
+
+@app.command()
+def info():
+    """Show project information and statistics."""
+    from importlib.metadata import version, PackageNotFoundError
+
+    typer.echo("=" * 60)
+    typer.echo("📋 NetGuard Project Information")
+    typer.echo("=" * 60 + "\n")
+
+    typer.echo(f"  - Python version: {sys.version.split()[0]}")
+    typer.echo(f"  - Project root:   {Path.cwd()}\n")
+
+    typer.echo("📦 Key Dependencies:")
+    packages = ["polars", "scapy", "fastapi", "pytest", "typer", "uv", "ruff", "mypy"]
+    for pkg in packages:
         try:
-            shutil.rmtree(my_py_cache)
-            typer.echo(f"\n Removed {my_py_cache}")
-            removed_count += 1
-        except Exception as e:
-            typer.echo(f"\n Failed to remove {my_py_cache}: {e}")
+            ver = version(pkg)
+            typer.secho(f"  ✓ {pkg:<10} {ver}", fg=typer.colors.GREEN)
+        except PackageNotFoundError:
+            typer.secho(f"  ✗ {pkg:<10} not installed", fg=typer.colors.YELLOW)
 
-    # Summary
+    typer.echo("\n📊 Project Statistics:")
+    src_files = list(Path("src/netguard").rglob("*.py"))
+    test_files = list(Path("tests").rglob("test_*.py"))
+    doc_files = list(Path("docs").rglob("*.md"))
+
+    typer.echo(f"  - Source files:      {len(src_files)}")
+    typer.echo(f"  - Test files:        {len(test_files)}")
+    typer.echo(f"  - Documentation:     {len(doc_files)} files")
+
+    total_lines = sum(len(p.read_text().splitlines()) for p in src_files)
+    typer.echo(f"  - Lines of code:     ~{total_lines:,} (in src)")
     typer.echo("\n" + "=" * 60)
-    if removed_count > 0:
-        typer.secho(f"Cleanup complete! Removed {removed_count} items", fg=typer.colors.GREEN, bold=True)
-    else:
-        typer.secho("No items to remove", fg=typer.colors.YELLOW, bold=True)
+
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
+
+if __name__ == "__main__":
+    app()

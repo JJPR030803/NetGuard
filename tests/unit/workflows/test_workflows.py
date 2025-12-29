@@ -2,10 +2,7 @@
 
 import json
 from datetime import datetime, time
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
+from unittest.mock import Mock, patch
 
 from netguard.workflows import (
     DailyAudit,

@@ -9,7 +9,6 @@ from netguard.analysis.analyzers.udp_analyzer import UdpAnalyzer
 from netguard.core.errors import (
     EmptyDataFrameError,
     InvalidThresholdError,
-    MissingColumnError,
 )
 
 

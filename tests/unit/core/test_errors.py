@@ -1,7 +1,5 @@
 """Tests for preprocessing error classes."""
 
-import pytest
-
 from netguard.core.errors import (
     AnalyzerNotInitializedError,
     EmptyDataFrameError,

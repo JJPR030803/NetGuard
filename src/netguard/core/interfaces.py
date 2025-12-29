@@ -16,8 +16,8 @@ from typing import Dict, List, Optional
 
 import netifaces
 
-from netguard.core.loggers import ConsoleLogger  # Import ConsoleLogger
 from netguard.core.loggers import (
+    ConsoleLogger,  # Import ConsoleLogger
     DebugLogger,
     ErrorLogger,
     InfoLogger,

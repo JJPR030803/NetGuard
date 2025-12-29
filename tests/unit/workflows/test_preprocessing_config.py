@@ -1,7 +1,5 @@
 """Tests for preprocessing configuration."""
 
-import pytest
-
 from netguard.workflows.preprocessing_config import AnalysisConfig
 
 
