@@ -97,7 +97,9 @@ class WorkflowReport:
                     "info": "⚪",
                 }.get(finding["severity"], "•")
 
-                lines.append(f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}")
+                lines.append(
+                    f"{severity_icon} [{finding['severity'].upper()}] {finding['category']}"
+                )
                 lines.append(f"   {finding['description']}")
                 if finding["details"]:
                     lines.append(f"   Details: {finding['details']}")
@@ -421,7 +423,9 @@ class DailyAudit:
     def _check_off_hours_activity(self, report: WorkflowReport):
         """Detect activity outside business hours."""
         try:
-            off_hours = self.analysis.anomaly.detect_off_hours_activity(business_hours=self.business_hours)
+            off_hours = self.analysis.anomaly.detect_off_hours_activity(
+                business_hours=self.business_hours
+            )
             if len(off_hours) > 0:
                 report.add_finding(
                     "low",
@@ -596,7 +600,9 @@ class IPInvestigation:
             port_scans = self.analysis.anomaly.detect_port_scanning(threshold=50, time_window="1m")
 
             if self.ip in str(port_scans):  # Simple check
-                report.add_finding("high", "Port Scanning", f"IP {self.ip} is performing port scanning")
+                report.add_finding(
+                    "high", "Port Scanning", f"IP {self.ip} is performing port scanning"
+                )
         except Exception as e:
             self.logger.warning(f"Scanning behavior check failed: {e}")
 
@@ -615,7 +621,9 @@ class IPInvestigation:
             # Check UDP flood
             udp_floods = self.analysis.anomaly.detect_udp_flood(threshold=300, time_window="1m")
             if self.ip in str(udp_floods):
-                report.add_finding("high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack")
+                report.add_finding(
+                    "high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack"
+                )
         except Exception as e:
             self.logger.warning(f"Attack pattern check failed: {e}")
 
@@ -625,7 +633,9 @@ class IPInvestigation:
             # Check if IP is a top querier
             top_queriers = self.analysis.dns.get_top_querying_ips(n=20)
             if self.ip in str(top_queriers):
-                report.add_finding("info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers")
+                report.add_finding(
+                    "info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers"
+                )
         except Exception as e:
             self.logger.warning(f"DNS activity check failed: {e}")
 

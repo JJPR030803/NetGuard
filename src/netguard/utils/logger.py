@@ -111,9 +111,13 @@ class HandlerConfig:
 
             # Create appropriate handler based on name
             if name == "rotating_file":
-                self.file_handler = RotatingFileHandler(full_path, maxBytes=max_bytes, backupCount=backup_count)
+                self.file_handler = RotatingFileHandler(
+                    full_path, maxBytes=max_bytes, backupCount=backup_count
+                )
             elif name == "timed_rotating_file":
-                self.file_handler = TimedRotatingFileHandler(full_path, when="midnight", interval=1, backupCount=backup_count)
+                self.file_handler = TimedRotatingFileHandler(
+                    full_path, when="midnight", interval=1, backupCount=backup_count
+                )
             else:
                 self.file_handler = logging.FileHandler(full_path)
 
@@ -252,7 +256,9 @@ class Logger(ABC):
         Returns:
             HandlerTypes: Dictionary with a single console handler definition.
         """
-        handlers: HandlerTypes = {"console_handler": HandlerConfig("console", logging.INFO, Formatter("%(message)s"))}
+        handlers: HandlerTypes = {
+            "console_handler": HandlerConfig("console", logging.INFO, Formatter("%(message)s"))
+        }
         return handlers
 
     @abstractmethod
@@ -360,7 +366,9 @@ class NetworkSecurityLogger(Logger):
 
     def __init__(self, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
-            "console_handler": HandlerConfig("console", logging.INFO, Formatter("%(asctime)s [SECURITY] %(message)s")),
+            "console_handler": HandlerConfig(
+                "console", logging.INFO, Formatter("%(asctime)s [SECURITY] %(message)s")
+            ),
             "security_handler": HandlerConfig(
                 "security",
                 logging.WARNING,
@@ -433,7 +441,9 @@ class PerformanceLogger(Logger):
 
     def __init__(self, log_dir: Optional[str] = None):
         handlers: HandlerTypes = {
-            "console_handler": HandlerConfig("console", logging.INFO, Formatter("%(asctime)s [PERF] %(message)s")),
+            "console_handler": HandlerConfig(
+                "console", logging.INFO, Formatter("%(asctime)s [PERF] %(message)s")
+            ),
             "performance_handler": HandlerConfig(
                 "performance",
                 logging.INFO,

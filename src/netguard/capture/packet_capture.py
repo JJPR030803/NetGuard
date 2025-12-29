@@ -79,11 +79,15 @@ class PacketCapture:
 
         # Validation using config values
         if self.config.max_memory_packets < 100:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
+            )
             raise ValueError("max_memory_packets must be at least 100")
 
         if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
+            )
             raise ValueError("max_memory_packets must be multiple of 10")
 
         # Initialize other attributes
@@ -101,7 +105,9 @@ class PacketCapture:
 
         # Real-time display attributes
         # Use realtime_display parameter if provided, otherwise use config value
-        self.realtime_display = realtime_display if realtime_display else self.config.enable_realtime_display
+        self.realtime_display = (
+            realtime_display if realtime_display else self.config.enable_realtime_display
+        )
         self.realtime_packets = deque(maxlen=50)  # Store last 50 packets for display
         self.display_thread = None
         self.display_running = False
@@ -109,10 +115,14 @@ class PacketCapture:
         self.info_logger.log(f"Initializing PacketCapture for interface: {self.config.interface}")
 
         if self.config.max_memory_packets < 100:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100"
+            )
             raise ValueError("max_memory_packets must be at least 100")
         if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10")
+            self.error_logger.log(
+                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10"
+            )
             raise ValueError("max_memory_packets must be multiple of 10 for faster processing")
 
         self.packets: list[Packet] = []
@@ -165,7 +175,7 @@ class PacketCapture:
                         # Log the error but continue processing other packets
                         # We don't want to stop the entire queue processing for one packet
                         packet_id = getattr(packet, "time", "unknown")
-                        self.error_logger.log(f"Error processing packet {packet_id}: {str(e)}")
+                        self.error_logger.log(f"Error processing packet {packet_id}: {e!s}")
                         self.stats["dropped_packets"] += 1
                 end_time = time()
                 processing_time = end_time - start_time
@@ -440,7 +450,7 @@ class PacketCapture:
             session_info["interface_type"] = "docker"
         elif self.interface.lower().startswith(("eth", "en", "eno")):
             session_info["interface_type"] = "ethernet"
-        elif self.interface.lower().startswith(("veth")):
+        elif self.interface.lower().startswith("veth"):
             session_info["interface_type"] = "virtual"
         elif self.interface.lower().startswith(("tun", "tap")):
             session_info["interface_type"] = "vpn"
@@ -503,9 +513,15 @@ class PacketCapture:
             session_info = self._get_session_info()
             self.info_logger.log("=== SNIFFING SESSION STARTED ===")
             self.info_logger.log(f"Date/Time: {session_info['date']}")
-            self.info_logger.log(f"Operating System: {session_info['os']} {session_info['os_version']}")
-            self.info_logger.log(f"Machine: {session_info['machine']} ({session_info['processor']})")
-            self.info_logger.log(f"Interface: {session_info['interface']} (Type: {session_info['interface_type']})")
+            self.info_logger.log(
+                f"Operating System: {session_info['os']} {session_info['os_version']}"
+            )
+            self.info_logger.log(
+                f"Machine: {session_info['machine']} ({session_info['processor']})"
+            )
+            self.info_logger.log(
+                f"Interface: {session_info['interface']} (Type: {session_info['interface_type']})"
+            )
             self.info_logger.log(f"Max Packets: {max_packets}")
             self.info_logger.log("================================")
 
@@ -529,7 +545,9 @@ class PacketCapture:
 
         def packet_callback_wrapper(packet: ScapyPacket) -> None:
             if self.max_memory_packets and len(self.packets) >= self.max_memory_packets:
-                self.debug_logger.log(f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list")
+                self.debug_logger.log(
+                    f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list"
+                )
                 self.packets = self.packets[-self.max_memory_packets :]
                 gc.collect()
 
@@ -543,7 +561,9 @@ class PacketCapture:
 
             packet_buffer.append(packet)
             if len(packet_buffer) >= self.max_processing_batch:
-                self.packet_logger.log(f"Queuing batch of {len(packet_buffer)} packets for processing")
+                self.packet_logger.log(
+                    f"Queuing batch of {len(packet_buffer)} packets for processing"
+                )
                 self.packet_queue.put(packet_buffer[:])  # Create a copy of the buffer
                 packet_buffer.clear()
 
@@ -559,7 +579,7 @@ class PacketCapture:
             )
             self.info_logger.log(f"Packet sniffing completed, captured up to {max_packets} packets")
         except Exception as e:
-            self.error_logger.log(f"Error during packet capture: {str(e)}")
+            self.error_logger.log(f"Error during packet capture: {e!s}")
             raise
         finally:
             # Process remaining packets in buffer
@@ -766,7 +786,9 @@ class PacketCapture:
                 "total_packets": len(self.packets),
             }
         except Exception as e:
-            raise DataConversionError(source_format="packets", target_format="JSON", error_details=str(e)) from e
+            raise DataConversionError(
+                source_format="packets", target_format="JSON", error_details=str(e)
+            ) from e
 
     @perf.monitor("to_pandas_df")
     def to_pandas_df(self) -> pd.DataFrame:
@@ -877,7 +899,9 @@ class PacketCapture:
                     for field_name, field_value in layer.fields.items():
                         column_name = f"{layer_prefix}{field_name}"
                         converted_value = convert_to_string(field_value)
-                        packet_data[column_name] = converted_value if converted_value is not None else ""
+                        packet_data[column_name] = (
+                            converted_value if converted_value is not None else ""
+                        )
 
                 flattened_packets.append(packet_data)
 
@@ -893,7 +917,9 @@ class PacketCapture:
             df = pl.DataFrame(flattened_packets, schema=schema)
 
             # Convert timestamp to datetime
-            df = df.with_columns([pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")])
+            df = df.with_columns(
+                [pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")]
+            )
 
             return df
 

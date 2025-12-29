@@ -270,7 +270,9 @@ class NetworkParquetAnalysis:
             polars.DataFrame
         """
         if protocol not in self.PROTOCOLS:
-            raise ValueError(f"Invalid protocol: {protocol}\nValid protocols are: {', '.join(self.PROTOCOLS)}")
+            raise ValueError(
+                f"Invalid protocol: {protocol}\nValid protocols are: {', '.join(self.PROTOCOLS)}"
+            )
         return self.df.select(cs.contains(protocol))
 
     def find_ip_information(self, ip_address: str) -> pl.DataFrame:
@@ -296,7 +298,9 @@ class NetworkParquetAnalysis:
         Returns timestamps using ip as filter
         """
         ip_columns = self.df.select(cs.contains("IP") | cs.contains("IPv6")).columns
-        return self.df.filter(pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)).select(cs.contains("timestamp"))
+        return self.df.filter(
+            pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)
+        ).select(cs.contains("timestamp"))
 
     def behavioral_summary(self, time_window: str = "1m", group_by_col: str = "source_ip"):
         """
@@ -329,12 +333,18 @@ class NetworkParquetAnalysis:
 
         if group_by_col == "source_ip":
             unique_ip_agg = pl.col("destination_ip").n_unique().alias("unique_dst_ip_count")
-            bytes_agg = pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_sent")
+            bytes_agg = (
+                pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_sent")
+            )
         else:  # destination_ip
             unique_ip_agg = pl.col("source_ip").n_unique().alias("unique_src_ip_count")
-            bytes_agg = pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_received")
+            bytes_agg = (
+                pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_received")
+            )
 
-        behavioral_df = df_with_unified_ips.group_by_dynamic(index_column="timestamp", every=time_window, by=group_by_col).agg(
+        behavioral_df = df_with_unified_ips.group_by_dynamic(
+            index_column="timestamp", every=time_window, by=group_by_col
+        ).agg(
             # Volume
             pl.count().alias("packet_count"),
             bytes_agg,
@@ -374,7 +384,9 @@ class NetworkParquetAnalysis:
         if not src_ip_cols:
             raise ValueError("No source IP columns found")
 
-        df_with_src_ip = self.df.with_columns(pl.coalesce(src_ip_cols).alias("source_ip")).drop_nulls("source_ip")
+        df_with_src_ip = self.df.with_columns(
+            pl.coalesce(src_ip_cols).alias("source_ip")
+        ).drop_nulls("source_ip")
 
         summaries = []
 
@@ -493,7 +505,11 @@ class NetworkParquetAnalysis:
 
         # Protocol distribution
         if "IP_proto" in self.df.columns:
-            protocol_counts = self.df.group_by("IP_proto").agg(pl.count().alias("count")).sort("count", descending=True)
+            protocol_counts = (
+                self.df.group_by("IP_proto")
+                .agg(pl.count().alias("count"))
+                .sort("count", descending=True)
+            )
             summary["protocols"] = {str(row[0]): int(row[1]) for row in protocol_counts.iter_rows()}
 
         # Get unique host counts
@@ -503,9 +519,13 @@ class NetworkParquetAnalysis:
         if src_cols or dst_cols:
             all_ips = []
             if src_cols:
-                all_ips.extend(self.df.select(pl.coalesce(src_cols)).to_series().drop_nulls().to_list())
+                all_ips.extend(
+                    self.df.select(pl.coalesce(src_cols)).to_series().drop_nulls().to_list()
+                )
             if dst_cols:
-                all_ips.extend(self.df.select(pl.coalesce(dst_cols)).to_series().drop_nulls().to_list())
+                all_ips.extend(
+                    self.df.select(pl.coalesce(dst_cols)).to_series().drop_nulls().to_list()
+                )
 
             summary["unique_hosts"] = len(set(all_ips))
 
@@ -526,7 +546,9 @@ class NetworkParquetAnalysis:
             try:
                 summary["tcp"] = {
                     "packet_count": len(self._tcp.df),
-                    "syn_count": (self._tcp.get_syn_count() if hasattr(self._tcp, "get_syn_count") else None),
+                    "syn_count": (
+                        self._tcp.get_syn_count() if hasattr(self._tcp, "get_syn_count") else None
+                    ),
                 }
             except Exception as e:
                 self.logger.debug(f"Error generating TCP summary: {e}")
@@ -541,15 +563,21 @@ class NetworkParquetAnalysis:
 
         # Format bytes and duration for readability
         if summary["file_info"]["size"]:
-            summary["file_info"]["size_formatted"] = format_bytes(int(summary["file_info"]["size"] * 1024 * 1024))
+            summary["file_info"]["size_formatted"] = format_bytes(
+                int(summary["file_info"]["size"] * 1024 * 1024)
+            )
 
         if summary["temporal"]["duration"]:
-            summary["temporal"]["duration_formatted"] = format_duration(summary["temporal"]["duration"])
+            summary["temporal"]["duration_formatted"] = format_duration(
+                summary["temporal"]["duration"]
+            )
 
         self.logger.log_analysis_complete("network_summary")
         return summary
 
-    def export_summary_report(self, format: str = "json", output: Optional[str] = None) -> Optional[str]:
+    def export_summary_report(
+        self, format: str = "json", output: Optional[str] = None
+    ) -> Optional[str]:
         """
         Export analysis summary to file.
 
@@ -618,7 +646,9 @@ class NetworkParquetAnalysis:
             return None
 
         else:
-            raise ValueError(f"Unsupported format: {format}. Supported formats: 'json', 'csv', 'parquet'")
+            raise ValueError(
+                f"Unsupported format: {format}. Supported formats: 'json', 'csv', 'parquet'"
+            )
 
 
 if __name__ == "__main__":

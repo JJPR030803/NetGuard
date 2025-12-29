@@ -13,7 +13,9 @@ class InvalidProtocolError(ParquetAnalysisError):
     def __init__(self, protocol: str, valid_protocols: set):
         self.protocol = protocol
         self.valid_protocols = valid_protocols
-        super().__init__(f"Invalid protocol: '{protocol}'. Valid protocols are: {', '.join(sorted(valid_protocols))}")
+        super().__init__(
+            f"Invalid protocol: '{protocol}'. Valid protocols are: {', '.join(sorted(valid_protocols))}"
+        )
 
 
 class MissingColumnError(ParquetAnalysisError):
@@ -98,5 +100,5 @@ class InvalidFileFormatError(ParquetAnalysisError):
         self.original_error = original_error
         msg = f"Invalid parquet file format: '{file_path}'"
         if original_error:
-            msg += f". Error: {str(original_error)}"
+            msg += f". Error: {original_error!s}"
         super().__init__(msg)

@@ -17,7 +17,9 @@ from ..utils.logger import HandlerConfig, HandlerTypes, Logger
 DEFAULT_FORMAT = "%(asctime)s | %(name)s | %(levelname)8s | %(message)s"
 
 # Detailed format with more context
-DETAILED_FORMAT = "%(asctime)s | %(name)s | %(levelname)8s | %(filename)s:%(lineno)d | %(funcName)s | %(message)s"
+DETAILED_FORMAT = (
+    "%(asctime)s | %(name)s | %(levelname)8s | %(filename)s:%(lineno)d | %(funcName)s | %(message)s"
+)
 
 
 class ConsoleLogger(Logger):
@@ -29,7 +31,9 @@ class ConsoleLogger(Logger):
     """
 
     def __init__(self, log_format: Optional[Formatter] = None, log_dir: Optional[str] = None):
-        handlers: HandlerTypes = {"console_handler": HandlerConfig("console", logging.INFO, Formatter("%(message)s"))}
+        handlers: HandlerTypes = {
+            "console_handler": HandlerConfig("console", logging.INFO, Formatter("%(message)s"))
+        }
         super().__init__(log_format=log_format, handlers=handlers, log_dir=log_dir)
 
     def log(self, message: str) -> None:
@@ -417,7 +421,10 @@ class PreprocessingLogger:
             **details: Additional details to log
         """
         details_str = ", ".join(f"{k}={v}" for k, v in details.items())
-        self.info(f"Operation '{operation}' completed in {duration:.3f}s" + (f" | {details_str}" if details_str else ""))
+        self.info(
+            f"Operation '{operation}' completed in {duration:.3f}s"
+            + (f" | {details_str}" if details_str else "")
+        )
 
     def log_dataframe_info(self, df_name: str, shape: tuple, memory_mb: float = None):
         """
@@ -440,7 +447,9 @@ class PreprocessingLogger:
             **params: Analysis parameters
         """
         params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-        self.info(f"Starting {analysis_type} analysis" + (f" with {params_str}" if params_str else ""))
+        self.info(
+            f"Starting {analysis_type} analysis" + (f" with {params_str}" if params_str else "")
+        )
 
     def log_analysis_complete(self, analysis_type: str, result_count: int = None):
         """
@@ -479,7 +488,9 @@ def get_logger(
     global _global_logger
 
     if _global_logger is None:
-        _global_logger = PreprocessingLogger(name=name, level=level, log_file=log_file, detailed=detailed)
+        _global_logger = PreprocessingLogger(
+            name=name, level=level, log_file=log_file, detailed=detailed
+        )
 
     return _global_logger
 

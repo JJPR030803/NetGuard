@@ -53,14 +53,18 @@ Examples:
 
     # Global options
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose debug logging")
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress all output except errors")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress all output except errors"
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze a parquet file")
     analyze_parser.add_argument("file", type=str, help="Path to parquet file")
-    analyze_parser.add_argument("--summary", action="store_true", help="Generate and display network summary")
+    analyze_parser.add_argument(
+        "--summary", action="store_true", help="Generate and display network summary"
+    )
     analyze_parser.add_argument(
         "--export",
         type=str,
@@ -74,7 +78,9 @@ Examples:
         default="json",
         help="Export format (default: json)",
     )
-    analyze_parser.add_argument("--lazy", action="store_true", help="Use lazy loading for analyzers")
+    analyze_parser.add_argument(
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
+    )
 
     # Protocol-specific analysis
     analyze_parser.add_argument("--tcp", action="store_true", help="Analyze TCP traffic")
@@ -101,8 +107,12 @@ Examples:
     )
 
     # IP analysis
-    analyze_parser.add_argument("--ip", type=str, metavar="IP_ADDRESS", help="Analyze specific IP address")
-    analyze_parser.add_argument("--top-ips", type=int, metavar="N", help="Show top N most active IPs")
+    analyze_parser.add_argument(
+        "--ip", type=str, metavar="IP_ADDRESS", help="Analyze specific IP address"
+    )
+    analyze_parser.add_argument(
+        "--top-ips", type=int, metavar="N", help="Show top N most active IPs"
+    )
 
     # Info command
     info_parser = subparsers.add_parser("info", help="Display basic file information")
@@ -121,15 +131,23 @@ Examples:
         default="9-17",
         help="Business hours for off-hours detection (format: START-END, e.g., 9-17)",
     )
-    audit_parser.add_argument("--export", type=str, metavar="FILE", help="Export report to JSON file")
+    audit_parser.add_argument(
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
+    )
     audit_parser.add_argument("--lazy", action="store_true", help="Use lazy loading for analyzers")
 
     # IP Investigation workflow
-    investigate_parser = subparsers.add_parser("investigate-ip", help="Investigate specific IP address")
+    investigate_parser = subparsers.add_parser(
+        "investigate-ip", help="Investigate specific IP address"
+    )
     investigate_parser.add_argument("file", type=str, help="Path to parquet file")
     investigate_parser.add_argument("ip", type=str, help="IP address to investigate")
-    investigate_parser.add_argument("--export", type=str, metavar="FILE", help="Export report to JSON file")
-    investigate_parser.add_argument("--lazy", action="store_true", help="Use lazy loading for analyzers")
+    investigate_parser.add_argument(
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
+    )
+    investigate_parser.add_argument(
+        "--lazy", action="store_true", help="Use lazy loading for analyzers"
+    )
 
     # Threat Hunting workflow
     threat_parser = subparsers.add_parser("threat-hunt", help="Proactive threat hunting")
@@ -141,7 +159,9 @@ Examples:
         default="all",
         help="Type of threat to hunt for (default: all)",
     )
-    threat_parser.add_argument("--export", type=str, metavar="FILE", help="Export report to JSON file")
+    threat_parser.add_argument(
+        "--export", type=str, metavar="FILE", help="Export report to JSON file"
+    )
     threat_parser.add_argument("--lazy", action="store_true", help="Use lazy loading for analyzers")
 
     return parser

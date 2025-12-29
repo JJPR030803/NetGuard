@@ -221,7 +221,9 @@ class BasePacket(pyd.BaseModel):
             # Pre-process special fields
             for key, value in data.items():
                 # Convert IP addresses and MAC addresses to strings
-                if hasattr(value, "__str__") and (type(value).__name__ in ("IPvAnyAddress", "MacAddress")):
+                if hasattr(value, "__str__") and (
+                    type(value).__name__ in ("IPvAnyAddress", "MacAddress")
+                ):
                     data[key] = str(value)
                 # Convert bytes to hex strings
                 elif isinstance(value, bytes):
@@ -250,7 +252,11 @@ class BasePacket(pyd.BaseModel):
         print(f"  Destination IP: {self.dst_ip}")
         print(f"  Layers: {self.layers}")
         if self.payload:
-            print(f"  Payload: {self.payload[:50]}..." if len(self.payload) > 50 else f"  Payload: {self.payload}")
+            print(
+                f"  Payload: {self.payload[:50]}..."
+                if len(self.payload) > 50
+                else f"  Payload: {self.payload}"
+            )
 
 
 # For backward compatibility

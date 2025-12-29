@@ -453,7 +453,9 @@ class SnifferConfig:
     Default: 60 (seconds)
     """
 
-    performance_parquet_path: str = "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+    performance_parquet_path: str = (
+        "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+    )
     """
     Path to the Parquet file where performance metrics will be stored.
 
@@ -564,10 +566,12 @@ class SnifferConfig:
             ```
         """
         if not os.path.exists(yaml_file):
-            print(f"Warning: Configuration file {yaml_file} not found. Using default configuration.")
+            print(
+                f"Warning: Configuration file {yaml_file} not found. Using default configuration."
+            )
             return cls()
 
-        with open(yaml_file, "r") as f:
+        with open(yaml_file) as f:
             config_data = yaml.safe_load(f)
 
         if not config_data:
@@ -600,7 +604,9 @@ class SnifferConfig:
             if "max_memory_packets" in capture_config:
                 config_dict["max_memory_packets"] = capture_config["max_memory_packets"]
             if "max_processing_batch_size" in capture_config:
-                config_dict["max_processing_batch_size"] = capture_config["max_processing_batch_size"]
+                config_dict["max_processing_batch_size"] = capture_config[
+                    "max_processing_batch_size"
+                ]
             if "num_threads" in capture_config:
                 config_dict["num_threads"] = capture_config["num_threads"]
             if "enable_realtime_display" in capture_config:
@@ -626,7 +632,9 @@ class SnifferConfig:
             if "enable_packet_logging" in logging_config:
                 config_dict["enable_packet_logging"] = logging_config["enable_packet_logging"]
             if "enable_performance_logging" in logging_config:
-                config_dict["enable_performance_logging"] = logging_config["enable_performance_logging"]
+                config_dict["enable_performance_logging"] = logging_config[
+                    "enable_performance_logging"
+                ]
             if "max_log_file_size" in logging_config:
                 config_dict["max_log_file_size"] = logging_config["max_log_file_size"]
             if "log_backup_count" in logging_config:
@@ -644,7 +652,9 @@ class SnifferConfig:
         if "performance" in config_data:
             performance_config = config_data["performance"]
             if "enable_monitoring" in performance_config:
-                config_dict["enable_performance_monitoring"] = performance_config["enable_monitoring"]
+                config_dict["enable_performance_monitoring"] = performance_config[
+                    "enable_monitoring"
+                ]
             if "log_interval" in performance_config:
                 config_dict["performance_log_interval"] = performance_config["log_interval"]
             if "parquet_path" in performance_config:
@@ -654,9 +664,13 @@ class SnifferConfig:
         if "security" in config_data:
             security_config = config_data["security"]
             if "validate_interface_names" in security_config:
-                config_dict["validate_interface_names"] = security_config["validate_interface_names"]
+                config_dict["validate_interface_names"] = security_config[
+                    "validate_interface_names"
+                ]
             if "sanitize_filter_expressions" in security_config:
-                config_dict["sanitize_filter_expressions"] = security_config["sanitize_filter_expressions"]
+                config_dict["sanitize_filter_expressions"] = security_config[
+                    "sanitize_filter_expressions"
+                ]
             if "max_filter_length" in security_config:
                 config_dict["max_filter_length"] = security_config["max_filter_length"]
 

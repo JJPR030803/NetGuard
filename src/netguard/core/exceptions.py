@@ -59,7 +59,9 @@ class InterfaceException(SnifferException):
 
     def __init__(self, interface="", message="An interface-related error occurred"):
         self.interface = interface
-        message_with_interface = f"{message}" if not interface else f"{message} (Interface: {interface})"
+        message_with_interface = (
+            f"{message}" if not interface else f"{message} (Interface: {interface})"
+        )
         super().__init__(message_with_interface)
 
 
@@ -280,7 +282,9 @@ class ConfigurationException(SnifferException):
 
     def __init__(self, config_name="", message="A configuration error occurred"):
         self.config_name = config_name
-        message_with_config = f"{message}" if not config_name else f"{message} (Configuration: {config_name})"
+        message_with_config = (
+            f"{message}" if not config_name else f"{message} (Configuration: {config_name})"
+        )
         super().__init__(message_with_config)
 
 

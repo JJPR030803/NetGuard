@@ -28,6 +28,16 @@ app.add_typer(docker_app)
 
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def run_uv_command(cmd: list[str]) -> subprocess.CompletedProcess:
+    """Run a command using 'uv run' to ensure it's executed in the virtual environment."""
+    return subprocess.run(["uv", "run"] + cmd)
+
+
+# ============================================================================
 # Testing Commands
 # ============================================================================
 
@@ -36,7 +46,9 @@ app.add_typer(docker_app)
 def test(
     path: Optional[str] = typer.Argument(None, help="Specific test path"),
     unit: bool = typer.Option(False, "--unit", "-u", help="Run only unit tests"),
-    integration: bool = typer.Option(False, "--integration", "-i", help="Run only integration tests"),
+    integration: bool = typer.Option(
+        False, "--integration", "-i", help="Run only integration tests"
+    ),
     e2e: bool = typer.Option(False, "--e2e", help="Run only e2e tests"),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     coverage: bool = typer.Option(True, "--cov/--no-cov", help="Run with coverage"),
@@ -87,7 +99,7 @@ def test(
         cmd.extend(["-n", "auto"])
 
     typer.echo(f"🧪 Running tests: {' '.join(cmd)}")
-    result = subprocess.run(cmd)
+    result = run_uv_command(cmd)
     sys.exit(result.returncode)
 
 
@@ -96,7 +108,7 @@ def test_watch():
     """Run tests in watch mode (re-run on file changes)"""
     try:
         typer.echo("👀 Watching for changes...")
-        subprocess.run(["pytest-watch", "--", "-v", "--tb=short"])
+        run_uv_command(["pytest-watch", "--", "-v", "--tb=short"])
     except FileNotFoundError:
         typer.secho(
             "❌ pytest-watch not found. Install with: uv add --dev pytest-watch",
@@ -119,7 +131,7 @@ def lint(
     if fix:
         cmd.append("--fix")
     typer.echo("🔍 Linting code...")
-    result = subprocess.run(cmd)
+    result = run_uv_command(cmd)
     if result.returncode == 0:
         typer.secho("✅ No linting errors!", fg=typer.colors.GREEN)
     else:
@@ -139,7 +151,7 @@ def format_code(
     else:
         typer.echo("🔧 Formatting code...")
     cmd.extend(["src/", "tests/"])
-    result = subprocess.run(cmd)
+    result = run_uv_command(cmd)
     sys.exit(result.returncode)
 
 
@@ -150,19 +162,19 @@ def check_all() -> None:
     results = []
 
     typer.echo("\n1. Checking code formatting...")
-    format_result = subprocess.run(["ruff", "format", "--check", "src/", "tests/"])
+    format_result = run_uv_command(["ruff", "format", "--check", "src/", "tests/"])
     results.append(("Formatting", format_result.returncode == 0))
 
     typer.echo("\n2. Linting code...")
-    lint_result = subprocess.run(["ruff", "check", "src/", "tests/"])
+    lint_result = run_uv_command(["ruff", "check", "src/", "tests/"])
     results.append(("Linting", lint_result.returncode == 0))
 
     typer.echo("\n3. Type checking code...")
-    type_check_result = subprocess.run(["mypy", "src/netguard"])
+    type_check_result = run_uv_command(["mypy", "src/netguard"])
     results.append(("Type Checking", type_check_result.returncode == 0))
 
     typer.echo("\n4. Running unit tests...")
-    test_result = subprocess.run(["pytest", "tests/unit/", "-q", "--tb=short"])
+    test_result = run_uv_command(["pytest", "tests/unit/", "-q", "--tb=short"])
     results.append(("Unit Tests", test_result.returncode == 0))
 
     typer.echo("\n" + "=" * 60)
@@ -201,7 +213,7 @@ def docs_serve(
     if not open_browser:
         cmd.append("--no-livereload")
     try:
-        subprocess.run(cmd)
+        run_uv_command(cmd)
     except KeyboardInterrupt:
         typer.echo("\n\n👋 Stopping documentation server.")
         sys.exit(0)
@@ -215,12 +227,12 @@ def docs_build():
     """Build docs to the site/ directory."""
     typer.echo("📖 Building documentation...")
     try:
-        result = subprocess.run(["mkdocs", "build"])
+        result = run_uv_command(["mkdocs", "build"])
         if result.returncode == 0:
             site_dir = Path("site")
             if site_dir.exists():
                 html_files = list(site_dir.rglob("*.html"))
-                typer.echo(f"\n📊 Build Statistics:")
+                typer.echo("\n📊 Build Statistics:")
                 typer.echo(f"   - HTML files: {len(html_files)}")
                 typer.echo(f"   - Output dir: {site_dir.resolve()}")
             typer.secho("\n✅ Documentation built successfully!", fg=typer.colors.GREEN)
@@ -253,11 +265,11 @@ def capture(
 ):
     """[TODO] Capture network packets"""
     typer.secho("🚧 TODO: Packet capture not yet implemented", fg=typer.colors.YELLOW)
-    typer.echo(f"\nPlanned functionality:")
+    typer.echo("\nPlanned functionality:")
     typer.echo(f"  - Capture {count} packets from {interface}")
     if output:
         typer.echo(f"  - Save to {output}")
-    typer.echo(f"\nThis will use: netguard.capture.packet_capture.PacketCapture")
+    typer.echo("\nThis will use: netguard.capture.packet_capture.PacketCapture")
 
 
 @app.command()
@@ -271,10 +283,10 @@ def analyze(
         sys.exit(1)
 
     typer.secho("🚧 TODO: Analysis not yet implemented", fg=typer.colors.YELLOW)
-    typer.echo(f"\nPlanned functionality:")
+    typer.echo("\nPlanned functionality:")
     typer.echo(f"  - Analyze {input_file}")
     typer.echo(f"  - Using {analyzer} analyzer")
-    typer.echo(f"\nThis will use: netguard.analysis.analyzers")
+    typer.echo("\nThis will use: netguard.analysis.analyzers")
 
 
 @app.command()
@@ -299,10 +311,10 @@ def workflow(
         sys.exit(1)
 
     typer.secho("🚧 TODO: Workflows not yet implemented", fg=typer.colors.YELLOW)
-    typer.echo(f"\nPlanned functionality:")
+    typer.echo("\nPlanned functionality:")
     typer.echo(f"  - Run {workflows[name]} workflow")
     typer.echo(f"  - Input: {input_file}")
-    typer.echo(f"\nThis will use: netguard.workflows.workflows.WorkflowRunner")
+    typer.echo("\nThis will use: netguard.workflows.workflows.WorkflowRunner")
 
 
 # ============================================================================
@@ -318,10 +330,10 @@ def serve(
 ):
     """[TODO] Start the FastAPI development server"""
     typer.secho("🚧 TODO: API server not yet implemented", fg=typer.colors.YELLOW)
-    typer.echo(f"\nPlanned functionality:")
+    typer.echo("\nPlanned functionality:")
     typer.echo(f"  - Start FastAPI server at http://{host}:{port}")
     typer.echo(f"  - Auto-reload: {reload}")
-    typer.echo(f"\nThis will use: uvicorn netguard.api.main:app")
+    typer.echo("\nThis will use: uvicorn netguard.api.main:app")
 
 
 # ============================================================================
@@ -395,7 +407,9 @@ def clean(
 
     typer.echo("\n" + "=" * 60)
     if removed_count > 0:
-        typer.secho(f"✅ Cleanup complete! Removed {removed_count} items.", fg=typer.colors.GREEN, bold=True)
+        typer.secho(
+            f"✅ Cleanup complete! Removed {removed_count} items.", fg=typer.colors.GREEN, bold=True
+        )
     else:
         typer.secho("✨ Project is already clean.", fg=typer.colors.YELLOW, bold=True)
 
@@ -408,31 +422,39 @@ def deps(
 ):
     """Manage and inspect project dependencies."""
     try:
-        subprocess.run(["uv", "--version"], capture_output=True, check=True)
+        run_uv_command(["uv", "--version"], capture_output=True, check=True)
     except (FileNotFoundError, subprocess.CalledProcessError):
-        typer.secho("❌ uv not found. Make sure uv is installed and in your PATH.", fg=typer.colors.RED)
+        typer.secho(
+            "❌ uv not found. Make sure uv is installed and in your PATH.", fg=typer.colors.RED
+        )
         sys.exit(1)
 
     if tree:
         typer.echo("🌳 Dependency Tree\n")
-        subprocess.run(["uv", "pip", "tree"])
+        run_uv_command(["uv", "pip", "tree"])
     elif outdated:
         typer.echo("📦 Checking for Outdated Packages...\n")
-        subprocess.run(["uv", "pip", "list", "--outdated"])
+        run_uv_command(["uv", "pip", "list", "--outdated"])
     elif export:
         output_file = Path("requirements.txt")
         typer.echo(f"📦 Exporting dependencies to {output_file}...\n")
-        result = subprocess.run(["uv", "pip", "freeze"], capture_output=True, text=True)
+        result = run_uv_command(["uv", "pip", "freeze"], capture_output=True, text=True)
         if result.returncode == 0:
             output_file.write_text(result.stdout)
-            count = len([line for line in result.stdout.splitlines() if line.strip() and not line.startswith("#")])
+            count = len(
+                [
+                    line
+                    for line in result.stdout.splitlines()
+                    if line.strip() and not line.startswith("#")
+                ]
+            )
             typer.secho(f"✅ Exported {count} packages to {output_file}", fg=typer.colors.GREEN)
         else:
             typer.secho(f"❌ Failed to export dependencies:\n{result.stderr}", fg=typer.colors.RED)
             sys.exit(1)
     else:
         typer.echo("📦 Installed Packages (via uv)\n")
-        subprocess.run(["uv", "pip", "list"])
+        run_uv_command(["uv", "pip", "list"])
 
 
 @project_app.command("collect-context")
@@ -441,9 +463,7 @@ def collect_context(
         Path("project_context.txt"), "--output", "-o", help="Output file path"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-    deps_tree: bool = typer.Option(
-        False, "--deps-tree", help="Include dependency tree in context"
-    ),
+    deps_tree: bool = typer.Option(False, "--deps-tree", help="Include dependency tree in context"),
     project_tree: bool = typer.Option(
         False, "--project-tree", help="Include project folder tree in context"
     ),
@@ -477,6 +497,7 @@ def collect_context(
 # ============================================================================
 # Docker Commands
 # ============================================================================
+
 
 def _get_docker_compose_cmd(prod: bool = False) -> list[str]:
     cmd = ["docker-compose"]
@@ -584,6 +605,7 @@ def shell():
     try_import("polars", "pl")
     try:
         from netguard.capture.packet_capture import PacketCapture
+
         context["PacketCapture"] = PacketCapture
         imports_successful.append("  - PacketCapture")
     except ImportError:
@@ -605,7 +627,7 @@ def shell():
 @app.command()
 def info():
     """Show project information and statistics."""
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
 
     typer.echo("=" * 60)
     typer.echo("📋 NetGuard Project Information")

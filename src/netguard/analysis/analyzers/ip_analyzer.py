@@ -174,7 +174,9 @@ class IpAnalyzer:
         source_ips = self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
 
         # Get unique destination IPs
-        dest_ips = self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
+        dest_ips = (
+            self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
+        )
 
         # Find IPs that are only in source (never in destination)
         sender_only = source_ips.join(dest_ips, on="ip_address", how="anti")
@@ -212,7 +214,9 @@ class IpAnalyzer:
         source_ips = self.df.select("_source_ip").unique().rename({"_source_ip": "ip_address"})
 
         # Get unique destination IPs
-        dest_ips = self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
+        dest_ips = (
+            self.df.select("_destination_ip").unique().rename({"_destination_ip": "ip_address"})
+        )
 
         # Find IPs that are only in destination (never in source)
         receiver_only = dest_ips.join(source_ips, on="ip_address", how="anti")
@@ -285,14 +289,19 @@ class IpAnalyzer:
                 (pl.col("packets_sent") + pl.col("packets_received")).alias("total_packets"),
                 (
                     pl.when(pl.col("packets_sent") + pl.col("packets_received") > 0)
-                    .then(pl.col("packets_sent") / (pl.col("packets_sent") + pl.col("packets_received")))
+                    .then(
+                        pl.col("packets_sent")
+                        / (pl.col("packets_sent") + pl.col("packets_received"))
+                    )
                     .otherwise(0.5)
                 ).alias("send_ratio"),
             ]
         )
 
         # Filter asymmetric IPs (send_ratio > threshold or < 1-threshold)
-        asymmetric = combined.filter((pl.col("send_ratio") > threshold) | (pl.col("send_ratio") < (1 - threshold)))
+        asymmetric = combined.filter(
+            (pl.col("send_ratio") > threshold) | (pl.col("send_ratio") < (1 - threshold))
+        )
 
         return asymmetric.sort("total_packets", descending=True)
 

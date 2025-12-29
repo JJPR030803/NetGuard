@@ -72,7 +72,9 @@ class UdpAnalyzer:
         validate_dataframe_columns(df, ["IP_proto"])
 
         # Filter to UDP traffic only (IP protocol 17)
-        self.df = df.filter(pl.col("IP_proto").cast(pl.Int64, strict=False) == self.UDP_PROTOCOL_NUMBER)
+        self.df = df.filter(
+            pl.col("IP_proto").cast(pl.Int64, strict=False) == self.UDP_PROTOCOL_NUMBER
+        )
 
         if self.df.is_empty():
             raise EmptyDataFrameError("No UDP traffic found in DataFrame")
@@ -167,7 +169,9 @@ class UdpAnalyzer:
         reverse_flows = df_with_flow.select("reverse_flow").unique()
 
         # Find flows that exist in forward but not in reverse (no response)
-        unidirectional_flows = forward_flows.join(reverse_flows, left_on="forward_flow", right_on="reverse_flow", how="anti")
+        unidirectional_flows = forward_flows.join(
+            reverse_flows, left_on="forward_flow", right_on="reverse_flow", how="anti"
+        )
 
         # Get statistics for unidirectional flows
         result = (
@@ -244,7 +248,9 @@ class UdpAnalyzer:
                         return_dtype=pl.Utf8,
                     )
                     .alias("port_name"),
-                    pl.col("port").map_elements(classify_port, return_dtype=pl.Utf8).alias("port_class"),
+                    pl.col("port")
+                    .map_elements(classify_port, return_dtype=pl.Utf8)
+                    .alias("port_class"),
                 ]
             )
         )
@@ -304,7 +310,13 @@ class UdpAnalyzer:
                     pl.col("timestamp").max().alias("last_seen"),
                 ]
             )
-            .with_columns([((pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()).alias("duration_seconds")])
+            .with_columns(
+                [
+                    ((pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()).alias(
+                        "duration_seconds"
+                    )
+                ]
+            )
         )
 
         # Add flow ID
@@ -420,7 +432,9 @@ class UdpAnalyzer:
         )
 
         # Group by source IP and time window
-        flood_candidates = df_prepared.group_by_dynamic(index_column="timestamp", every=polars_window, by="src_ip").agg(
+        flood_candidates = df_prepared.group_by_dynamic(
+            index_column="timestamp", every=polars_window, by="src_ip"
+        ).agg(
             [
                 pl.count().alias("packet_count"),
                 safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
@@ -434,7 +448,9 @@ class UdpAnalyzer:
                     pl.col(dst_ip_col).alias("dst_ip"),
                 ]
             )
-            flood_candidates = df_prepared.group_by_dynamic(index_column="timestamp", every=polars_window, by="src_ip").agg(
+            flood_candidates = df_prepared.group_by_dynamic(
+                index_column="timestamp", every=polars_window, by="src_ip"
+            ).agg(
                 [
                     pl.count().alias("packet_count"),
                     safe_cast_to_int(pl.col("IP_len")).sum().alias("byte_count"),
@@ -448,7 +464,9 @@ class UdpAnalyzer:
             )
 
         # Filter sources exceeding threshold
-        result = flood_candidates.filter(pl.col("packet_count") >= threshold).sort("packet_count", descending=True)
+        result = flood_candidates.filter(pl.col("packet_count") >= threshold).sort(
+            "packet_count", descending=True
+        )
 
         return result
 
@@ -493,7 +511,10 @@ class UdpAnalyzer:
         amplification_ports = [53, 123, 161, 1900, 5353]  # DNS, NTP, SNMP, SSDP, mDNS
 
         # Filter to traffic involving amplification-prone services
-        df_amp = self.df.filter(pl.col("UDP_dport").is_in(amplification_ports) | pl.col("UDP_sport").is_in(amplification_ports))
+        df_amp = self.df.filter(
+            pl.col("UDP_dport").is_in(amplification_ports)
+            | pl.col("UDP_sport").is_in(amplification_ports)
+        )
 
         if df_amp.is_empty():
             return pl.DataFrame()
@@ -547,14 +568,22 @@ class UdpAnalyzer:
         )
 
         # Match requests with responses
-        matched = requests.join(responses, on=["reflector_ip", "service_port", "client_ip"], how="inner")
+        matched = requests.join(
+            responses, on=["reflector_ip", "service_port", "client_ip"], how="inner"
+        )
 
         if matched.is_empty():
             return pl.DataFrame()
 
         # Calculate amplification ratio and filter
         result = (
-            matched.with_columns([(pl.col("avg_response_size") / pl.col("avg_request_size")).alias("amplification_ratio")])
+            matched.with_columns(
+                [
+                    (pl.col("avg_response_size") / pl.col("avg_request_size")).alias(
+                        "amplification_ratio"
+                    )
+                ]
+            )
             .filter(pl.col("amplification_ratio") >= min_amplification_ratio)
             .select(
                 [
@@ -642,10 +671,16 @@ class UdpAnalyzer:
 
         # Calculate scan duration
         scan_candidates = scan_candidates.with_columns(
-            [((pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()).alias("scan_duration_seconds")]
+            [
+                ((pl.col("last_seen") - pl.col("first_seen")).dt.total_seconds()).alias(
+                    "scan_duration_seconds"
+                )
+            ]
         )
 
         # Filter sources exceeding threshold
-        result = scan_candidates.filter(pl.col("unique_ports_scanned") >= threshold).sort("unique_ports_scanned", descending=True)
+        result = scan_candidates.filter(pl.col("unique_ports_scanned") >= threshold).sort(
+            "unique_ports_scanned", descending=True
+        )
 
         return result

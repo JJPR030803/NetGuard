@@ -83,7 +83,9 @@ def get_scan_config(profile: ScanProfile) -> PortScanConfig:
     return SCAN_PROFILES[profile]
 
 
-def create_custom_config(threshold: int, time_window: str, description: str = "Custom configuration") -> PortScanConfig:
+def create_custom_config(
+    threshold: int, time_window: str, description: str = "Custom configuration"
+) -> PortScanConfig:
     """
     Create a custom port scan configuration.
 

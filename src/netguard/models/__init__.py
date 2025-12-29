@@ -34,13 +34,13 @@ from .packet_data_structures import (
 )
 
 __all__ = [
-    "Packet",
-    "PacketLayer",
     "ARPPacketModel",
     "EthernetPacketModel",
-    "STPPacketModel",
-    "IPPacketModel",
     "ICMPPacketModel",
+    "IPPacketModel",
+    "Packet",
+    "PacketLayer",
+    "STPPacketModel",
     "TCPPacketModel",
     "UDPPacketModel",
 ]

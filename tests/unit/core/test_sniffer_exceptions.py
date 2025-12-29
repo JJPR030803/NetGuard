@@ -76,7 +76,9 @@ class TestSnifferExceptions(unittest.TestCase):
 
         # Test PacketProcessingError
         exception = PacketProcessingError("12345", "Invalid packet format")
-        self.assertEqual(str(exception), "Error processing packet (ID: 12345): Invalid packet format")
+        self.assertEqual(
+            str(exception), "Error processing packet (ID: 12345): Invalid packet format"
+        )
 
         # Test CaptureLimitExceededError
         exception = CaptureLimitExceededError("packets", 1000, 1001)

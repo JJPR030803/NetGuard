@@ -34,7 +34,9 @@ def pytest_configure(config):
         "integration: marks tests as integration tests (medium speed, multiple components)",
     )
     config.addinivalue_line("markers", "e2e: marks tests as end-to-end tests (slow, full system)")
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
     config.addinivalue_line("markers", "performance: marks tests as performance/benchmark tests")
 
 
@@ -245,7 +247,9 @@ def assert_dataframe_equal():
         if check_dtypes:
             for col in df1.columns:
                 if df1[col].dtype != df2[col].dtype:
-                    raise AssertionError(f"Dtype mismatch in column '{col}':\n  df1: {df1[col].dtype}\n  df2: {df2[col].dtype}")
+                    raise AssertionError(
+                        f"Dtype mismatch in column '{col}':\n  df1: {df1[col].dtype}\n  df2: {df2[col].dtype}"
+                    )
 
         # Check values
         if check_row_order:
@@ -274,7 +278,9 @@ def assert_has_columns():
         """Check if DataFrame has all required columns."""
         missing = [col for col in required_columns if col not in df.columns]
         if missing:
-            raise AssertionError(f"Missing required columns: {missing}\nAvailable columns: {df.columns}")
+            raise AssertionError(
+                f"Missing required columns: {missing}\nAvailable columns: {df.columns}"
+            )
 
     return _assert_has_columns
 

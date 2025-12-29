@@ -9,9 +9,9 @@ from netguard.workflows.workflows import (
 )
 
 __all__ = [
-    "WorkflowReport",
     "DailyAudit",
-    "ThreatHunting",
     "IPInvestigation",
     "NetworkParquetAnalysis",
+    "ThreatHunting",
+    "WorkflowReport",
 ]

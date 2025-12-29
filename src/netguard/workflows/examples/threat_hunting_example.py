@@ -57,7 +57,9 @@ def main():
     lateral_report.to_json("threat_hunt_lateral.json")
 
     # Summary
-    total_findings = len(c2_report.findings) + len(data_theft_report.findings) + len(lateral_report.findings)
+    total_findings = (
+        len(c2_report.findings) + len(data_theft_report.findings) + len(lateral_report.findings)
+    )
 
     print("\n" + "=" * 80)
     print("THREAT HUNTING SUMMARY")

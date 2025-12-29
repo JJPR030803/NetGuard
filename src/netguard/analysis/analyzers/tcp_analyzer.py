@@ -79,7 +79,9 @@ class TcpAnalyzer:
             raise MissingColumnError("IP_proto", df.columns)
 
         # Filter to TCP traffic only (IP protocol 6)
-        self.df = df.filter(pl.col("IP_proto").cast(pl.Int64, strict=False) == self.TCP_PROTOCOL_NUMBER)
+        self.df = df.filter(
+            pl.col("IP_proto").cast(pl.Int64, strict=False) == self.TCP_PROTOCOL_NUMBER
+        )
 
         if len(self.df) == 0:
             raise EmptyDataFrameError("No TCP packets found in DataFrame")
@@ -129,7 +131,9 @@ class TcpAnalyzer:
             raise MissingColumnError("TCP_flags", self.df.columns)
 
         # Count SYN-ACK packets (contains both S and A)
-        syn_ack_count = self.df.filter(pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")).height
+        syn_ack_count = self.df.filter(
+            pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")
+        ).height
 
         # Count RST packets
         rst_count = self.df.filter(pl.col("TCP_flags").str.contains("R")).height
@@ -164,8 +168,14 @@ class TcpAnalyzer:
             self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
             .agg(
                 [
-                    pl.col("TCP_flags").filter(pl.col("TCP_flags").str.contains("S")).count().alias("syn_count"),
-                    pl.col("TCP_flags").filter(pl.col("TCP_flags").str.contains("F")).count().alias("fin_count"),
+                    pl.col("TCP_flags")
+                    .filter(pl.col("TCP_flags").str.contains("S"))
+                    .count()
+                    .alias("syn_count"),
+                    pl.col("TCP_flags")
+                    .filter(pl.col("TCP_flags").str.contains("F"))
+                    .count()
+                    .alias("fin_count"),
                 ]
             )
             .filter(pl.col("syn_count") > 0, pl.col("fin_count") == 0)
@@ -205,8 +215,14 @@ class TcpAnalyzer:
             self.df.group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
             .agg(
                 [
-                    pl.col("timestamp").filter(pl.col("TCP_flags").str.contains("S")).min().alias("first_syn"),
-                    pl.col("timestamp").filter(pl.col("TCP_flags").str.contains("F")).max().alias("last_fin"),
+                    pl.col("timestamp")
+                    .filter(pl.col("TCP_flags").str.contains("S"))
+                    .min()
+                    .alias("first_syn"),
+                    pl.col("timestamp")
+                    .filter(pl.col("TCP_flags").str.contains("F"))
+                    .max()
+                    .alias("last_fin"),
                 ]
             )
             .filter(pl.col("first_syn").is_not_null(), pl.col("last_fin").is_not_null())
@@ -330,10 +346,14 @@ class TcpAnalyzer:
             raise MissingColumnError("TCP_flags", self.df.columns)
 
         # Count SYN packets (S but not A)
-        syn_count = self.df.filter(pl.col("TCP_flags").str.contains("S") & ~pl.col("TCP_flags").str.contains("A")).height
+        syn_count = self.df.filter(
+            pl.col("TCP_flags").str.contains("S") & ~pl.col("TCP_flags").str.contains("A")
+        ).height
 
         # Count SYN-ACK packets (both S and A)
-        syn_ack_count = self.df.filter(pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")).height
+        syn_ack_count = self.df.filter(
+            pl.col("TCP_flags").str.contains("S") & pl.col("TCP_flags").str.contains("A")
+        ).height
 
         # Count ACK-only packets (A but not S, R, F)
         ack_only_count = self.df.filter(
@@ -712,11 +732,17 @@ class TcpAnalyzer:
         total = len(self.df)
 
         # Count each port category
-        well_known = self.df.filter((pl.col("TCP_dport") >= 0) & (pl.col("TCP_dport") < 1024)).height
+        well_known = self.df.filter(
+            (pl.col("TCP_dport") >= 0) & (pl.col("TCP_dport") < 1024)
+        ).height
 
-        registered = self.df.filter((pl.col("TCP_dport") >= 1024) & (pl.col("TCP_dport") < 49152)).height
+        registered = self.df.filter(
+            (pl.col("TCP_dport") >= 1024) & (pl.col("TCP_dport") < 49152)
+        ).height
 
-        ephemeral = self.df.filter((pl.col("TCP_dport") >= 49152) & (pl.col("TCP_dport") < 65536)).height
+        ephemeral = self.df.filter(
+            (pl.col("TCP_dport") >= 49152) & (pl.col("TCP_dport") < 65536)
+        ).height
 
         return {
             "well_known": well_known,
@@ -827,7 +853,9 @@ class TcpAnalyzer:
                 # Sort by timestamp (required for group_by_dynamic)
                 .sort("timestamp")
                 # Group by time windows and (src_ip, dst_ip) pairs
-                .group_by_dynamic("timestamp", every=scan_config.time_window, by=["IP_src", "IP_dst"])
+                .group_by_dynamic(
+                    "timestamp", every=scan_config.time_window, by=["IP_src", "IP_dst"]
+                )
                 # Calculate metrics per group
                 .agg(
                     [
@@ -884,7 +912,9 @@ class TcpAnalyzer:
                     f"sensitivity={scan_config.sensitivity})"
                 )
             else:
-                print(f"⚠ Detected {len(result)} potential port scan(s) using {scan_config.sensitivity} sensitivity profile")
+                print(
+                    f"⚠ Detected {len(result)} potential port scan(s) using {scan_config.sensitivity} sensitivity profile"
+                )
                 # Show summary of findings
                 critical = result.filter(pl.col("severity") == "critical")
                 high = result.filter(pl.col("severity") == "high")
@@ -896,4 +926,4 @@ class TcpAnalyzer:
             return result
 
         except Exception as e:
-            raise Exception(f"Error detecting port scans with config {scan_config}: {str(e)}")
+            raise Exception(f"Error detecting port scans with config {scan_config}: {e!s}")

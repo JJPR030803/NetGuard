@@ -62,7 +62,7 @@ class Interface:
             self.interfaces = self._get_interfaces()
             self.info_logger.log(f"Detected {len(self.interfaces)} network interfaces")
         except Exception as e:
-            self.error_logger.log(f"Error detecting interfaces: {str(e)}")
+            self.error_logger.log(f"Error detecting interfaces: {e!s}")
             self.interfaces = {}
 
     def _setup_loggers(self):
@@ -72,16 +72,24 @@ class Interface:
         if self.config.log_to_file:
             Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
 
-        self.info_logger = InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        self.debug_logger = DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        self.error_logger = ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        self.info_logger = (
+            InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
+        self.debug_logger = (
+            DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
+        self.error_logger = (
+            ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
 
     def _auto_select_interface(self):
         """Auto-select best interface based on config preferences."""
         for interface_type in self.config.preferred_interface_types:
             interfaces = self.get_interface_by_type(interface_type)
             if interfaces:
-                active_interfaces = [iface for iface in interfaces if self.interfaces[iface].get("state") == "UP"]
+                active_interfaces = [
+                    iface for iface in interfaces if self.interfaces[iface].get("state") == "UP"
+                ]
                 if active_interfaces:
                     self.config.interface = active_interfaces[0]
                     self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
@@ -119,11 +127,15 @@ class Interface:
             # Filter by preferred types
             for preferred_type in self.config.preferred_interface_types:
                 matching_interfaces = [
-                    iface for iface in active_interfaces if self.interfaces[iface].get("type") == preferred_type
+                    iface
+                    for iface in active_interfaces
+                    if self.interfaces[iface].get("type") == preferred_type
                 ]
                 if matching_interfaces:
                     selected = matching_interfaces[0]  # Take the first match
-                    self.info_logger.log(f"Auto-selected interface: {selected} (type: {preferred_type})")
+                    self.info_logger.log(
+                        f"Auto-selected interface: {selected} (type: {preferred_type})"
+                    )
                     return selected
 
             # If no preferred type matches, return the first active interface
@@ -187,7 +199,7 @@ class Interface:
             self.error_logger.log(error_msg)
             raise NotImplementedError(error_msg)
         except Exception as e:
-            self.error_logger.log(f"Error detecting network interfaces: {str(e)}")
+            self.error_logger.log(f"Error detecting network interfaces: {e!s}")
             raise
 
     def _get_linux_interfaces(self) -> Dict[str, dict]:
@@ -219,7 +231,11 @@ class Interface:
                     "name": iface,
                     "mac": addrs.get(netifaces.AF_LINK, [{"addr": None}])[0]["addr"],
                     "ipv4": addrs.get(netifaces.AF_INET, [{"addr": None}])[0]["addr"],
-                    "ipv6": (addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"] if netifaces.AF_INET6 in addrs else None),
+                    "ipv6": (
+                        addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
+                        if netifaces.AF_INET6 in addrs
+                        else None
+                    ),
                     "type": self._detect_interface_type(iface),
                 }
                 interfaces[iface] = interface_info
@@ -247,14 +263,18 @@ class Interface:
                                 # Add state information
                                 state = "UP" if "UP" in line else "DOWN"
                                 interfaces[iface_name]["state"] = state
-                                self.debug_logger.log(f"Updated interface {iface_name} state to {state}")
+                                self.debug_logger.log(
+                                    f"Updated interface {iface_name} state to {state}"
+                                )
                 except subprocess.CalledProcessError:
                     self.error_logger.log("Failed to execute 'ip link show' command")
                     pass
 
-            self.info_logger.log(f"Successfully detected {len(interfaces)} Linux network interfaces")
+            self.info_logger.log(
+                f"Successfully detected {len(interfaces)} Linux network interfaces"
+            )
         except Exception as e:
-            self.error_logger.log(f"Error detecting Linux interfaces: {str(e)}")
+            self.error_logger.log(f"Error detecting Linux interfaces: {e!s}")
             # Log the error but return any interfaces we've found so far
             # This allows the program to continue with partial interface information
             pass
@@ -286,7 +306,11 @@ class Interface:
                     "name": iface,
                     "mac": addrs.get(netifaces.AF_LINK, [{"addr": None}])[0]["addr"],
                     "ipv4": addrs.get(netifaces.AF_INET, [{"addr": None}])[0]["addr"],
-                    "ipv6": (addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"] if netifaces.AF_INET6 in addrs else None),
+                    "ipv6": (
+                        addrs.get(netifaces.AF_INET6, [{"addr": None}])[0]["addr"]
+                        if netifaces.AF_INET6 in addrs
+                        else None
+                    ),
                     "type": self._detect_interface_type(iface),
                 }
 
@@ -304,7 +328,9 @@ class Interface:
                             text=True,
                             check=True,
                         ).stdout
-                        interface_info["state"] = "UP" if "status: active" in ifconfig.lower() else "DOWN"
+                        interface_info["state"] = (
+                            "UP" if "status: active" in ifconfig.lower() else "DOWN"
+                        )
                     except subprocess.CalledProcessError:
                         interface_info["state"] = "UNKNOWN"
                 else:
@@ -400,14 +426,13 @@ class Interface:
                         "type": self._detect_interface_type(current_interface),
                         "state": "UNKNOWN",
                     }
-                else:
-                    # Parse interface details
-                    if "Physical Address" in line:
-                        interface_info["mac"] = line.split(":")[1].strip()
-                    elif "IPv4 Address" in line:
-                        interface_info["ipv4"] = line.split(":")[1].strip().replace("(Preferred)", "")
-                    elif "IPv6 Address" in line:
-                        interface_info["ipv6"] = line.split(":")[1].strip().replace("(Preferred)", "")
+                # Parse interface details
+                elif "Physical Address" in line:
+                    interface_info["mac"] = line.split(":")[1].strip()
+                elif "IPv4 Address" in line:
+                    interface_info["ipv4"] = line.split(":")[1].strip().replace("(Preferred)", "")
+                elif "IPv6 Address" in line:
+                    interface_info["ipv6"] = line.split(":")[1].strip().replace("(Preferred)", "")
 
             # Add the last interface
             if current_interface and interface_info:
@@ -524,7 +549,9 @@ class Interface:
                 Returns an empty list if no active interfaces are found.
         """
         self.debug_logger.log("Filtering interfaces by active state (UP)")
-        active_interfaces = [name for name, info in self.interfaces.items() if info.get("state") == "UP"]
+        active_interfaces = [
+            name for name, info in self.interfaces.items() if info.get("state") == "UP"
+        ]
         self.info_logger.log(f"Found {len(active_interfaces)} active interfaces")
         return active_interfaces
 

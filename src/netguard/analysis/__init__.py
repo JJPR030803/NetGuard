@@ -10,12 +10,12 @@ from netguard.analysis.analyzers.tcp_analyzer import TcpAnalyzer
 from netguard.analysis.analyzers.udp_analyzer import UdpAnalyzer
 
 __all__ = [
-    "TcpAnalyzer",
-    "UdpAnalyzer",
-    "DnsAnalyzer",
+    "AnomalyAnalyzer",
     "ArpAnalyzer",
+    "DnsAnalyzer",
+    "FlowAnalyzer",
     "IcmpAnalyzer",
     "IpAnalyzer",
-    "FlowAnalyzer",
-    "AnomalyAnalyzer",
+    "TcpAnalyzer",
+    "UdpAnalyzer",
 ]

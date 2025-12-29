@@ -188,7 +188,9 @@ class ParquetProcessing:
         working_interface = interface_manager.get_interface_by_type(interface_type)
 
         if not working_interface:
-            self.debug_logger.log(f"No interfaces of type {interface_type} found, using first active interface")
+            self.debug_logger.log(
+                f"No interfaces of type {interface_type} found, using first active interface"
+            )
             all_interfaces = interface_manager.get_active_interfaces()
             if not all_interfaces:
                 self.error_logger.log("No network interfaces found")
@@ -253,7 +255,9 @@ class ParquetProcessing:
             self.debug_logger.log("Verifying timestamp data type")
             if df_pl.schema["timestamp"] != pl.Datetime:
                 self.debug_logger.log("Converting timestamp to datetime type")
-                df_pl = df_pl.with_columns([pl.col("timestamp").cast(pl.Datetime).alias("timestamp")])
+                df_pl = df_pl.with_columns(
+                    [pl.col("timestamp").cast(pl.Datetime).alias("timestamp")]
+                )
 
             # Add date and hour columns
             self.debug_logger.log("Adding date and hour columns")
@@ -317,7 +321,7 @@ class ParquetProcessing:
                 }
             )
 
-            error_msg = f"Error converting DataFrame to Parquet: {str(ve)}"
+            error_msg = f"Error converting DataFrame to Parquet: {ve!s}"
             self.error_logger.log(error_msg)
             raise DataConversionError(
                 source_format="DataFrame",
@@ -340,9 +344,11 @@ class ParquetProcessing:
                 }
             )
 
-            error_msg = f"Error exporting data to {filepath}: {str(e)}"
+            error_msg = f"Error exporting data to {filepath}: {e!s}"
             self.error_logger.log(error_msg)
-            raise DataExportError(export_format="Parquet", destination=filepath, error_details=str(e)) from e
+            raise DataExportError(
+                export_format="Parquet", destination=filepath, error_details=str(e)
+            ) from e
 
     @perf.monitor("load_packets")
     def load_packets(self, filepath: str = "") -> pl.DataFrame:
@@ -384,9 +390,11 @@ class ParquetProcessing:
             self.error_logger.log(f"File not found: {filepath}, Error: {e}")
             raise
         except Exception as e:
-            error_msg = f"Error importing data from {filepath}: {str(e)}"
+            error_msg = f"Error importing data from {filepath}: {e!s}"
             self.error_logger.log(error_msg)
-            raise DataImportError(import_format="Parquet", source=filepath, error_details=str(e)) from e
+            raise DataImportError(
+                import_format="Parquet", source=filepath, error_details=str(e)
+            ) from e
 
     @perf.monitor("show_dataframe_stats")
     def show_dataframe_stats(self, df: pl.DataFrame) -> None:
@@ -444,10 +452,12 @@ class ParquetProcessing:
                 if df[col].dtype in [pl.Utf8, pl.Categorical]:
                     unique_values = df[col].unique()
                     if len(unique_values) <= 10:  # Only show if not too many unique values
-                        self.debug_logger.log(f"Found {len(unique_values)} unique values for column {col}")
+                        self.debug_logger.log(
+                            f"Found {len(unique_values)} unique values for column {col}"
+                        )
                         print(f"  {col}: {unique_values.to_list()}")
             except Exception as e:
-                self.debug_logger.log(f"Error processing column {col}: {str(e)}")
+                self.debug_logger.log(f"Error processing column {col}: {e!s}")
                 # Skip to the next column if there's an error processing this one
                 continue
 
@@ -563,7 +573,9 @@ class ParquetProcessing:
                 ]
 
             # Create the analysis DataFrame
-            analysis_df = df.group_by(group_by).agg([pl.count().alias(f"{group_by}_packet_count"), *size_agg, *time_agg])
+            analysis_df = df.group_by(group_by).agg(
+                [pl.count().alias(f"{group_by}_packet_count"), *size_agg, *time_agg]
+            )
 
             # Sort by packet count in descending order
             analysis_df = analysis_df.sort(f"{group_by}_packet_count", descending=True)
