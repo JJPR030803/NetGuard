@@ -2,6 +2,7 @@
 
 import polars as pl
 
+from netguard.analysis.base_analyzer import BaseAnalyzer
 from netguard.analysis.utils import (
     classify_port,
     has_column,
@@ -16,7 +17,7 @@ from netguard.core.errors import (
 )
 
 
-class UdpAnalyzer:
+class UdpAnalyzer(BaseAnalyzer):
     """
     Analyzer for UDP protocol traffic.
 
@@ -72,35 +73,18 @@ class UdpAnalyzer:
         validate_dataframe_columns(df, ["IP_proto"])
 
         # Filter to UDP traffic only (IP protocol 17)
-        self.df = df.filter(
+        filtered_df = df.filter(
             pl.col("IP_proto").cast(pl.Int64, strict=False) == self.UDP_PROTOCOL_NUMBER
         )
 
-        if self.df.is_empty():
+        if filtered_df.is_empty():
             raise EmptyDataFrameError("No UDP traffic found in DataFrame")
 
-        # Store metadata for debugging
-        self._packet_count = len(self.df)
+        # Initialize base class with filtered data
+        super().__init__(filtered_df)
+
+        # Store additional metadata
         self._has_udp_columns = any("UDP" in col for col in self.df.columns)
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return f"UdpAnalyzer(packets={self._packet_count}, shape={self.df.shape}, has_udp_cols={self._has_udp_columns})"
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"UDP Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two UdpAnalyzer instances."""
-        if not isinstance(other, UdpAnalyzer):
-            return False
-        return self.df.frame_equal(other.df)
 
     # ============================================================================
     # TRAFFIC ANALYSIS METHODS

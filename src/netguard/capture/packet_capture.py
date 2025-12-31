@@ -930,6 +930,42 @@ class PacketCapture:
                 error_details=str(e),
             ) from e
 
+    @perf.monitor("save_to_parquet")
+    def save_to_parquet(self, filepath: Optional[str] = None) -> str:
+        """
+        Save captured packets to parquet file.
+
+        Uses DataStore for centralized parquet I/O operations.
+
+        Args:
+            filepath: Output path (optional, uses config if not provided)
+
+        Returns:
+            str: Path where file was saved
+
+        Raises:
+            DataExportError: If save fails
+        """
+        from netguard.core.data_store import DataStore
+
+        if filepath is None:
+            # Use config to determine path
+            timestamp = int(time())
+            base_filename = self.config.export_filename.replace(".parquet", "")
+            filepath = os.path.join(
+                self.config.export_dir,
+                f"{base_filename}_{timestamp}.parquet",
+            )
+
+        # Convert to DataFrame
+        df = self.to_polars_df()
+
+        # Save via DataStore
+        DataStore.save_packets(df, filepath)
+
+        self.info_logger.log(f"Saved {len(df)} packets to {filepath}")
+        return filepath
+
 
 def capture(self, max_packets: int = 100, log: bool = False) -> None:
     if log:

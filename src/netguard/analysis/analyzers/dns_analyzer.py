@@ -2,18 +2,18 @@
 
 import polars as pl
 
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 
-class DnsAnalyzer(NetworkParquetAnalysis):
+class DnsAnalyzer(BaseAnalyzer):
     """
     Analyzer for DNS protocol traffic.
 
-    Filters the parent DataFrame to only DNS-related packets and provides
+    Filters the provided DataFrame to only DNS-related packets and provides
     DNS-specific analysis methods.
 
     Args:
-        path: Path to the parquet file
+        df: Polars DataFrame containing network packet data
     """
 
     # DNS Protocol Constants
@@ -43,9 +43,9 @@ class DnsAnalyzer(NetworkParquetAnalysis):
         5: "REFUSED",  # Query refused
     }
 
-    def __init__(self, path: str):
+    def __init__(self, df: pl.DataFrame):
         """Initialize DNS analyzer and filter to DNS traffic only."""
-        super().__init__(path)
+        super().__init__(df)
 
         # Filter to DNS traffic (port 53 on UDP or TCP)
         dns_filter = pl.lit(False)
@@ -60,31 +60,9 @@ class DnsAnalyzer(NetworkParquetAnalysis):
 
         self.df = self.df.filter(dns_filter)
 
-        # Store metadata for debugging
+        # Update metadata after filtering
         self._packet_count = len(self.df)
         self._has_dns_columns = any("DNS" in col for col in self.df.columns)
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return (
-            f"DnsAnalyzer(path={self.path!r}, packets={self._packet_count}, "
-            f"shape={self.df.shape}, has_dns_cols={self._has_dns_columns})"
-        )
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"DNS Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two DnsAnalyzer instances."""
-        if not isinstance(other, DnsAnalyzer):
-            return False
-        return self.path == other.path and self.df.frame_equal(other.df)
 
     # ============================================================================
     # QUERY ANALYSIS METHODS

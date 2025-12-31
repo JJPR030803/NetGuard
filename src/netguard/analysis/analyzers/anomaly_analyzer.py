@@ -10,17 +10,17 @@ from netguard.analysis.analyzers.anomaly_config import (
     create_custom_config,
     get_scan_config,
 )
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 
-class AnomalyAnalyzer(NetworkParquetAnalysis):
+class AnomalyAnalyzer(BaseAnalyzer):
     """
     Analyzer for detecting network anomalies and attacks.
 
     Keeps all traffic and provides cross-protocol anomaly detection methods.
 
     Args:
-        path: Path to the parquet file
+        df: Polars DataFrame containing network packet data
     """
 
     DEFAULT_SCAN_CONFIG = get_scan_config(ScanProfile.BALANCED)
@@ -42,32 +42,10 @@ class AnomalyAnalyzer(NetworkParquetAnalysis):
     DEFAULT_SYN_FLOOD_THRESHOLD = 1000
     DEFAULT_UDP_FLOOD_THRESHOLD = 1000
 
-    def __init__(self, path: str):
+    def __init__(self, df: pl.DataFrame):
         """Initialize Anomaly analyzer (keeps all traffic)."""
-        super().__init__(path)
-
+        super().__init__(df)
         # Don't filter - anomaly analyzer needs all protocols
-        # Store metadata for debugging
-        self._packet_count = len(self.df)
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return f"AnomalyAnalyzer(path={self.path!r}, packets={self._packet_count}, shape={self.df.shape})"
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"Anomaly Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two AnomalyAnalyzer instances."""
-        if not isinstance(other, AnomalyAnalyzer):
-            return False
-        return self.path == other.path and self.df.frame_equal(other.df)
 
     # ============================================================================
     # SCANNING DETECTION METHODS

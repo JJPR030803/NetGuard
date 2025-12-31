@@ -1,6 +1,7 @@
 """Core NetGuard configuration and utilities."""
 
 from netguard.core.config import SnifferConfig
+from netguard.core.data_store import DataStore
 from netguard.core.exceptions import (
     CaptureLimitExceededError,
     ConfigurationException,
@@ -39,6 +40,8 @@ from netguard.core.loggers import (
 __all__ = [
     # Config
     "SnifferConfig",
+    # Data
+    "DataStore",
     # Exceptions
     "SnifferException",
     "InterfaceException",

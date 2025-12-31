@@ -2,10 +2,10 @@
 
 import polars as pl
 
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 
-class FlowAnalyzer(NetworkParquetAnalysis):
+class FlowAnalyzer(BaseAnalyzer):
     """
     Analyzer for network flows (5-tuple groupings).
 
@@ -13,7 +13,7 @@ class FlowAnalyzer(NetworkParquetAnalysis):
     A flow is defined by: (src_ip, dst_ip, src_port, dst_port, protocol)
 
     Args:
-        path: Path to the parquet file
+        df: Polars DataFrame containing network packet data
     """
 
     # Flow timeout thresholds
@@ -28,38 +28,19 @@ class FlowAnalyzer(NetworkParquetAnalysis):
         17: "UDP",
     }
 
-    def __init__(self, path: str):
+    def __init__(self, df: pl.DataFrame):
         """Initialize Flow analyzer (keeps all traffic)."""
-        super().__init__(path)
+        super().__init__(df)
 
         # Don't filter - flow analyzer works with all protocols
-        # Store metadata for debugging
-        self._packet_count = len(self.df)
         self._flows_created = False
         self._flow_df = None
 
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return (
-            f"FlowAnalyzer(path={self.path!r}, packets={self._packet_count}, "
-            f"shape={self.df.shape}, flows_created={self._flows_created})"
-        )
-
     def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
+        """Human-readable string representation with flow info."""
+        base_str = super().__str__()
         flow_info = f", {len(self._flow_df)} flows" if self._flows_created else ""
-        return f"Flow Analyzer: {self._packet_count} packets{flow_info}{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two FlowAnalyzer instances."""
-        if not isinstance(other, FlowAnalyzer):
-            return False
-        return self.path == other.path and self.df.frame_equal(other.df)
+        return f"{base_str}{flow_info}"
 
     # ============================================================================
     # FLOW CREATION METHODS

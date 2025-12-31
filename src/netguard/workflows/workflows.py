@@ -11,8 +11,8 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import Any, Optional
 
+from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.core.loggers import get_logger
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
 
 
 class WorkflowReport:
@@ -159,7 +159,6 @@ class DailyAudit:
         self,
         parquet_file: str,
         business_hours: tuple = (time(9, 0), time(17, 0)),
-        lazy_load: bool = False,
     ):
         """
         Initialize daily audit.
@@ -167,14 +166,13 @@ class DailyAudit:
         Args:
             parquet_file: Path to parquet file to analyze
             business_hours: Tuple of (start_time, end_time) for off-hours detection
-            lazy_load: Use lazy loading for analyzers
         """
         self.parquet_file = parquet_file
         self.business_hours = business_hours
         self.logger = get_logger()
 
         self.logger.info(f"Initializing DailyAudit for {parquet_file}")
-        self.analysis = NetworkParquetAnalysis(parquet_file, lazy_load=lazy_load)
+        self.analysis = ParquetAnalysisFacade(parquet_file)
 
     def run(self) -> WorkflowReport:
         """
@@ -492,21 +490,20 @@ class IPInvestigation:
         print(report.summary())
     """
 
-    def __init__(self, parquet_file: str, ip: str, lazy_load: bool = False):
+    def __init__(self, parquet_file: str, ip: str):
         """
         Initialize IP investigation.
 
         Args:
             parquet_file: Path to parquet file to analyze
             ip: IP address to investigate
-            lazy_load: Use lazy loading for analyzers
         """
         self.parquet_file = parquet_file
         self.ip = ip
         self.logger = get_logger()
 
         self.logger.info(f"Initializing IPInvestigation for {ip}")
-        self.analysis = NetworkParquetAnalysis(parquet_file, lazy_load=lazy_load)
+        self.analysis = ParquetAnalysisFacade(parquet_file)
 
     def run(self) -> WorkflowReport:
         """
@@ -652,11 +649,11 @@ class ThreatHunting:
         print(report.summary())
     """
 
-    def __init__(self, parquet_file: str, lazy_load: bool = False):
+    def __init__(self, parquet_file: str):
         """Initialize threat hunting."""
         self.parquet_file = parquet_file
         self.logger = get_logger()
-        self.analysis = NetworkParquetAnalysis(parquet_file, lazy_load=lazy_load)
+        self.analysis = ParquetAnalysisFacade(parquet_file)
 
     def hunt_for_c2(self) -> WorkflowReport:
         """Hunt for Command & Control (C2) communication patterns."""

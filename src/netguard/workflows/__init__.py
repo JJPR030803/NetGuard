@@ -1,6 +1,6 @@
 """Network traffic analysis workflows."""
 
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.workflows.workflows import (
     DailyAudit,
     IPInvestigation,
@@ -8,10 +8,14 @@ from netguard.workflows.workflows import (
     WorkflowReport,
 )
 
+# Backwards compatibility alias
+NetworkParquetAnalysis = ParquetAnalysisFacade
+
 __all__ = [
     "DailyAudit",
     "IPInvestigation",
-    "NetworkParquetAnalysis",
+    "NetworkParquetAnalysis",  # Alias for backwards compatibility
+    "ParquetAnalysisFacade",
     "ThreatHunting",
     "WorkflowReport",
 ]

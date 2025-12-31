@@ -4,11 +4,12 @@ from typing import Optional, Union
 
 import polars as pl
 
+from netguard.analysis.base_analyzer import BaseAnalyzer
 from netguard.analysis.utils import has_column, parse_time_window
 from netguard.core.errors import EmptyDataFrameError, MissingColumnError
 
 
-class TcpAnalyzer:
+class TcpAnalyzer(BaseAnalyzer):
     """
     Analyzer for TCP protocol traffic.
 
@@ -79,35 +80,18 @@ class TcpAnalyzer:
             raise MissingColumnError("IP_proto", df.columns)
 
         # Filter to TCP traffic only (IP protocol 6)
-        self.df = df.filter(
+        filtered_df = df.filter(
             pl.col("IP_proto").cast(pl.Int64, strict=False) == self.TCP_PROTOCOL_NUMBER
         )
 
-        if len(self.df) == 0:
+        if len(filtered_df) == 0:
             raise EmptyDataFrameError("No TCP packets found in DataFrame")
 
-        # Store metadata for debugging
-        self._packet_count = len(self.df)
+        # Initialize base class with filtered data
+        super().__init__(filtered_df)
+
+        # Store additional metadata
         self._has_tcp_columns = any("TCP" in col for col in self.df.columns)
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return f"TcpAnalyzer(packets={self._packet_count}, shape={self.df.shape}, has_tcp_cols={self._has_tcp_columns})"
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"TCP Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two TcpAnalyzer instances."""
-        if not isinstance(other, TcpAnalyzer):
-            return False
-        return self.df.frame_equal(other.df)
 
     # ============================================================================
     # CONNECTION ANALYSIS METHODS

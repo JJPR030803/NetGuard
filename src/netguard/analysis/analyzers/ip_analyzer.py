@@ -2,6 +2,7 @@
 
 import polars as pl
 
+from netguard.analysis.base_analyzer import BaseAnalyzer
 from netguard.core.errors import (
     EmptyDataFrameError,
     InvalidIPAddressError,
@@ -9,7 +10,7 @@ from netguard.core.errors import (
 )
 
 
-class IpAnalyzer:
+class IpAnalyzer(BaseAnalyzer):
     """
     Analyzer for IP layer traffic.
 
@@ -52,10 +53,10 @@ class IpAnalyzer:
         if df.is_empty():
             raise EmptyDataFrameError("IpAnalyzer initialization")
 
-        self.df = df
+        # Initialize base class
+        super().__init__(df)
 
-        # Store metadata for debugging
-        self._packet_count = len(self.df)
+        # Store additional metadata
         self._has_ip_columns = any("IP" in col for col in self.df.columns)
 
         # Prepare unified IP columns for easier analysis
@@ -74,25 +75,6 @@ class IpAnalyzer:
                     pl.coalesce(dst_ip_cols).alias("_destination_ip"),
                 ]
             )
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return f"IpAnalyzer(packets={self._packet_count}, shape={self.df.shape}, has_ip_cols={self._has_ip_columns})"
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"IP Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two IpAnalyzer instances."""
-        if not isinstance(other, IpAnalyzer):
-            return False
-        return self.df.frame_equal(other.df)
 
     # ============================================================================
     # TRAFFIC ANALYSIS METHODS

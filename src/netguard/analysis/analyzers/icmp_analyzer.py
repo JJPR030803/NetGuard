@@ -2,18 +2,18 @@
 
 import polars as pl
 
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 
-class IcmpAnalyzer(NetworkParquetAnalysis):
+class IcmpAnalyzer(BaseAnalyzer):
     """
     Analyzer for ICMP (Internet Control Message Protocol) traffic.
 
-    Filters the parent DataFrame to only ICMP-related packets and provides
+    Filters the provided DataFrame to only ICMP-related packets and provides
     ICMP-specific analysis methods.
 
     Args:
-        path: Path to the parquet file
+        df: Polars DataFrame containing network packet data
     """
 
     # ICMP Protocol Constants
@@ -49,9 +49,9 @@ class IcmpAnalyzer(NetworkParquetAnalysis):
         5: "Source Route Failed",
     }
 
-    def __init__(self, path: str):
+    def __init__(self, df: pl.DataFrame):
         """Initialize ICMP analyzer and filter to ICMP traffic only."""
-        super().__init__(path)
+        super().__init__(df)
 
         # Filter to ICMP traffic (IP protocol 1)
         if "IP_proto" in self.df.columns:
@@ -59,31 +59,9 @@ class IcmpAnalyzer(NetworkParquetAnalysis):
                 pl.col("IP_proto").cast(pl.Int64, strict=False) == self.ICMP_PROTOCOL_NUMBER
             )
 
-        # Store metadata for debugging
+        # Update metadata after filtering
         self._packet_count = len(self.df)
         self._has_icmp_columns = any("ICMP" in col for col in self.df.columns)
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return (
-            f"IcmpAnalyzer(path={self.path!r}, packets={self._packet_count}, "
-            f"shape={self.df.shape}, has_icmp_cols={self._has_icmp_columns})"
-        )
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"ICMP Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two IcmpAnalyzer instances."""
-        if not isinstance(other, IcmpAnalyzer):
-            return False
-        return self.path == other.path and self.df.frame_equal(other.df)
 
     # ============================================================================
     # MESSAGE ANALYSIS METHODS

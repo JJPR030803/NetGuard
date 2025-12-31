@@ -2,18 +2,18 @@
 
 import polars as pl
 
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 
-class ArpAnalyzer(NetworkParquetAnalysis):
+class ArpAnalyzer(BaseAnalyzer):
     """
     Analyzer for ARP (Address Resolution Protocol) traffic.
 
-    Filters the parent DataFrame to only ARP-related packets and provides
+    Filters the provided DataFrame to only ARP-related packets and provides
     ARP-specific analysis methods.
 
     Args:
-        path: Path to the parquet file
+        df: Polars DataFrame containing network packet data
     """
 
     # ARP Operation Codes
@@ -35,9 +35,9 @@ class ArpAnalyzer(NetworkParquetAnalysis):
         19: "ATM",
     }
 
-    def __init__(self, path: str):
+    def __init__(self, df: pl.DataFrame):
         """Initialize ARP analyzer and filter to ARP traffic only."""
-        super().__init__(path)
+        super().__init__(df)
 
         # Filter to ARP traffic (look for ARP columns)
         arp_columns = [col for col in self.df.columns if "ARP" in col]
@@ -46,31 +46,9 @@ class ArpAnalyzer(NetworkParquetAnalysis):
             arp_filter = pl.any_horizontal([pl.col(c).is_not_null() for c in arp_columns])
             self.df = self.df.filter(arp_filter)
 
-        # Store metadata for debugging
+        # Update metadata after filtering
         self._packet_count = len(self.df)
         self._has_arp_columns = len(arp_columns) > 0
-
-    def __repr__(self) -> str:
-        """Technical representation for debugging."""
-        return (
-            f"ArpAnalyzer(path={self.path!r}, packets={self._packet_count}, "
-            f"shape={self.df.shape}, has_arp_cols={self._has_arp_columns})"
-        )
-
-    def __str__(self) -> str:
-        """Human-readable string representation."""
-        date_range = ""
-        if "timestamp" in self.df.columns and len(self.df) > 0:
-            min_ts = self.df["timestamp"].min()
-            max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
-        return f"ARP Analyzer: {self._packet_count} packets{date_range}"
-
-    def __eq__(self, other) -> bool:
-        """Compare two ArpAnalyzer instances."""
-        if not isinstance(other, ArpAnalyzer):
-            return False
-        return self.path == other.path and self.df.frame_equal(other.df)
 
     # ============================================================================
     # TABLE METHODS
