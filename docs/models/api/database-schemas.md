@@ -4,7 +4,7 @@ Complete API reference for database schema definitions.
 
 ## Module Reference
 
-::: network_security_suite.models.database_schemas
+::: netguard.models.database_schemas
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Complete API reference for database schema definitions.
 ### PacketRecord
 
 ```python
-from network_security_suite.models import PacketRecord
+from netguard.models import PacketRecord
 from sqlalchemy.orm import Session
 
 # Create a packet record
@@ -35,7 +35,7 @@ session.commit()
 ### FlowRecord
 
 ```python
-from network_security_suite.models import FlowRecord
+from netguard.models import FlowRecord
 
 # Create a flow record
 flow = FlowRecord(

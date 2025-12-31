@@ -1,6 +1,6 @@
 # Data Structures Guide
 
-Detailed guide to the data structures used in the Network Security Suite.
+Detailed guide to the data structures used in NetGuard.
 
 ## Model Hierarchy
 
@@ -33,7 +33,7 @@ Represents an Ethernet frame (Layer 2).
 
 **Example:**
 ```python
-from network_security_suite.models import EthernetPacket
+from netguard.models import EthernetPacket
 
 ethernet = EthernetPacket(
     src_mac="00:11:22:33:44:55",
@@ -55,7 +55,7 @@ Represents an ARP (Address Resolution Protocol) packet.
 
 **Example:**
 ```python
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 arp = ARPPacket(
     operation=1,
@@ -95,7 +95,7 @@ Represents an IP packet (Layer 3).
 
 **Example:**
 ```python
-from network_security_suite.models import IPPacket
+from netguard.models import IPPacket
 
 ip = IPPacket(
     version=4,
@@ -135,7 +135,7 @@ Represents a TCP packet (Layer 4).
 
 **Example:**
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 tcp = TCPPacket(
     src_port=443,
@@ -168,7 +168,7 @@ Represents a UDP packet.
 
 **Example:**
 ```python
-from network_security_suite.models import UDPPacket
+from netguard.models import UDPPacket
 
 udp = UDPPacket(
     src_port=53,
@@ -303,7 +303,7 @@ def process_raw_packet(raw_data: dict):
 Always use type hints for better code quality:
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 def analyze(packet: TCPPacket) -> dict:
     return {"port": packet.src_port}

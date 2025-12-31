@@ -123,8 +123,8 @@ class ParquetProcessing:
         self,
         filepath: str = "",
         interface_type: str = "",
-        max_packets: int = None,
-        realtime: bool = None,
+        max_packets: Optional[int] = None,
+        realtime: Optional[bool] = None,
         # compression_type: str = "zstd",
     ) -> None:
         """

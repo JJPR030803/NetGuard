@@ -1,6 +1,6 @@
 # Documentation Setup Complete
 
-MkDocs Material documentation has been successfully implemented for the Network Security Suite.
+MkDocs Material documentation has been successfully implemented for NetGuard.
 
 ## What Was Created
 
@@ -116,7 +116,7 @@ API reference pages use mkdocstrings to automatically generate documentation fro
 
 Example:
 ```markdown
-::: network_security_suite.sniffer.packet_capture.PacketCapture
+::: netguard.sniffer.packet_capture.PacketCapture
 ```
 
 ### Mermaid Diagrams
@@ -170,7 +170,7 @@ graph TD
 
 The ML module has some API reference pages that were disabled due to import issues. To enable them:
 
-1. Fix Python module imports in `src/network_security_suite/ml/preprocessing/`
+1. Fix Python module imports in `src/netguard/ml/preprocessing/`
 2. Uncomment the following in `mkdocs.yml`:
    - `ml/api/workflows.md`
    - Other ML analyzer API pages

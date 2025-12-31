@@ -1,6 +1,6 @@
 # Development Documentation
 
-Welcome to the NetGuard developer documentation. This section contains information for developers working on or contributing to the NetGuard project.
+Welcome to NetGuard developer documentation. This section contains information for developers working on or contributing to NetGuard project.
 
 ## Quick Links
 
@@ -64,7 +64,7 @@ make docs-build       # Build static docs
 
 ```
 netguard/
-├── src/network_security_suite/
+├── src/netguard/
 │   ├── sniffer/              # Packet capture & processing
 │   ├── ml/                   # ML preprocessing
 │   │   └── preprocessing/    # Protocol analyzers

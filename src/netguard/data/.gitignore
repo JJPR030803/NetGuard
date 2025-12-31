@@ -1,0 +1,8 @@
+# Ignore all data files but keep the directory structure
+*
+!.gitignore
+!__init__.py
+!configs/.gitkeep
+!logs/.gitkeep
+!parquet/.gitkeep
+!performance_metrics/.gitkeep

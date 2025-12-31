@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document provides a high-level overview of the NetGuard system architecture, design patterns, and key architectural decisions.
+This document provides a high-level overview of NetGuard system architecture, design patterns, and key architectural decisions.
 
 ## System Architecture
 

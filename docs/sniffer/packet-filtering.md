@@ -9,7 +9,7 @@ BPF filters allow you to capture only the packets you're interested in, reducing
 ### Basic Syntax
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Capture all TCP packets
 capture = PacketCapture(interface="eth0", filter_str="tcp")
@@ -354,7 +354,7 @@ filter_str = "proto gre"
 Test your filters before deployment:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 def test_filter(filter_str, count=10):
     """Test a BPF filter"""

@@ -7,7 +7,7 @@ This page provides examples of advanced packet filtering techniques.
 Capture HTTP, HTTPS, and DNS traffic:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 capture = PacketCapture(
     interface="eth0",

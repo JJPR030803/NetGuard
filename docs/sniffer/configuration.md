@@ -9,7 +9,7 @@ This guide covers all configuration options for the packet capture module.
 Pass configuration directly to PacketCapture:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 capture = PacketCapture(
     interface="eth0",
@@ -52,7 +52,7 @@ sniffer:
 Load configuration:
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 config = SnifferConfig.from_yaml("config.yaml")
 capture = PacketCapture.from_config(config)
@@ -137,7 +137,7 @@ capture = PacketCapture(
 | `log_rotation` | str | None | Log rotation (daily, weekly) |
 
 ```python
-from network_security_suite.sniffer import PacketCapture, FileLogger
+from netguard.sniffer import PacketCapture, FileLogger
 
 logger = FileLogger(
     filename="sniffer.log",
@@ -304,7 +304,7 @@ sniffer:
 Update configuration at runtime:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Start with initial config
 capture = PacketCapture(interface="eth0")
@@ -322,7 +322,7 @@ capture.set_buffer_size(262144)
 ## Configuration Validation
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 try:
     config = SnifferConfig.from_yaml("config.yaml")
@@ -407,7 +407,7 @@ config = SnifferConfig.from_yaml("config.yaml")  # Will show debug info
 ### Invalid Filter String
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 try:
     capture = PacketCapture(

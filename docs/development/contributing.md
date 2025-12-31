@@ -97,7 +97,7 @@ Branch naming:
 make install
 
 # Make your changes
-vim src/network_security_suite/...
+vim src/netguard/...
 
 # Format code
 make format
@@ -116,7 +116,7 @@ All code changes should include tests:
 ```python
 # tests/unit/test_my_feature.py
 import pytest
-from network_security_suite.module import MyFeature
+from netguard.module import MyFeature
 
 def test_my_feature():
     """Test that my feature works correctly."""
@@ -255,7 +255,7 @@ Fixes #issue_number
 
 ```bash
 # Make changes based on feedback
-vim src/network_security_suite/...
+vim src/netguard/...
 
 # Commit changes
 git add .
@@ -366,7 +366,7 @@ except Exception as e:
 Use structured logging:
 
 ```python
-from network_security_suite.utils.logger import get_logger
+from netguard.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -482,7 +482,7 @@ Update README.md if:
 
 1. Create analyzer file:
 ```python
-# src/network_security_suite/ml/preprocessing/analyzers/my_analyzer.py
+# src/netguard/ml/preprocessing/analyzers/my_analyzer.py
 import polars as pl
 from .base import BaseAnalyzer
 
@@ -514,7 +514,7 @@ def test_my_analyzer():
 
 1. Update schema:
 ```python
-# src/network_security_suite/sniffer/sniffer_config.py
+# src/netguard/sniffer/sniffer_config.py
 class SnifferConfig(BaseModel):
     new_option: str = "default"
 ```

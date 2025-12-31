@@ -73,7 +73,7 @@ uv run pytest -m "not slow"
 
 ```python
 import pytest
-from network_security_suite.module import Feature
+from netguard.module import Feature
 
 def test_feature_basic():
     """Test basic feature functionality."""

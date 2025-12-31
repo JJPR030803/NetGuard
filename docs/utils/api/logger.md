@@ -4,7 +4,7 @@ Complete API reference for the logging utilities.
 
 ## Module Reference
 
-::: network_security_suite.utils.logger
+::: netguard.utils.logger
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Complete API reference for the logging utilities.
 ### Basic Logger
 
 ```python
-from network_security_suite.utils import get_logger
+from netguard.utils import get_logger
 
 logger = get_logger(__name__)
 logger.info("Application started")
@@ -26,7 +26,7 @@ logger.error("Failed to connect to database")
 ### Setup Logging
 
 ```python
-from network_security_suite.utils import setup_logging
+from netguard.utils import setup_logging
 
 # Configure logging for entire application
 setup_logging(
@@ -40,7 +40,7 @@ setup_logging(
 ### Custom Configuration
 
 ```python
-from network_security_suite.utils.logger import Logger
+from netguard.utils.logger import Logger
 
 logger = Logger(
     name="my_app",

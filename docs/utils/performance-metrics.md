@@ -1,6 +1,6 @@
 # Performance Metrics Guide
 
-Guide to performance monitoring and metrics collection in the Network Security Suite.
+Guide to performance monitoring and metrics collection in NetGuard.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The performance metrics system allows you to track execution times, resource usa
 ### Tracking Execution Time
 
 ```python
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 metrics = PerformanceMetrics()
 
@@ -50,7 +50,7 @@ print(report)
 ### Custom Metrics
 
 ```python
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 metrics = PerformanceMetrics()
 
@@ -109,7 +109,7 @@ print(f"Std Dev: {stats['std']:.2f}s")
 
 ```python
 from fastapi import FastAPI
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 app = FastAPI()
 metrics = PerformanceMetrics()
@@ -156,7 +156,7 @@ def process_packets(packets):
 
 ```python
 import psutil
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 metrics = PerformanceMetrics()
 
@@ -182,7 +182,7 @@ def monitor_resources():
 ### Timing Decorator
 
 ```python
-from network_security_suite.utils import measure_time
+from netguard.utils import measure_time
 
 @measure_time
 def expensive_operation():
@@ -197,7 +197,7 @@ result = expensive_operation()
 
 ```python
 import functools
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 def track_performance(metric_name):
     def decorator(func):

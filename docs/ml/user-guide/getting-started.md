@@ -98,7 +98,7 @@ uv run python -m preprocessing.main threat-hunt capture.parquet --type lateral
 ### ML Feature Extraction
 
 ```python
-from network_security_suite.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
+from netguard.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
 
 # Load data
 analysis = NetworkParquetAnalysis("capture.parquet")

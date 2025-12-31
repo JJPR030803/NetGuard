@@ -142,8 +142,8 @@ report.to_json("audit.json")
 You can create your own workflows by extending the base pattern:
 
 ```python
-from network_security_suite.ml.preprocessing.workflows import WorkflowReport
-from network_security_suite.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
+from netguard.ml.preprocessing.workflows import WorkflowReport
+from netguard.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
 
 class ComplianceAudit:
     """Custom workflow for compliance checking."""
@@ -200,7 +200,7 @@ All workflows can be used via CLI or Python API:
 === "Python API"
 
     ```python
-    from network_security_suite.ml.preprocessing.workflows import (
+    from netguard.ml.preprocessing.workflows import (
         DailyAudit,
         IPInvestigation,
         ThreatHunting

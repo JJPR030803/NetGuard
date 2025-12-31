@@ -1,6 +1,6 @@
 # Logging Guide
 
-Comprehensive guide to the logging system in the Network Security Suite.
+Comprehensive guide to the logging system in NetGuard.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The logging system provides flexible, configurable logging with support for mult
 ### Getting a Logger
 
 ```python
-from network_security_suite.utils import get_logger
+from netguard.utils import get_logger
 
 # Get logger for current module
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ logger.critical("Critical issue")
 ### Setup Logging
 
 ```python
-from network_security_suite.utils import setup_logging
+from netguard.utils import setup_logging
 
 # Basic setup
 setup_logging(level="INFO")
@@ -97,7 +97,7 @@ logging:
       backupCount: 5
 
   loggers:
-    network_security_suite:
+    netguard:
       level: DEBUG
       handlers: [console, file]
       propagate: false
@@ -241,7 +241,7 @@ logger.info(f"User authenticated: {username}")
 
 ```python
 # my_module.py
-from network_security_suite.utils import get_logger
+from netguard.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -314,7 +314,7 @@ import logging
 logging.getLogger().setLevel(logging.DEBUG)
 
 # Set specific logger level
-logging.getLogger("network_security_suite").setLevel(logging.DEBUG)
+logging.getLogger("netguard").setLevel(logging.DEBUG)
 ```
 
 ### Multiple Log Entries

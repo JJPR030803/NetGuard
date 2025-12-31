@@ -4,7 +4,7 @@ Custom exceptions for packet capture operations.
 
 ## Module Reference
 
-::: network_security_suite.sniffer.exceptions
+::: netguard.core.exceptions
     options:
       show_source: true
       show_root_heading: true
@@ -15,24 +15,24 @@ Custom exceptions for packet capture operations.
 ### Handling Exceptions
 
 ```python
-from network_security_suite.sniffer import PacketCapture
-from network_security_suite.sniffer.exceptions import (
-    InterfaceError,
-    CaptureError,
+from netguard.sniffer import PacketCapture
+from netguard.core.exceptions import (
+    InterfaceNotFoundError,
+    PacketCaptureException,
     FilterError,
-    PermissionError
+    InterfacePermissionError
 )
 
 try:
     capture = PacketCapture(interface="eth0", filter_str="tcp")
     capture.start()
-except InterfaceError as e:
+except InterfaceNotFoundError as e:
     print(f"Interface not found: {e}")
 except FilterError as e:
     print(f"Invalid filter: {e}")
-except CaptureError as e:
+except PacketCaptureException as e:
     print(f"Capture failed: {e}")
-except PermissionError as e:
+except InterfacePermissionError as e:
     print(f"Permission denied: {e}")
 ```
 

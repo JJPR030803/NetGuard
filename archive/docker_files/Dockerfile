@@ -27,10 +27,10 @@ ENV POETRY_NO_INTERACTION=1 \
 WORKDIR /app
 
 # Copy poetry files and README.md
-COPY pyproject.toml poetry.lock* README.md ./
+COPY ../../pyproject.toml poetry.lock* README.md ./
 
 # Copy source code
-COPY src/ ./src/
+COPY ../../src ./src/
 
 # Install dependencies
 RUN poetry install --only=main && rm -rf $POETRY_CACHE_DIR
@@ -56,9 +56,9 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 WORKDIR /app
 
 # Copy application code
-COPY --chown=app:app src/ ./src/
-COPY --chown=app:app scripts/ ./scripts/
-COPY --chown=app:app README.md ./
+COPY --chown=app:app ../../src ./src/
+COPY --chown=app:app ../../scripts ./scripts/
+COPY --chown=app:app ../../README.md ./
 
 # Switch to non-root user
 USER app
@@ -91,7 +91,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all files for development
-COPY --chown=app:app . .
+COPY --chown=app:app ../.. .
 
 # Switch to non-root user
 USER app

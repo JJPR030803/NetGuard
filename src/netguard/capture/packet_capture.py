@@ -61,7 +61,7 @@ class PacketCapture:
         """
         # Import here to avoid circular imports
 
-        from .sniffer_config import SnifferConfig
+        from netguard.core.config import SnifferConfig
 
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()

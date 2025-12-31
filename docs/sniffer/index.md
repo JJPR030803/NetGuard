@@ -1,6 +1,6 @@
 # Sniffer Module
 
-The Sniffer module is the core network packet capture and processing engine of the Network Security Suite. It provides real-time packet capture, filtering, and storage capabilities.
+The Sniffer module is the core network packet capture and processing engine of NetGuard. It provides real-time packet capture, filtering, and storage capabilities.
 
 ## Overview
 
@@ -63,7 +63,7 @@ See [Configuration API Reference](api/sniffer-config.md) for details.
 ### Basic Packet Capture
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Create a packet capture instance
 capture = PacketCapture(
@@ -81,7 +81,7 @@ capture.start()
 ### Using Configuration File
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 # Load configuration from YAML
 config = SnifferConfig.from_yaml("config.yaml")
@@ -94,7 +94,7 @@ capture.start()
 ### Custom Logging
 
 ```python
-from network_security_suite.sniffer import SecurityLogger, PacketLogger
+from netguard.sniffer import SecurityLogger, PacketLogger
 
 # Set up specialized loggers
 security_logger = SecurityLogger()

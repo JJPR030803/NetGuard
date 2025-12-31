@@ -1,6 +1,6 @@
 # API Module
 
-The API module provides REST API endpoints for interacting with the Network Security Suite.
+The API module provides REST API endpoints for interacting with NetGuard.
 
 ## Overview
 
@@ -20,10 +20,10 @@ The API module is built with FastAPI and provides programmatic access to network
 
 ```bash
 # Using uvicorn
-uvicorn network_security_suite.api.main:app --reload
+uvicorn netguard.api.main:app --reload
 
 # Or with custom host/port
-uvicorn network_security_suite.api.main:app --host 0.0.0.0 --port 8000
+uvicorn netguard.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### API Documentation

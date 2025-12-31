@@ -1,6 +1,6 @@
 # Getting Started with Sniffer Module
 
-This guide will help you get started with the Network Security Suite's packet capture capabilities.
+This guide will help you get started with NetGuard's packet capture capabilities.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ This guide will help you get started with the Network Security Suite's packet ca
 
 ## Installation
 
-The sniffer module is included with the Network Security Suite. Make sure you have all dependencies installed:
+The sniffer module is included with NetGuard. Make sure you have all dependencies installed:
 
 ```bash
 # Using uv
@@ -27,7 +27,7 @@ poetry install
 First, identify which network interfaces are available:
 
 ```python
-from network_security_suite.sniffer.interfaces import get_available_interfaces
+from netguard.core.interfaces import get_available_interfaces
 
 # List all available interfaces
 interfaces = get_available_interfaces()
@@ -40,7 +40,7 @@ for iface in interfaces:
 Create a basic packet capture on a specific interface:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Create capture instance
 capture = PacketCapture(
@@ -102,7 +102,7 @@ print(f"Top sources: {df['src_ip'].value_counts().head()}")
 The module provides utilities for working with captured data:
 
 ```python
-from network_security_suite.sniffer.parquet_processing import ParquetProcessor
+from netguard.capture.parquet_processing import ParquetProcessor
 
 # Load and process captured data
 processor = ParquetProcessor("capture.parquet")
@@ -120,7 +120,7 @@ tcp_packets = processor.filter_by_protocol("TCP")
 ### Basic Logging Setup
 
 ```python
-from network_security_suite.sniffer import (
+from netguard.sniffer import (
     PacketCapture,
     ConsoleLogger,
     FileLogger
@@ -143,7 +143,7 @@ capture = PacketCapture(
 ### Specialized Loggers
 
 ```python
-from network_security_suite.sniffer import (
+from netguard.sniffer import (
     SecurityLogger,
     PacketLogger,
     ErrorLogger
@@ -208,7 +208,7 @@ sniffer:
 ### Using Configuration
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 # Load configuration
 config = SnifferConfig.from_yaml("sniffer_config.yaml")
@@ -224,7 +224,7 @@ capture.start()
 
 ```python
 import time
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Create capture that runs continuously
 capture = PacketCapture(
@@ -246,7 +246,7 @@ capture.stop()
 ### Multiple Interface Capture
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 import threading
 
 def capture_interface(interface_name):
@@ -288,7 +288,7 @@ sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/python3.11
 
 ```python
 # Verify interface exists
-from network_security_suite.sniffer.interfaces import get_available_interfaces
+from netguard.core.interfaces import get_available_interfaces
 
 interfaces = get_available_interfaces()
 print("Available interfaces:", [i['name'] for i in interfaces])

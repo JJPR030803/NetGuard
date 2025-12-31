@@ -7,7 +7,7 @@ This page provides practical examples for common packet capture scenarios.
 Capture 100 packets from the default interface:
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 capture = PacketCapture(
     interface="eth0",

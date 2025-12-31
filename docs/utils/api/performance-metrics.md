@@ -4,7 +4,7 @@ Complete API reference for the performance metrics utilities.
 
 ## Module Reference
 
-::: network_security_suite.utils.performance_metrics
+::: netguard.utils.performance_metrics
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Complete API reference for the performance metrics utilities.
 ### Basic Usage
 
 ```python
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 metrics = PerformanceMetrics()
 

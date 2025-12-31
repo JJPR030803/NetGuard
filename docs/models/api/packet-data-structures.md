@@ -4,7 +4,7 @@ Complete API reference for packet data structure models.
 
 ## Module Reference
 
-::: network_security_suite.models.packet_data_structures
+::: netguard.models.packet_data_structures
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Complete API reference for packet data structure models.
 ### EthernetPacket
 
 ```python
-from network_security_suite.models import EthernetPacket
+from netguard.models import EthernetPacket
 
 ethernet = EthernetPacket(
     src_mac="00:11:22:33:44:55",
@@ -30,7 +30,7 @@ print(ethernet.model_dump_json(indent=2))
 ### ARPPacket
 
 ```python
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 arp = ARPPacket(
     operation=1,
@@ -44,7 +44,7 @@ arp = ARPPacket(
 ### TCPPacket
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 tcp = TCPPacket(
     src_port=443,
@@ -59,7 +59,7 @@ tcp = TCPPacket(
 ### UDPPacket
 
 ```python
-from network_security_suite.models import UDPPacket
+from netguard.models import UDPPacket
 
 udp = UDPPacket(
     src_port=53,

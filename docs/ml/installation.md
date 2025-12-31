@@ -35,7 +35,7 @@ cd /path/to/netguard
 pip install -e .
 
 # Verify installation
-python -m src.network_security_suite.ml.preprocessing.main --help
+python -m src.netguard.ml.preprocessing.main --help
 ```
 
 ## Dependencies
@@ -66,7 +66,7 @@ All dependencies are defined in `pyproject.toml`.
 
 ```python
 # Test imports
-python -c "from network_security_suite.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis; print('✓ Import successful')"
+python -c "from netguard.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis; print('✓ Import successful')"
 ```
 
 ### 2. Check CLI
@@ -99,7 +99,7 @@ Create a test script to verify everything works:
 
 ```python
 # test_install.py
-from network_security_suite.ml.preprocessing.workflows import DailyAudit
+from netguard.ml.preprocessing.workflows import DailyAudit
 
 print("✓ Imports successful")
 print("✓ Installation complete!")
@@ -142,7 +142,7 @@ uv sync
 pip install -e .
 ```
 
-### ModuleNotFoundError: No module named 'network_security_suite'
+### ModuleNotFoundError: No module named 'netguard'
 
 **Solution**: Not running from correct directory or package not installed
 

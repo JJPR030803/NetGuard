@@ -4,7 +4,7 @@ Complete API reference for the configuration management utilities.
 
 ## Module Reference
 
-::: network_security_suite.utils.config_builder
+::: netguard.utils.config_builder
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Complete API reference for the configuration management utilities.
 ### Load Configuration
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 # From YAML file
 config = ConfigBuilder.from_yaml("config.yaml")

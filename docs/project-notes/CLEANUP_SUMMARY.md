@@ -5,32 +5,32 @@ All redundant markdown files have been successfully removed. The comprehensive M
 ## Files Removed
 
 ### ML Module Redundant Documentation
-✅ **Removed entire directory**: `src/network_security_suite/ml/docs/`
+✅ **Removed entire directory**: `src/netguard/ml/docs/`
 - This contained the standalone ML docs that are now integrated into `docs/ml/`
 - All content was copied to the main docs before removal
 
 ✅ **Removed setup files**:
-- `src/network_security_suite/ml/DOCS_INTEGRATION.md` - Integration guide (no longer needed)
-- `src/network_security_suite/ml/DOCS_SETUP_COMPLETE.md` - Temporary setup marker
+- `src/netguard/ml/DOCS_INTEGRATION.md` - Integration guide (no longer needed)
+- `src/netguard/ml/DOCS_SETUP_COMPLETE.md` - Temporary setup marker
 
 ### ML Preprocessing Documentation
-✅ **Removed**: `src/network_security_suite/ml/preprocessing/docs.md`
+✅ **Removed**: `src/netguard/ml/preprocessing/docs.md`
 - Basic module documentation (superseded by main docs)
 
-✅ **Removed**: `src/network_security_suite/ml/preprocessing/TODO.md`
+✅ **Removed**: `src/netguard/ml/preprocessing/TODO.md`
 - Internal todo list (not needed in production docs)
 
-✅ **Removed**: `src/network_security_suite/ml/preprocessing/USAGE.md`
+✅ **Removed**: `src/netguard/ml/preprocessing/USAGE.md`
 - Usage guide (now in `docs/ml/user-guide/`)
 
-✅ **Removed**: `src/network_security_suite/ml/preprocessing/QUICKSTART.md`
+✅ **Removed**: `src/netguard/ml/preprocessing/QUICKSTART.md`
 - Quick start guide (now in `docs/ml/quickstart.md`)
 
-✅ **Removed**: `src/network_security_suite/ml/preprocessing/examples/README.md`
+✅ **Removed**: `src/netguard/ml/preprocessing/examples/README.md`
 - Examples overview (now in main docs)
 
 ### Sniffer Module Documentation
-✅ **Removed**: `src/network_security_suite/sniffer/sniffer_use_guide.md`
+✅ **Removed**: `src/netguard/sniffer/sniffer_use_guide.md`
 - Full user guide (superseded by `docs/sniffer/` documentation)
 
 ### Duplicate Files

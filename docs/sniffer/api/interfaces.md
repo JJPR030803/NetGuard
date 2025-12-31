@@ -4,7 +4,7 @@ Network interface discovery and management utilities.
 
 ## Module Reference
 
-::: network_security_suite.sniffer.interfaces
+::: netguard.core.interfaces
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Network interface discovery and management utilities.
 ### List Available Interfaces
 
 ```python
-from network_security_suite.sniffer.interfaces import get_available_interfaces
+from netguard.core.interfaces import get_available_interfaces
 
 # Get all interfaces
 interfaces = get_available_interfaces()
@@ -29,7 +29,7 @@ for iface in interfaces:
 ### Get Default Interface
 
 ```python
-from network_security_suite.sniffer.interfaces import get_default_interface
+from netguard.core.interfaces import get_default_interface
 
 # Get default interface
 default_iface = get_default_interface()
@@ -39,7 +39,7 @@ print(f"Default interface: {default_iface}")
 ### Check Interface Status
 
 ```python
-from network_security_suite.sniffer.interfaces import is_interface_up
+from netguard.core.interfaces import is_interface_up
 
 # Check if interface is up
 if is_interface_up("eth0"):

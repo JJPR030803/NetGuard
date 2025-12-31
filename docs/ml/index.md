@@ -56,7 +56,7 @@ Each analyzer is an expert in a specific protocol or analysis type:
 === "Daily Audit (Python)"
 
     ```python
-    from network_security_suite.ml.preprocessing.workflows import DailyAudit
+    from netguard.ml.preprocessing.workflows import DailyAudit
 
     # Run audit
     audit = DailyAudit("capture.parquet")
@@ -73,7 +73,7 @@ Each analyzer is an expert in a specific protocol or analysis type:
 === "IP Investigation"
 
     ```python
-    from network_security_suite.ml.preprocessing.workflows import IPInvestigation
+    from netguard.ml.preprocessing.workflows import IPInvestigation
 
     # Investigate suspicious IP
     inv = IPInvestigation("capture.parquet", ip="192.168.1.100")
@@ -85,7 +85,7 @@ Each analyzer is an expert in a specific protocol or analysis type:
 === "Low-Level Analysis"
 
     ```python
-    from network_security_suite.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
+    from netguard.ml.preprocessing.parquet_analysis import NetworkParquetAnalysis
 
     # Load data
     analysis = NetworkParquetAnalysis("capture.parquet")

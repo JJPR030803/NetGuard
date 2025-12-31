@@ -1,6 +1,6 @@
 # Utils Module
 
-The Utils module provides shared utilities and helper functions used across the Network Security Suite.
+The Utils module provides shared utilities and helper functions used across NetGuard.
 
 ## Overview
 
@@ -51,7 +51,7 @@ See [Config Builder API Reference](api/config-builder.md) for details.
 ### Using the Logger
 
 ```python
-from network_security_suite.utils import get_logger
+from netguard.utils import get_logger
 
 # Get a logger instance
 logger = get_logger(__name__)
@@ -67,7 +67,7 @@ logger.critical("Critical message")
 ### Performance Monitoring
 
 ```python
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 # Track execution time
 metrics = PerformanceMetrics()
@@ -83,7 +83,7 @@ print(f"Operation took: {metrics.get_time('operation')}s")
 ### Configuration Management
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 # Load configuration
 config = ConfigBuilder.from_yaml("config.yaml")
@@ -100,7 +100,7 @@ db_port = config.get("database.port", default=5432)
 Set up logging for the entire application:
 
 ```python
-from network_security_suite.utils import setup_logging
+from netguard.utils import setup_logging
 
 # Configure logging
 setup_logging(
@@ -120,7 +120,7 @@ logger.info("Application started")
 Profile performance-critical sections:
 
 ```python
-from network_security_suite.utils import PerformanceMetrics
+from netguard.utils import PerformanceMetrics
 
 metrics = PerformanceMetrics()
 
@@ -143,7 +143,7 @@ print(report)
 Manage application configuration:
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 # Load configuration with environment overrides
 config = ConfigBuilder.from_yaml(
@@ -208,7 +208,7 @@ metrics.record("operation", time.time() - start)
 ```python
 # config.yaml
 app:
-  name: "Network Security Suite"
+  name: "NetGuard"
   version: "1.0.0"
 
 sniffer:

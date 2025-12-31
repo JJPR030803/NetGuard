@@ -100,7 +100,7 @@ If you want to integrate into your own scripts:
 ### Daily Audit in Python
 
 ```python
-from network_security_suite.ml.preprocessing.workflows import DailyAudit
+from netguard.ml.preprocessing.workflows import DailyAudit
 
 # Run audit
 audit = DailyAudit("capture.parquet")
@@ -120,7 +120,7 @@ if report.severity_counts["critical"] > 0:
 ### IP Investigation in Python
 
 ```python
-from network_security_suite.ml.preprocessing.workflows import IPInvestigation
+from netguard.ml.preprocessing.workflows import IPInvestigation
 
 # Investigate IP
 inv = IPInvestigation("capture.parquet", ip="192.168.1.100")
@@ -132,7 +132,7 @@ print(report.summary())
 ### Threat Hunting in Python
 
 ```python
-from network_security_suite.ml.preprocessing.workflows import ThreatHunting
+from netguard.ml.preprocessing.workflows import ThreatHunting
 
 hunter = ThreatHunting("capture.parquet")
 
@@ -215,7 +215,7 @@ A: Common fixes:
 
 ```python
 # In your sniffer script, after saving to parquet:
-from network_security_suite.ml.preprocessing.workflows import DailyAudit
+from netguard.ml.preprocessing.workflows import DailyAudit
 
 # Analyze what was just captured
 audit = DailyAudit("latest_capture.parquet", lazy_load=True)

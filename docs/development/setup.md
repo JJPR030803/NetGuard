@@ -226,7 +226,7 @@ sudo setcap cap_net_raw,cap_net_admin=eip .venv/bin/python
 ### Alternative: Run with sudo
 
 ```bash
-sudo python src/network_security_suite/sniffer/packet_capture.py
+sudo python src/netguard/sniffer/packet_capture.py
 ```
 
 ### Verify Capture Permissions
@@ -251,7 +251,7 @@ git checkout -b feature/my-feature
 
 ```bash
 # Edit code
-vim src/network_security_suite/sniffer/packet_capture.py
+vim src/netguard/sniffer/packet_capture.py
 ```
 
 ### 3. Format and Lint
@@ -306,14 +306,14 @@ git push origin feature/my-feature
 
 ```bash
 # With default config
-python src/network_security_suite/sniffer/packet_capture.py
+python src/netguard/sniffer/packet_capture.py
 
 # With custom config
-python src/network_security_suite/sniffer/packet_capture.py \
+python src/netguard/sniffer/packet_capture.py \
     --config configs/sniffer_config.yaml
 
 # With specific interface
-python src/network_security_suite/sniffer/packet_capture.py \
+python src/netguard/sniffer/packet_capture.py \
     --interface eth0 \
     --count 1000
 ```
@@ -322,13 +322,13 @@ python src/network_security_suite/sniffer/packet_capture.py \
 
 ```bash
 # Daily audit workflow
-python src/network_security_suite/ml/preprocessing/examples/daily_audit_example.py
+python src/netguard/ml/preprocessing/examples/daily_audit_example.py
 
 # IP investigation
-python src/network_security_suite/ml/preprocessing/examples/ip_investigation_example.py
+python src/netguard/ml/preprocessing/examples/ip_investigation_example.py
 
 # Threat hunting
-python src/network_security_suite/ml/preprocessing/examples/threat_hunting_example.py
+python src/netguard/ml/preprocessing/examples/threat_hunting_example.py
 ```
 
 ### Building Documentation
@@ -366,7 +366,7 @@ sudo usermod -a -G wireshark $USER
 
 ### Module Not Found
 
-**Error**: `ModuleNotFoundError: No module named 'network_security_suite'`
+**Error**: `ModuleNotFoundError: No module named 'netguard'`
 
 **Solution**:
 ```bash
@@ -403,7 +403,7 @@ git commit --no-verify
 **Solution**:
 ```bash
 # Check specific file
-uv run mypy src/network_security_suite/sniffer/packet_capture.py
+uv run mypy src/netguard/sniffer/packet_capture.py
 
 # Ignore specific import
 # Add to pyproject.toml:

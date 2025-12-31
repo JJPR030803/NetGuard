@@ -1,10 +1,10 @@
 # API Getting Started
 
-This guide will help you get started with the Network Security Suite API.
+This guide will help you get started with NetGuard API.
 
 ## Installation
 
-The API is included with the Network Security Suite:
+The API is included with NetGuard:
 
 ```bash
 # Install with API dependencies
@@ -20,17 +20,17 @@ poetry install --extras api
 
 ```bash
 # Start with auto-reload
-uvicorn network_security_suite.api.main:app --reload
+uvicorn netguard.api.main:app --reload
 
 # With custom port
-uvicorn network_security_suite.api.main:app --reload --port 8080
+uvicorn netguard.api.main:app --reload --port 8080
 ```
 
 ### Production Mode
 
 ```bash
 # Production server with Gunicorn
-gunicorn network_security_suite.api.main:app \
+gunicorn netguard.api.main:app \
   -w 4 \
   -k uvicorn.workers.UvicornWorker \
   --bind 0.0.0.0:8000

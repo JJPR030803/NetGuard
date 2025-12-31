@@ -1,6 +1,6 @@
 # Models Module
 
-The Models module provides data structures and database schemas for packet and network data representation throughout the Network Security Suite.
+The Models module provides data structures and database schemas for packet and network data representation throughout NetGuard.
 
 ## Overview
 
@@ -46,7 +46,7 @@ See [Database Schemas API](api/database-schemas.md) for details.
 ### Using Packet Models
 
 ```python
-from network_security_suite.models import ARPPacket, EthernetPacket
+from netguard.models import ARPPacket, EthernetPacket
 
 # Create an ARP packet
 arp_packet = ARPPacket(
@@ -71,7 +71,7 @@ arp_json = arp_packet.model_dump_json()
 ### Creating from Raw Data
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 # Create from dictionary
 tcp_data = {
@@ -91,7 +91,7 @@ tcp_packet = TCPPacket(**tcp_data)
 Models automatically validate data:
 
 ```python
-from network_security_suite.models import IPPacket
+from netguard.models import IPPacket
 from pydantic import ValidationError
 
 try:
@@ -125,7 +125,7 @@ graph TD
 Ensure all network data conforms to expected schemas:
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 def process_tcp_packet(packet_data):
     try:
@@ -143,7 +143,7 @@ def process_tcp_packet(packet_data):
 Store packets in database with proper schemas:
 
 ```python
-from network_security_suite.models import PacketRecord
+from netguard.models import PacketRecord
 from sqlalchemy.orm import Session
 
 def save_packet(session: Session, packet: EthernetPacket):
@@ -162,7 +162,7 @@ def save_packet(session: Session, packet: EthernetPacket):
 Easy serialization for API responses:
 
 ```python
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 arp_packet = ARPPacket(...)
 
@@ -207,7 +207,7 @@ def process_packet(raw_data: dict):
 ### 2. Use Type Hints
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 def analyze_tcp(packet: TCPPacket) -> dict:
     """Type hints ensure correct usage"""
@@ -220,7 +220,7 @@ def analyze_tcp(packet: TCPPacket) -> dict:
 ### 3. Leverage Pydantic Features
 
 ```python
-from network_security_suite.models import IPPacket
+from netguard.models import IPPacket
 
 # Use validators
 packet = IPPacket(

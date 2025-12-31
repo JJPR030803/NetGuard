@@ -4,7 +4,7 @@ Configuration management for the sniffer module.
 
 ## Module Reference
 
-::: network_security_suite.sniffer.sniffer_config
+::: netguard.core.config
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Configuration management for the sniffer module.
 ### Load Configuration from YAML
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 # Load from YAML file
 config = SnifferConfig.from_yaml("config.yaml")
@@ -29,7 +29,7 @@ print(f"Filter: {config.filter_str}")
 ### Create Configuration Programmatically
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 # Create configuration
 config = SnifferConfig(

@@ -1,4 +1,4 @@
-site_name: Network Security Suite
+site_name: NetGuard
 site_description: Enterprise-level Network Security Monitoring and Analysis Platform with ML Capabilities
 site_author: NetGuard Team
 
@@ -149,15 +149,14 @@ nav:
           # - Workflows: ml/api/workflows.md  # Commented out until module imports are fixed
       - Development:
           - Changelog: ml/development/changelog.md
-
-  - Models Module:
-      - Overview: models/index.md
-      - User Guide:
-          - Getting Started: models/getting-started.md
-          - Data Structures: models/data-structures.md
-      - API Reference:
-          - Packet Data Structures: models/api/packet-data-structures.md
-          - Database Schemas: models/api/database-schemas.md
+  #TODO: Future work
+  #- Models Module:
+  #   - Overview: models/index.md
+  #  - User Guide:
+  ##    - Data Structures: models/data-structures.md
+  #- API Reference:
+  #   - Packet Data Structures: models/api/packet-data-structures.md
+  #  - Database Schemas: models/api/database-schemas.md
 
   - Utils Module:
       - Overview: utils/index.md

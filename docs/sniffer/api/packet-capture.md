@@ -8,7 +8,7 @@ PacketCapture provides a high-level API for capturing network traffic from netwo
 
 ## Class Reference
 
-::: network_security_suite.sniffer.packet_capture.PacketCapture
+::: netguard.capture.packet_capture.PacketCapture
     options:
       show_source: true
       show_root_heading: true
@@ -27,7 +27,7 @@ PacketCapture provides a high-level API for capturing network traffic from netwo
 ### Basic Capture
 
 ```python
-from network_security_suite.sniffer import PacketCapture
+from netguard.sniffer import PacketCapture
 
 # Create and start capture
 capture = PacketCapture(
@@ -65,7 +65,7 @@ print(f"Packets dropped: {stats['dropped']}")
 ### From Configuration
 
 ```python
-from network_security_suite.sniffer.sniffer_config import SnifferConfig
+from netguard.core.config import SnifferConfig
 
 config = SnifferConfig.from_yaml("config.yaml")
 capture = PacketCapture.from_config(config)
@@ -213,23 +213,24 @@ capture = PacketCapture(
 ## Error Handling
 
 ```python
-from network_security_suite.sniffer import PacketCapture
-from network_security_suite.sniffer.exceptions import (
-    InterfaceError,
-    CaptureError,
-    FilterError
+from netguard.sniffer import PacketCapture
+from netguard.core.exceptions import (
+    InterfaceNotFoundError,
+    PacketCaptureException,
+    FilterError,
+    InterfacePermissionError
 )
 
 try:
     capture = PacketCapture(interface="invalid")
     capture.start()
-except InterfaceError as e:
+except InterfaceNotFoundError as e:
     print(f"Interface error: {e}")
 except FilterError as e:
     print(f"Filter error: {e}")
-except CaptureError as e:
+except PacketCaptureException as e:
     print(f"Capture error: {e}")
-except PermissionError as e:
+except InterfacePermissionError as e:
     print(f"Permission denied: {e}")
 ```
 

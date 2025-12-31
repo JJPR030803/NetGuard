@@ -422,7 +422,7 @@ def deps(
 ):
     """Manage and inspect project dependencies."""
     try:
-        run_uv_command(["uv", "--version"], capture_output=True, check=True)
+        run_uv_command(["uv", "--version"])
     except (FileNotFoundError, subprocess.CalledProcessError):
         typer.secho(
             "❌ uv not found. Make sure uv is installed and in your PATH.", fg=typer.colors.RED
@@ -438,7 +438,7 @@ def deps(
     elif export:
         output_file = Path("requirements.txt")
         typer.echo(f"📦 Exporting dependencies to {output_file}...\n")
-        result = run_uv_command(["uv", "pip", "freeze"], capture_output=True, text=True)
+        result = run_uv_command(["uv", "pip", "freeze"])
         if result.returncode == 0:
             output_file.write_text(result.stdout)
             count = len(

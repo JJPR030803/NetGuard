@@ -16,6 +16,7 @@ import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import polars as pl
 import pytest
@@ -300,7 +301,7 @@ def create_test_parquet():
     """
     created_files = []
 
-    def _create(df: pl.DataFrame, filename: str, temp_dir: Path = None) -> Path:
+    def _create(df: pl.DataFrame, filename: str, temp_dir: Optional[Path] = None) -> Path:
         """Create a parquet file from DataFrame."""
         if temp_dir is None:
             temp_dir = Path(tempfile.mkdtemp())

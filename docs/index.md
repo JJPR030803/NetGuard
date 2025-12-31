@@ -1,10 +1,10 @@
-# Network Security Suite Documentation
+# NetGuard Documentation
 
-Welcome to the comprehensive documentation for the Network Security Suite - an enterprise-level network security monitoring and analysis platform with machine learning capabilities.
+Welcome to the comprehensive documentation for NetGuard - an enterprise-level network security monitoring and analysis platform with machine learning capabilities.
 
 ## Overview
 
-The Network Security Suite is a complete security monitoring solution that combines real-time packet capture, advanced analysis, and machine learning-based threat detection. This documentation provides detailed information about all components of the suite.
+NetGuard is a complete security monitoring solution that combines real-time packet capture, advanced analysis, and machine learning-based threat detection. This documentation provides detailed information about all components of the suite.
 
 ## Key Features
 
@@ -80,8 +80,8 @@ poetry install
 ### Basic Usage
 
 ```python
-from network_security_suite.sniffer import PacketCapture
-from network_security_suite.ml.preprocessing import NetworkParquetAnalysis
+from netguard.sniffer import PacketCapture
+from netguard.ml.preprocessing import NetworkParquetAnalysis
 
 # Start packet capture
 capture = PacketCapture(interface="eth0")

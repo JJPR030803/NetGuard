@@ -1,6 +1,6 @@
 # Configuration Management Guide
 
-Guide to configuration management in the Network Security Suite.
+Guide to configuration management in NetGuard.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The configuration system provides a flexible way to manage application settings 
 ### Loading Configuration
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 # Load from YAML file
 config = ConfigBuilder.from_yaml("config.yaml")
@@ -49,7 +49,7 @@ config = ConfigBuilder.from_yaml(
 ```yaml
 # config.yaml
 app:
-  name: "Network Security Suite"
+  name: "NetGuard"
   version: "1.0.0"
   debug: false
 
@@ -84,7 +84,7 @@ database:
 # config.yaml
 defaults: &defaults
   app:
-    name: "Network Security Suite"
+    name: "NetGuard"
 
   database:
     port: 5432
@@ -133,7 +133,7 @@ port = db_config["port"]
 ### Validation
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 class AppConfig(ConfigBuilder):
     def validate(self):
@@ -275,7 +275,7 @@ except ValueError as e:
 ### Application Configuration
 
 ```python
-from network_security_suite.utils import ConfigBuilder
+from netguard.utils import ConfigBuilder
 
 class ApplicationConfig:
     def __init__(self, config_file: str):

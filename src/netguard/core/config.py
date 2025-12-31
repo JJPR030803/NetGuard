@@ -20,6 +20,16 @@ Example:
     # Load configuration from a YAML file
     config = SnifferConfig.from_yaml('path/to/config.yaml')
 
+    # Access configuration values (read-only)
+    print(config.interface)
+    print(config.enable_security_logging)
+
+    # This will raise an AttributeError (read-only):
+    # config.interface = "wlan0"  ❌
+
+    # To change config, create a new instance:
+    new_config = SnifferConfig(interface="wlan0")  ✅
+
     # Save configuration to a YAML file
     config.to_yaml('path/to/new_config.yaml')
 
@@ -28,14 +38,20 @@ Example:
 """
 
 import os
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import yaml
 
+from netguard.core.paths import (
+    get_log_dir,
+    get_parquet_dir,
+    get_performance_parquet_path,
+)
 
-@dataclass
+__all__ = ["SnifferConfig"]
+
+
 class SnifferConfig:
     """
     Configuration class for all network sniffer components.
@@ -44,10 +60,8 @@ class SnifferConfig:
     providing a single point of configuration for interface selection, packet capture,
     logging, data export, performance monitoring, and security settings.
 
-    The class is implemented as a dataclass with default values for all parameters,
-    making it easy to create a working configuration with minimal setup. It also
-    provides methods for loading configurations from YAML files and saving
-    configurations to YAML files.
+    All configuration values are READ-ONLY after initialization. To change configuration,
+    create a new SnifferConfig instance with the desired values.
 
     When instantiated, the class ensures that all required directories exist,
     creating them if necessary.
@@ -101,7 +115,7 @@ class SnifferConfig:
         log_to_file (bool): Whether to write log messages to files.
                            Default: True
         log_dir (str): Directory where log files will be stored.
-                      Default: "/home/batman/Documents/networkguard2/logs"
+                      Default: from get_log_dir()
         log_format (str): Format string for log messages.
                          Default: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
         enable_console_logging (bool): Whether to enable logging to the console.
@@ -124,7 +138,10 @@ class SnifferConfig:
         export_format (str): Format for exporting captured packet data ("parquet", "csv").
                             Default: "parquet"
         export_dir (str): Directory where exported packet data files will be stored.
-                         Default: "/home/batman/Documents/networkguard2/logs/parquet"
+                         Default: from get_parquet_dir()
+        export_filename (str): Filename for the exported packet data file.
+                              Default: "captured_packets.parquet"
+                              Note: Extension will be automatically added if not present
 
         Performance Settings:
         -------------------
@@ -133,7 +150,7 @@ class SnifferConfig:
         performance_log_interval (int): Interval in seconds between performance metric logging.
                                        Default: 60
         performance_parquet_path (str): Path to the Parquet file for performance metrics.
-                                       Default: "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
+                                       Default: from get_performance_parquet_path()
 
         Security Settings:
         ----------------
@@ -155,381 +172,450 @@ class SnifferConfig:
             log_level="DEBUG"
         )
 
+        # Access values (read-only)
+        print(config.interface)  # "wlan0"
+        print(config.packet_count)  # 1000
+
+        # Cannot modify after creation (read-only)
+        # config.interface = "eth0"  # ❌ AttributeError
+
         # Use the configuration with a packet capture
         capture = PacketCapture(config=config)
     """
 
-    # Interface settings
-    interface: str = "eth0"
-    """
-    Name of the network interface to use for packet capture.
-
-    This is the name of the network interface as recognized by the operating system
-    (e.g., 'eth0', 'wlan0', 'en0'). If interface_detection_method is set to 'manual',
-    this value will be used directly. Otherwise, it may be overridden by the
-    automatic interface detection.
-
-    Default: "eth0"
-    """
-
-    interface_detection_method: str = "auto"
-    """
-    Method to use for detecting the network interface.
-
-    Valid values:
-    - 'auto': Automatically select the best available interface
-    - 'manual': Use the interface specified in the 'interface' attribute
-    - 'preferred_type': Select an interface based on the types in 'preferred_interface_types'
-
-    Default: "auto"
-    """
-
-    preferred_interface_types: List[str] = field(default_factory=lambda: ["ethernet", "wireless"])
-    """
-    List of preferred interface types in order of preference.
-
-    Used when interface_detection_method is 'preferred_type' to select an interface
-    based on its type. The first matching interface type in the list will be selected.
-
-    Common types include:
-    - 'ethernet': Wired Ethernet interfaces
-    - 'wireless': Wi-Fi interfaces
-    - 'loopback': Loopback interfaces (for testing)
-    - 'virtual': Virtual interfaces
-
-    Default: ["ethernet", "wireless"]
-    """
-
-    # Capture settings
-    filter_expression: str = ""
-    """
-    Berkeley Packet Filter (BPF) expression for filtering captured packets.
-
-    This expression follows the BPF syntax and allows filtering packets based on
-    various criteria such as protocol, port, host, etc. For example:
-    - "tcp port 80": Capture only TCP traffic on port 80
-    - "host 192.168.1.1": Capture only traffic to/from the specified host
-    - "icmp": Capture only ICMP packets
-
-    An empty string means no filtering (capture all packets).
-
-    Default: "" (no filtering)
-    """
-
-    packet_count: int = 0
-    """
-    Maximum number of packets to capture before stopping.
-
-    If set to 0, packet capture will continue indefinitely until stopped manually
-    or by timeout.
-
-    Default: 0 (unlimited)
-    """
-
-    timeout: int = 0
-    """
-    Maximum time in seconds to capture packets before stopping.
-
-    If set to 0, packet capture will continue indefinitely until stopped manually
-    or by reaching packet_count.
-
-    Default: 0 (no timeout)
-    """
-
-    promiscuous_mode: bool = True
-    """
-    Whether to put the network interface in promiscuous mode.
-
-    In promiscuous mode, the interface captures all packets on the network segment,
-    not just those addressed to it. This is typically required for network analysis
-    but may require elevated privileges.
-
-    Default: True
-    """
-
-    max_memory_packets: int = 10000
-    """
-    Maximum number of packets to store in memory.
-
-    This limits the memory usage of the packet capture. Once this limit is reached,
-    older packets may be discarded to make room for new ones, depending on the
-    implementation.
-
-    Must be at least 100 and a multiple of 10 for efficient processing.
-
-    Default: 10000
-    """
-
-    max_processing_batch_size: int = 100
-    """
-    Maximum number of packets to process in a single batch.
-
-    This affects the performance and responsiveness of the packet processing.
-    Larger batches may be more efficient but can cause longer processing delays.
-
-    Default: 100
-    """
-
-    num_threads: int = 4
-    """
-    Number of threads to use for packet processing.
-
-    More threads can improve performance on multi-core systems but may increase
-    overhead and complexity. The optimal value depends on the system's hardware
-    and the specific workload.
-
-    Default: 4
-    """
-
-    enable_realtime_display: bool = False
-    """
-    Whether to enable real-time display of captured packets.
-
-    If True, a real-time display of captured packets will be shown in the console,
-    updating at regular intervals. This is useful for monitoring packet capture
-    in real-time but may add some overhead.
-
-    Default: False
-    """
-
-    # Logging configuration
-    log_level: str = "INFO"
-    """
-    Logging level for the application.
-
-    Controls the verbosity of log messages. Valid values (in increasing order of verbosity):
-    - "CRITICAL": Only critical errors that prevent the application from running
-    - "ERROR": Errors that allow the application to continue but with reduced functionality
-    - "WARNING": Warnings about potential issues or unexpected behavior
-    - "INFO": General information about the application's operation
-    - "DEBUG": Detailed information for debugging purposes
-
-    Default: "INFO"
-    """
-
-    log_to_file: bool = True
-    """
-    Whether to write log messages to files.
-
-    If True, log messages will be written to files in the directory specified by log_dir.
-    If False, log messages will only be written to the console (if enabled).
-
-    Default: True
-    """
-
-    log_dir: str = "/home/batman/Documents/networkguard2/logs"
-    """
-    Directory where log files will be stored.
-
-    This directory will be created if it doesn't exist when the configuration is initialized.
-
-    Default: "/home/batman/Documents/networkguard2/logs"
-    """
-
-    log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    """
-    Format string for log messages.
-
-    This follows the Python logging module's format string syntax. Common format specifiers:
-    - %(asctime)s: Timestamp
-    - %(levelname)s: Log level (INFO, DEBUG, etc.)
-    - %(name)s: Logger name
-    - %(message)s: Log message
-
-    Default: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    """
-
-    # Logger-specific settings
-    enable_console_logging: bool = True
-    """
-    Whether to enable logging to the console.
-
-    If True, log messages will be printed to the console (stdout/stderr).
-
-    Default: True
-    """
-
-    enable_file_logging: bool = True
-    """
-    Whether to enable logging to files.
-
-    This is separate from log_to_file and provides finer control over which
-    logging systems are active.
-
-    Default: True
-    """
-
-    enable_security_logging: bool = True
-    """
-    Whether to enable security-related logging.
-
-    If True, security events such as authentication attempts, permission changes,
-    and potential security violations will be logged.
-
-    Default: True
-    """
-
-    enable_packet_logging: bool = True
-    """
-    Whether to enable packet-level logging.
-
-    If True, details about captured packets will be logged. This can generate
-    a large volume of log data with high packet rates.
-
-    Default: True
-    """
-
-    enable_performance_logging: bool = True
-    """
-    Whether to enable performance metric logging.
-
-    If True, performance metrics such as processing time, memory usage,
-    and throughput will be logged.
-
-    Default: True
-    """
-
-    # File rotation settings
-    max_log_file_size: int = 10485760  # 10MB
-    """
-    Maximum size of a log file in bytes before it is rotated.
-
-    When a log file reaches this size, it will be renamed with a timestamp
-    and a new log file will be created. This prevents log files from growing
-    indefinitely.
-
-    Default: 10485760 (10MB)
-    """
-
-    log_backup_count: int = 5
-    """
-    Number of rotated log files to keep.
-
-    When log files are rotated, this controls how many old log files are kept
-    before the oldest ones are deleted.
-
-    Default: 5
-    """
-
-    # Export settings
-    export_format: str = "parquet"
-    """
-    Format for exporting captured packet data.
-
-    Valid values:
-    - "parquet": Apache Parquet format (columnar storage, efficient for analytics)
-    - "csv": Comma-separated values (more compatible but less efficient)
-
-    Default: "parquet"
-    """
-
-    export_dir: str = "/home/batman/Documents/networkguard2/logs/parquet"
-    """
-    Directory where exported packet data files will be stored.
-
-    This directory will be created if it doesn't exist when the configuration is initialized.
-
-    Default: "/home/batman/Documents/networkguard2/logs/parquet"
-    """
-
-    # Performance settings
-    enable_performance_monitoring: bool = True
-    """
-    Whether to enable performance monitoring.
-
-    If True, the application will collect and log performance metrics such as
-    CPU usage, memory usage, packet processing rates, etc.
-
-    Default: True
-    """
-
-    performance_log_interval: int = 60  # seconds
-    """
-    Interval in seconds between performance metric logging.
-
-    Controls how frequently performance metrics are collected and logged.
-    Lower values provide more detailed monitoring but increase overhead.
-
-    Default: 60 (seconds)
-    """
-
-    performance_parquet_path: str = (
-        "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
-    )
-    """
-    Path to the Parquet file where performance metrics will be stored.
-
-    Performance metrics are stored in Parquet format for efficient storage and analysis.
-    The directory containing this file will be created if it doesn't exist.
-
-    Default: "/home/batman/Documents/networkguard2/logs/performance_metrics/perf_metrics.parquet"
-    """
-
-    # Security settings
-    validate_interface_names: bool = True
-    """
-    Whether to validate network interface names.
-
-    If True, interface names will be validated to ensure they match the pattern
-    of valid interface names for the current operating system. This helps prevent
-    command injection attacks.
-
-    Default: True
-    """
-
-    sanitize_filter_expressions: bool = True
-    """
-    Whether to sanitize BPF filter expressions.
-
-    If True, filter expressions will be sanitized to remove potentially dangerous
-    characters or patterns. This helps prevent injection attacks.
-
-    Default: True
-    """
-
-    max_filter_length: int = 200
-    """
-    Maximum allowed length for BPF filter expressions.
-
-    This limits the complexity of filter expressions to prevent performance issues
-    and potential denial-of-service attacks with extremely complex filters.
-
-    Default: 200
-    """
-
-    def __post_init__(self):
+    def __init__(
+        self,
+        # Interface settings
+        interface: str = "eth0",
+        interface_detection_method: str = "auto",
+        preferred_interface_types: Optional[List[str]] = None,
+        # Capture settings
+        filter_expression: str = "",
+        packet_count: int = 0,
+        timeout: int = 0,
+        promiscuous_mode: bool = True,
+        max_memory_packets: int = 10000,
+        max_processing_batch_size: int = 100,
+        num_threads: int = 4,
+        enable_realtime_display: bool = False,
+        # Logging settings
+        log_level: str = "INFO",
+        log_to_file: bool = True,
+        log_dir: Optional[str] = None,
+        log_format: str = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        enable_console_logging: bool = True,
+        enable_file_logging: bool = True,
+        enable_security_logging: bool = True,
+        enable_packet_logging: bool = True,
+        enable_performance_logging: bool = True,
+        max_log_file_size: int = 10485760,
+        log_backup_count: int = 5,
+        # Export settings
+        export_format: str = "parquet",
+        export_dir: Optional[str] = None,
+        export_filename: str = "captured_packets.parquet",
+        # Performance settings
+        enable_performance_monitoring: bool = True,
+        performance_log_interval: int = 60,
+        performance_parquet_path: Optional[str] = None,
+        # Security settings
+        validate_interface_names: bool = True,
+        sanitize_filter_expressions: bool = True,
+        max_filter_length: int = 200,
+    ):
         """
-        Initialize the configuration after all attributes are set.
+        Initialize SnifferConfig with the specified parameters.
 
-        This method is automatically called by the dataclass after the object is created.
-        It ensures that all required directories exist, creating them if necessary.
-
-        The following directories are created:
-        - log_dir (if log_to_file is True)
-        - export_dir
-        - The directory containing performance_parquet_path
-
-        This ensures that the application can write to these directories without errors.
+        All parameters are stored in private attributes and exposed through
+        read-only properties to prevent modification after initialization.
         """
-        if self.log_to_file:
-            Path(self.log_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.export_dir).mkdir(parents=True, exist_ok=True)
-        Path(os.path.dirname(self.performance_parquet_path)).mkdir(parents=True, exist_ok=True)
+        # Interface settings
+        self._interface = interface
+        self._interface_detection_method = interface_detection_method
+        self._preferred_interface_types = (
+            preferred_interface_types
+            if preferred_interface_types is not None
+            else ["ethernet", "wireless"]
+        )
+
+        # Capture settings
+        self._filter_expression = filter_expression
+        self._packet_count = packet_count
+        self._timeout = timeout
+        self._promiscuous_mode = promiscuous_mode
+        self._max_memory_packets = max_memory_packets
+        self._max_processing_batch_size = max_processing_batch_size
+        self._num_threads = num_threads
+        self._enable_realtime_display = enable_realtime_display
+
+        # Logging settings
+        self._log_level = log_level
+        self._log_to_file = log_to_file
+        self._log_dir = log_dir if log_dir is not None else str(get_log_dir())
+        self._log_format = log_format
+        self._enable_console_logging = enable_console_logging
+        self._enable_file_logging = enable_file_logging
+        self._enable_security_logging = enable_security_logging
+        self._enable_packet_logging = enable_packet_logging
+        self._enable_performance_logging = enable_performance_logging
+        self._max_log_file_size = max_log_file_size
+        self._log_backup_count = log_backup_count
+
+        # Export settings
+        self._export_format = export_format
+        self._export_dir = export_dir if export_dir is not None else str(get_parquet_dir())
+        self._export_filename = export_filename
+
+        # Performance settings
+        self._enable_performance_monitoring = enable_performance_monitoring
+        self._performance_log_interval = performance_log_interval
+        self._performance_parquet_path = (
+            performance_parquet_path
+            if performance_parquet_path is not None
+            else str(get_performance_parquet_path())
+        )
+
+        # Security settings
+        self._validate_interface_names = validate_interface_names
+        self._sanitize_filter_expressions = sanitize_filter_expressions
+        self._max_filter_length = max_filter_length
+
+        # Ensure export filename has correct extension
+        self._export_filename = self._ensure_extension(export_filename, export_format)
+
+        # Validate all parameters
+        self._validate_parameters()
+
+        # Ensure directories exist
+        self._ensure_directories()
+
+    # ========================================================================
+    # Validation Methods
+    # ========================================================================
+
+    def _validate_parameters(self) -> None:
+        """
+        Validate all configuration parameters.
+
+        Raises:
+            ValueError: If any parameter has an invalid value
+        """
+        # Validate packet_count
+        if self._packet_count < 0:
+            raise ValueError(f"packet_count must be non-negative, got {self._packet_count}")
+
+        # Validate timeout
+        if self._timeout < 0:
+            raise ValueError(f"timeout must be non-negative, got {self._timeout}")
+
+        # Validate num_threads
+        if self._num_threads < 1:
+            raise ValueError(f"num_threads must be at least 1, got {self._num_threads}")
+
+        # Validate max_memory_packets
+        if self._max_memory_packets < 100:
+            raise ValueError(
+                f"max_memory_packets must be at least 100, got {self._max_memory_packets}"
+            )
+        if self._max_memory_packets % 10 != 0:
+            raise ValueError(
+                f"max_memory_packets must be a multiple of 10, got {self._max_memory_packets}"
+            )
+
+        # Validate max_processing_batch_size
+        if self._max_processing_batch_size < 1:
+            raise ValueError(
+                f"max_processing_batch_size must be at least 1, got {self._max_processing_batch_size}"
+            )
+
+        # Validate log_level
+        valid_log_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        if self._log_level.upper() not in valid_log_levels:
+            raise ValueError(
+                f"log_level must be one of {valid_log_levels}, got {self._log_level!r}"
+            )
+        self._log_level = self._log_level.upper()  # Normalize to uppercase
+
+        # Validate export_format
+        valid_formats = {"parquet", "csv"}
+        if self._export_format.lower() not in valid_formats:
+            raise ValueError(
+                f"export_format must be one of {valid_formats}, got {self._export_format!r}"
+            )
+        self._export_format = self._export_format.lower()  # Normalize to lowercase
+
+        # Validate interface_detection_method
+        valid_methods = {"auto", "manual", "preferred_type"}
+        if self._interface_detection_method not in valid_methods:
+            raise ValueError(
+                f"interface_detection_method must be one of {valid_methods}, "
+                f"got {self._interface_detection_method!r}"
+            )
+
+        # Validate max_log_file_size
+        if self._max_log_file_size < 1024:  # At least 1KB
+            raise ValueError(
+                f"max_log_file_size must be at least 1024 bytes, got {self._max_log_file_size}"
+            )
+
+        # Validate log_backup_count
+        if self._log_backup_count < 0:
+            raise ValueError(f"log_backup_count must be non-negative, got {self._log_backup_count}")
+
+        # Validate performance_log_interval
+        if self._performance_log_interval < 1:
+            raise ValueError(
+                f"performance_log_interval must be at least 1 second, "
+                f"got {self._performance_log_interval}"
+            )
+
+        # Validate max_filter_length
+        if self._max_filter_length < 1:
+            raise ValueError(f"max_filter_length must be at least 1, got {self._max_filter_length}")
+
+        # Validate interface name (if validation enabled)
+        if self._validate_interface_names:
+            if not self._interface or not self._interface.strip():
+                raise ValueError("interface name cannot be empty")
+
+    def _ensure_extension(self, filename: str, format: str) -> str:
+        """
+        Ensure filename has the correct extension for the format.
+
+        Args:
+            filename: The filename to check
+            format: The export format (parquet, csv)
+
+        Returns:
+            Filename with correct extension
+        """
+        expected_ext = f".{format}"
+        if not filename.endswith(expected_ext):
+            return f"{filename}{expected_ext}"
+        return filename
+
+    def _ensure_directories(self) -> None:
+        """
+        Ensure that all required directories exist.
+
+        This method creates any missing directories that are specified in the
+        configuration. It is called automatically during initialization.
+        """
+        # Create log directory if it doesn't exist
+        os.makedirs(self._log_dir, exist_ok=True)
+
+        # Create export directory if it doesn't exist
+        os.makedirs(self._export_dir, exist_ok=True)
+
+        # Create performance metrics directory if it doesn't exist
+        performance_dir = os.path.dirname(self._performance_parquet_path)
+        if performance_dir:
+            os.makedirs(performance_dir, exist_ok=True)
+
+    # ========================================================================
+    # Interface Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def interface(self) -> str:
+        """Name of the network interface to use for packet capture."""
+        return self._interface
+
+    @property
+    def interface_detection_method(self) -> str:
+        """Method to use for detecting the network interface."""
+        return self._interface_detection_method
+
+    @property
+    def preferred_interface_types(self) -> List[str]:
+        """List of preferred interface types in order of preference."""
+        return self._preferred_interface_types.copy()  # Return copy to prevent modification
+
+    # ========================================================================
+    # Capture Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def filter_expression(self) -> str:
+        """BPF filter expression for filtering packets."""
+        return self._filter_expression
+
+    @property
+    def packet_count(self) -> int:
+        """Maximum number of packets to capture (0 = unlimited)."""
+        return self._packet_count
+
+    @property
+    def timeout(self) -> int:
+        """Maximum time in seconds to capture packets (0 = no timeout)."""
+        return self._timeout
+
+    @property
+    def promiscuous_mode(self) -> bool:
+        """Whether to put the interface in promiscuous mode."""
+        return self._promiscuous_mode
+
+    @property
+    def max_memory_packets(self) -> int:
+        """Maximum number of packets to store in memory."""
+        return self._max_memory_packets
+
+    @property
+    def max_processing_batch_size(self) -> int:
+        """Maximum number of packets to process in a single batch."""
+        return self._max_processing_batch_size
+
+    @property
+    def num_threads(self) -> int:
+        """Number of threads to use for packet processing."""
+        return self._num_threads
+
+    @property
+    def enable_realtime_display(self) -> bool:
+        """Whether to enable real-time display of captured packets."""
+        return self._enable_realtime_display
+
+    # ========================================================================
+    # Logging Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def log_level(self) -> str:
+        """Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)."""
+        return self._log_level
+
+    @property
+    def log_to_file(self) -> bool:
+        """Whether to write log messages to files."""
+        return self._log_to_file
+
+    @property
+    def log_dir(self) -> str:
+        """Directory where log files will be stored."""
+        return self._log_dir
+
+    @property
+    def log_format(self) -> str:
+        """Format string for log messages."""
+        return self._log_format
+
+    @property
+    def enable_console_logging(self) -> bool:
+        """Whether to enable logging to the console."""
+        return self._enable_console_logging
+
+    @property
+    def enable_file_logging(self) -> bool:
+        """Whether to enable logging to files."""
+        return self._enable_file_logging
+
+    @property
+    def enable_security_logging(self) -> bool:
+        """Whether to enable security-related logging."""
+        return self._enable_security_logging
+
+    @property
+    def enable_packet_logging(self) -> bool:
+        """Whether to enable packet-level logging."""
+        return self._enable_packet_logging
+
+    @property
+    def enable_performance_logging(self) -> bool:
+        """Whether to enable performance metric logging."""
+        return self._enable_performance_logging
+
+    @property
+    def max_log_file_size(self) -> int:
+        """Maximum size of a log file in bytes before rotation."""
+        return self._max_log_file_size
+
+    @property
+    def log_backup_count(self) -> int:
+        """Number of rotated log files to keep."""
+        return self._log_backup_count
+
+    # ========================================================================
+    # Export Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def export_format(self) -> str:
+        """Format for exporting captured packet data (parquet, csv)."""
+        return self._export_format
+
+    @property
+    def export_dir(self) -> str:
+        """Directory where exported packet data files will be stored."""
+        return self._export_dir
+
+    @property
+    def export_filename(self) -> str:
+        """Filename for the exported packet data file."""
+        return self._export_filename
+
+    @property
+    def export_path(self) -> str:
+        """
+        Full path to the export file (directory + filename).
+
+        This is a convenience property that combines export_dir and export_filename.
+        """
+        return os.path.join(self._export_dir, self._export_filename)
+
+    # ========================================================================
+    # Performance Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def enable_performance_monitoring(self) -> bool:
+        """Whether to enable performance monitoring."""
+        return self._enable_performance_monitoring
+
+    @property
+    def performance_log_interval(self) -> int:
+        """Interval in seconds between performance metric logging."""
+        return self._performance_log_interval
+
+    @property
+    def performance_parquet_path(self) -> str:
+        """Path to the Parquet file for performance metrics."""
+        return self._performance_parquet_path
+
+    # ========================================================================
+    # Security Settings Properties (Read-Only)
+    # ========================================================================
+
+    @property
+    def validate_interface_names(self) -> bool:
+        """Whether to validate network interface names."""
+        return self._validate_interface_names
+
+    @property
+    def sanitize_filter_expressions(self) -> bool:
+        """Whether to sanitize BPF filter expressions."""
+        return self._sanitize_filter_expressions
+
+    @property
+    def max_filter_length(self) -> int:
+        """Maximum allowed length for BPF filter expressions."""
+        return self._max_filter_length
+
+    # ========================================================================
+    # Class Methods
+    # ========================================================================
 
     @classmethod
     def from_yaml(cls, yaml_file: str) -> "SnifferConfig":
         """
         Load configuration from a YAML file.
 
-        This method reads a YAML configuration file and creates a SnifferConfig object
-        with the values from the file. If the file doesn't exist or is empty, a default
-        configuration is returned.
+        This method reads a YAML configuration file and creates a new SnifferConfig
+        instance with the values from the file. Any values not specified in the
+        YAML file will use their default values.
 
-        The YAML file should have a nested structure with sections corresponding to the
-        configuration categories:
+        The YAML file should have the following structure:
 
         ```yaml
-        # Example YAML structure
         interface:
           name: "eth0"
           detection_method: "auto"
@@ -538,49 +624,70 @@ class SnifferConfig:
             - "wireless"
 
         capture:
-          filter_expression: "tcp port 80"
-          packet_count: 1000
-          # ...
+          filter_expression: ""
+          packet_count: 0
+          timeout: 0
+          promiscuous_mode: true
+          max_memory_packets: 10000
+          max_processing_batch_size: 100
+          num_threads: 4
+          enable_realtime_display: false
 
         logging:
-          level: "DEBUG"
-          # ...
+          level: "INFO"
+          log_to_file: true
+          log_dir: "/path/to/logs"
+          log_format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+          enable_console_logging: true
+          enable_file_logging: true
+          enable_security_logging: true
+          enable_packet_logging: true
+          enable_performance_logging: true
+          max_log_file_size: 10485760
+          log_backup_count: 5
 
-        # ... other sections
+        export:
+          format: "parquet"
+          dir: "/path/to/exports"
+
+        performance:
+          enable_monitoring: true
+          log_interval: 60
+          parquet_path: "/path/to/performance_metrics.parquet"
+
+        security:
+          validate_interface_names: true
+          sanitize_filter_expressions: true
+          max_filter_length: 200
         ```
 
         Args:
-            yaml_file: Path to the YAML configuration file
+            yaml_file: Path to the YAML configuration file to load
 
         Returns:
-            SnifferConfig: Configuration object with values from the YAML file.
-                           If the file doesn't exist or is empty, returns a default configuration.
+            A new SnifferConfig instance with values from the YAML file
+
+        Raises:
+            FileNotFoundError: If the specified YAML file does not exist
+            yaml.YAMLError: If the YAML file is malformed
 
         Example:
             ```python
             # Load configuration from a file
-            config = SnifferConfig.from_yaml('configs/sniffer_config.yaml')
+            config = SnifferConfig.from_yaml('configs/my_config.yaml')
 
-            # Use the configuration
-            capture = PacketCapture(config=config)
+            # Use the loaded configuration
+            print(config.interface)
+            print(config.packet_count)
             ```
         """
-        if not os.path.exists(yaml_file):
-            print(
-                f"Warning: Configuration file {yaml_file} not found. Using default configuration."
-            )
-            return cls()
-
-        with open(yaml_file) as f:
+        with open(yaml_file, "r") as f:
             config_data = yaml.safe_load(f)
 
-        if not config_data:
-            return cls()
-
-        # Extract values from nested YAML structure
+        # Initialize with defaults
         config_dict = {}
 
-        # Interface settings
+        # Parse interface settings
         if "interface" in config_data:
             interface_config = config_data["interface"]
             if "name" in interface_config:
@@ -590,7 +697,7 @@ class SnifferConfig:
             if "preferred_types" in interface_config:
                 config_dict["preferred_interface_types"] = interface_config["preferred_types"]
 
-        # Capture settings
+        # Parse capture settings
         if "capture" in config_data:
             capture_config = config_data["capture"]
             if "filter_expression" in capture_config:
@@ -612,7 +719,7 @@ class SnifferConfig:
             if "enable_realtime_display" in capture_config:
                 config_dict["enable_realtime_display"] = capture_config["enable_realtime_display"]
 
-        # Logging configuration
+        # Parse logging settings
         if "logging" in config_data:
             logging_config = config_data["logging"]
             if "level" in logging_config:
@@ -640,15 +747,17 @@ class SnifferConfig:
             if "log_backup_count" in logging_config:
                 config_dict["log_backup_count"] = logging_config["log_backup_count"]
 
-        # Export settings
+        # Parse export settings
         if "export" in config_data:
             export_config = config_data["export"]
             if "format" in export_config:
                 config_dict["export_format"] = export_config["format"]
             if "dir" in export_config:
                 config_dict["export_dir"] = export_config["dir"]
+            if "filename" in export_config:
+                config_dict["export_filename"] = export_config["filename"]
 
-        # Performance settings
+        # Parse performance settings
         if "performance" in config_data:
             performance_config = config_data["performance"]
             if "enable_monitoring" in performance_config:
@@ -660,7 +769,7 @@ class SnifferConfig:
             if "parquet_path" in performance_config:
                 config_dict["performance_parquet_path"] = performance_config["parquet_path"]
 
-        # Security settings
+        # Parse security settings
         if "security" in config_data:
             security_config = config_data["security"]
             if "validate_interface_names" in security_config:
@@ -675,8 +784,7 @@ class SnifferConfig:
                 config_dict["max_filter_length"] = security_config["max_filter_length"]
 
         # Create a new instance with the loaded values
-        config = cls(**config_dict)
-        return config
+        return cls(**config_dict)
 
     def to_yaml(self, yaml_file: str) -> None:
         """
@@ -689,33 +797,8 @@ class SnifferConfig:
         The method ensures that the directory containing the YAML file exists, creating it
         if necessary.
 
-        The YAML file will have the following structure:
-
-        ```yaml
-        interface:
-          name: "eth0"
-          detection_method: "auto"
-          preferred_types:
-            - "ethernet"
-            - "wireless"
-
-        capture:
-          filter_expression: ""
-          packet_count: 0
-          # ... other capture settings
-
-        logging:
-          level: "INFO"
-          # ... other logging settings
-
-        # ... other configuration sections
-        ```
-
         Args:
             yaml_file: Path to the YAML configuration file to be created or overwritten
-
-        Returns:
-            None
 
         Example:
             ```python
@@ -756,7 +839,11 @@ class SnifferConfig:
                 "max_log_file_size": self.max_log_file_size,
                 "log_backup_count": self.log_backup_count,
             },
-            "export": {"format": self.export_format, "dir": self.export_dir},
+            "export": {
+                "format": self.export_format,
+                "dir": self.export_dir,
+                "filename": self.export_filename,
+            },
             "performance": {
                 "enable_monitoring": self.enable_performance_monitoring,
                 "log_interval": self.performance_log_interval,
@@ -770,7 +857,9 @@ class SnifferConfig:
         }
 
         # Ensure directory exists
-        os.makedirs(os.path.dirname(yaml_file), exist_ok=True)
+        yaml_dir = os.path.dirname(yaml_file)
+        if yaml_dir:  # Only create directory if path contains one
+            os.makedirs(yaml_dir, exist_ok=True)
 
         # Write to file
         with open(yaml_file, "w") as f:
@@ -785,14 +874,8 @@ class SnifferConfig:
         saves it to the specified YAML file. It's useful for creating initial
         configuration files that users can then modify according to their needs.
 
-        The method ensures that the directory containing the YAML file exists,
-        creating it if necessary.
-
         Args:
             yaml_file: Path to the YAML configuration file to be created
-
-        Returns:
-            None
 
         Example:
             ```python
@@ -801,18 +884,15 @@ class SnifferConfig:
 
             # Later, load and modify it
             config = SnifferConfig.from_yaml('configs/default_config.yaml')
-            config.interface = "wlan0"
-            config.to_yaml('configs/modified_config.yaml')
             ```
 
         Note:
-            This method will overwrite the file if it already exists. Use with caution
-            to avoid losing existing configurations.
+            This method will overwrite the file if it already exists.
         """
         config = cls()
         config.to_yaml(yaml_file)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a human-readable string representation of the configuration."""
         return f"""SnifferConfig:
           Interface Settings:
@@ -845,6 +925,8 @@ class SnifferConfig:
           Export Settings:
             - Format: {self.export_format}
             - Directory: {self.export_dir}
+            - Filename: {self.export_filename}
+            - Full Path: {self.export_path}
 
           Performance Settings:
             - Monitoring Enabled: {self.enable_performance_monitoring}
@@ -855,3 +937,12 @@ class SnifferConfig:
             - Validate Interface Names: {self.validate_interface_names}
             - Sanitize Filter Expressions: {self.sanitize_filter_expressions}
             - Max Filter Length: {self.max_filter_length}"""
+
+    def __repr__(self) -> str:
+        """Return a detailed representation of the configuration."""
+        return (
+            f"SnifferConfig("
+            f"interface={self.interface!r}, "
+            f"packet_count={self.packet_count}, "
+            f"log_level={self.log_level!r})"
+        )

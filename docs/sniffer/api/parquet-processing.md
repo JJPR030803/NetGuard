@@ -4,7 +4,7 @@ The `ParquetProcessing` module handles conversion and processing of captured pac
 
 ## Module Reference
 
-::: network_security_suite.sniffer.parquet_processing
+::: netguard.capture.parquet_processing
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ The `ParquetProcessing` module handles conversion and processing of captured pac
 ### Basic Usage
 
 ```python
-from network_security_suite.sniffer.parquet_processing import ParquetProcessor
+from netguard.capture.parquet_processing import ParquetProcessor
 
 # Process captured packets
 processor = ParquetProcessor("capture.parquet")
@@ -31,7 +31,7 @@ tcp_packets = processor.filter_by_protocol("TCP")
 ### Writing Packets
 
 ```python
-from network_security_suite.sniffer.parquet_processing import write_packets_to_parquet
+from netguard.capture.parquet_processing import write_packets_to_parquet
 
 # Write packets to Parquet
 write_packets_to_parquet(
@@ -44,7 +44,7 @@ write_packets_to_parquet(
 ### Reading Packets
 
 ```python
-from network_security_suite.sniffer.parquet_processing import read_packets_from_parquet
+from netguard.capture.parquet_processing import read_packets_from_parquet
 
 # Read packets from Parquet
 packets_df = read_packets_from_parquet("capture.parquet")

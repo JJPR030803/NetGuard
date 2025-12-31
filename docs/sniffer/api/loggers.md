@@ -4,7 +4,7 @@ Specialized logger classes for different types of logging events.
 
 ## Module Reference
 
-::: network_security_suite.sniffer.loggers
+::: netguard.core.loggers
     options:
       show_source: true
       show_root_heading: true
@@ -15,7 +15,7 @@ Specialized logger classes for different types of logging events.
 ### Console Logger
 
 ```python
-from network_security_suite.sniffer import ConsoleLogger
+from netguard.sniffer import ConsoleLogger
 
 logger = ConsoleLogger(level="INFO")
 logger.info("Application started")
@@ -24,7 +24,7 @@ logger.info("Application started")
 ### File Logger
 
 ```python
-from network_security_suite.sniffer import FileLogger
+from netguard.sniffer import FileLogger
 
 logger = FileLogger(
     filename="app.log",
@@ -36,7 +36,7 @@ logger.debug("Debug message")
 ### Rotating File Logger
 
 ```python
-from network_security_suite.sniffer import RotatingFileLogger
+from netguard.sniffer import RotatingFileLogger
 
 logger = RotatingFileLogger(
     filename="app.log",
@@ -48,7 +48,7 @@ logger = RotatingFileLogger(
 ### Security Logger
 
 ```python
-from network_security_suite.sniffer import SecurityLogger
+from netguard.sniffer import SecurityLogger
 
 security_logger = SecurityLogger(
     filename="security.log",
@@ -60,7 +60,7 @@ security_logger.warning("Suspicious activity detected")
 ### Packet Logger
 
 ```python
-from network_security_suite.sniffer import PacketLogger
+from netguard.sniffer import PacketLogger
 
 packet_logger = PacketLogger(filename="packets.log")
 packet_logger.info(f"Captured packet: {packet.summary()}")

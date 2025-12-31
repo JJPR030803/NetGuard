@@ -1,6 +1,6 @@
 # Getting Started with Models
 
-This guide will help you understand and use the data models in the Network Security Suite.
+This guide will help you understand and use the data models in NetGuard.
 
 ## Overview
 
@@ -11,7 +11,7 @@ The models module provides Pydantic-based data structures for representing netwo
 ### Creating a Packet Model
 
 ```python
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 # Create an ARP packet
 packet = ARPPacket(
@@ -57,7 +57,7 @@ print(packet_json)
 ### Ethernet Packets
 
 ```python
-from network_security_suite.models import EthernetPacket
+from netguard.models import EthernetPacket
 
 ethernet = EthernetPacket(
     src_mac="00:11:22:33:44:55",
@@ -70,7 +70,7 @@ ethernet = EthernetPacket(
 ### TCP Packets
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 tcp = TCPPacket(
     src_port=443,
@@ -92,7 +92,7 @@ if "A" in tcp.flags:
 ### UDP Packets
 
 ```python
-from network_security_suite.models import UDPPacket
+from netguard.models import UDPPacket
 
 udp = UDPPacket(
     src_port=53,
@@ -110,7 +110,7 @@ udp = UDPPacket(
 Pydantic automatically validates data:
 
 ```python
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 from pydantic import ValidationError
 
 try:
@@ -149,7 +149,7 @@ def validate_tcp_packet(packet: TCPPacket) -> bool:
 ### From Dictionary
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 raw_data = {
     "src_port": 80,
@@ -167,7 +167,7 @@ packet = TCPPacket(**raw_data)
 
 ```python
 import json
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 json_data = '{"operation": 1, "sender_mac": "00:11:22:33:44:55", "sender_ip": "192.168.1.1", "target_mac": "00:00:00:00:00:00", "target_ip": "192.168.1.254"}'
 
@@ -178,7 +178,7 @@ packet = ARPPacket(**json.loads(json_data))
 
 ```python
 from scapy.all import sniff
-from network_security_suite.models import ARPPacket
+from netguard.models import ARPPacket
 
 def packet_handler(scapy_packet):
     if scapy_packet.haslayer("ARP"):
@@ -201,7 +201,7 @@ sniff(filter="arp", prn=packet_handler, count=10)
 ### Storing Models
 
 ```python
-from network_security_suite.models import PacketRecord
+from netguard.models import PacketRecord
 from sqlalchemy.orm import Session
 
 def save_packet(session: Session, packet: EthernetPacket):
@@ -224,7 +224,7 @@ def load_packet(session: Session, packet_id: int) -> EthernetPacket:
 
 ```python
 from typing import List
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 def process_tcp_packets(packets: List[dict]) -> List[TCPPacket]:
     """Process raw packet data into validated models"""
@@ -289,7 +289,7 @@ except ValidationError as e:
 ### 2. Use Type Hints
 
 ```python
-from network_security_suite.models import TCPPacket
+from netguard.models import TCPPacket
 
 def analyze_connection(packet: TCPPacket) -> dict:
     return {
