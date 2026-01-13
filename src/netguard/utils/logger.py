@@ -22,11 +22,11 @@ Notes:
 """
 
 import logging
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Formatter, Handler
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from pathlib import Path
 from typing import Optional, TypedDict
 
 
@@ -102,12 +102,12 @@ class HandlerConfig:
             # Use log_dir if provided, otherwise use current directory
             if log_dir:
                 # Ensure log directory exists
-                os.makedirs(log_dir, exist_ok=True)
-                full_path = os.path.join(log_dir, filepath)
+                Path(log_dir).mkdir(parents=True, exist_ok=True)
+                full_path = Path(log_dir) / filepath
             else:
-                full_path = filepath
+                full_path = Path(filepath)
                 # Create directory if it doesn't exist
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                full_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Create appropriate handler based on name
             if name == "rotating_file":
@@ -192,6 +192,7 @@ class HandlerTypes(TypedDict, total=False):
     critical_handler: Optional[HandlerConfig]
     warning_handler: Optional[HandlerConfig]
     info_handler: Optional[HandlerConfig]
+    performance_handler: Optional[HandlerConfig]
 
 
 class Logger(ABC):
@@ -262,7 +263,7 @@ class Logger(ABC):
         return handlers
 
     @abstractmethod
-    def log(self, message: str):
+    def log(self, message: str) -> None:
         """
         Emit a log message.
 
@@ -276,7 +277,7 @@ class Logger(ABC):
         pass
 
     @abstractmethod
-    def save_logs(self, path: str):
+    def save_logs(self, path: str) -> None:
         """
         Persist current logs to a target destination.
 
@@ -289,65 +290,53 @@ class Logger(ABC):
         """
         pass
 
-    def set_handlers(self):
+    def set_handlers(self) -> None:
         """
         Build and attach logging handlers defined in self.handlers.
-
-        This method iterates through HandlerConfig entries and ensures each
-        handler is correctly bound to this logger instance, honoring the
-        configured log_dir. It will recreate file-based handlers with the
-        resolved log_dir to guarantee log files end up under the intended
-        directory.
-
-        Behavior:
-        - If a HandlerConfig already created a file handler and a log_dir is set,
-          the file handler is safely closed and recreated with the updated path.
-        - If a handler has no formatter, the logger's default formatter is
-          applied.
-        - Any available file_handler on the config is added to the logger.
-
-        Note:
-        The HandlerConfig object is used as a convenience container. The actual
-        logging.Handler attached to the logger is handler.file_handler.
         """
-        for handler in self.handlers.values():
-            if handler:
-                # Set the log_dir for the handler if it's a HandlerConfig instance
-                if isinstance(handler, HandlerConfig) and self.log_dir:
-                    # Store original values
-                    original_filepath = handler.filepath
-                    original_formatter = handler.formatter
-                    original_name = handler.name
-                    original_level = handler.level
-                    original_max_bytes = handler.max_bytes
-                    original_backup_count = handler.backup_count
+        if not self.handlers:
+            return
 
-                    # Close existing file handler if it exists
-                    if handler.file_handler:
-                        handler.file_handler.close()
-                        handler.file_handler = None
+        for handler_config in self.handlers.values():
+            if not isinstance(handler_config, HandlerConfig):
+                continue
 
-                    # Recreate the handler with the log_dir
-                    if original_filepath:
-                        handler.__init__(
-                            original_name,
-                            original_level,
-                            original_formatter,
-                            original_filepath,
-                            original_max_bytes,
-                            original_backup_count,
-                            self.log_dir,
-                        )
+            # Recreate file handler if log_dir is specified and filepath is present
+            if self.log_dir and handler_config.filepath:
+                if handler_config.file_handler:
+                    handler_config.file_handler.close()
 
-                # Set formatter if not already set
-                if not handler.has_format():
-                    handler.setFormatter(self.format)
-                    if handler.file_handler:
-                        handler.file_handler.setFormatter(self.format)
+                full_path = Path(self.log_dir) / handler_config.filepath
+                full_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # Add the file_handler to the logger if it exists
-                if hasattr(handler, "file_handler") and handler.file_handler:
-                    self.logger.addHandler(handler.file_handler)
+                if handler_config.name == "rotating_file":
+                    handler_config.file_handler = RotatingFileHandler(
+                        full_path,
+                        maxBytes=handler_config.max_bytes,
+                        backupCount=handler_config.backup_count,
+                    )
+                elif handler_config.name == "timed_rotating_file":
+                    handler_config.file_handler = TimedRotatingFileHandler(
+                        full_path,
+                        when="midnight",
+                        interval=1,
+                        backupCount=handler_config.backup_count,
+                    )
+                else:
+                    handler_config.file_handler = logging.FileHandler(full_path)
+
+                handler_config.file_handler.setLevel(handler_config.level)
+                handler_config.file_handler.setFormatter(handler_config.formatter)
+
+            # Set formatter if not already set
+            if not handler_config.has_format():
+                handler_config.formatter = self.format
+                if handler_config.file_handler:
+                    handler_config.file_handler.setFormatter(self.format)
+
+            # Add the file_handler to the logger if it exists
+            if handler_config.file_handler:
+                self.logger.addHandler(handler_config.file_handler)
 
 
 class NetworkSecurityLogger(Logger):
@@ -409,7 +398,7 @@ class NetworkSecurityLogger(Logger):
         """
         self.logger.error(message)
 
-    def save_logs(self, path: str):
+    def save_logs(self, path: str) -> None:
         """
         Persist accumulated security logs to the specified path.
 
@@ -466,7 +455,7 @@ class PerformanceLogger(Logger):
         """
         self.logger.info(message)
 
-    def save_logs(self, path: str):
+    def save_logs(self, path: str) -> None:
         """
         Persist performance logs to the specified path.
 

@@ -1,11 +1,14 @@
 """UDP protocol analyzer for network traffic analysis."""
 
+from typing import ClassVar
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
 from netguard.analysis.utils import (
     classify_port,
     has_column,
+    parse_time_window,
     safe_cast_to_int,
     time_window_to_polars,
     validate_dataframe_columns,
@@ -32,7 +35,7 @@ class UdpAnalyzer(BaseAnalyzer):
     UDP_PROTOCOL_NUMBER = 17
 
     # Common UDP ports
-    COMMON_PORTS = {
+    COMMON_PORTS: ClassVar[dict[int, str]] = {
         53: "DNS",
         67: "DHCP-SERVER",
         68: "DHCP-CLIENT",
@@ -354,8 +357,6 @@ class UdpAnalyzer(BaseAnalyzer):
         )
 
         # Calculate window duration in seconds for rate calculation
-        from netguard.analysis.utils import parse_time_window
-
         window_seconds = parse_time_window(time_window).total_seconds()
 
         # Add rate calculations
@@ -417,7 +418,7 @@ class UdpAnalyzer(BaseAnalyzer):
 
         # Group by source IP and time window
         flood_candidates = df_prepared.group_by_dynamic(
-            index_column="timestamp", every=polars_window, by="src_ip"
+            index_column="timestamp", every=polars_window, group_by="src_ip"
         ).agg(
             [
                 pl.count().alias("packet_count"),
@@ -433,7 +434,7 @@ class UdpAnalyzer(BaseAnalyzer):
                 ]
             )
             flood_candidates = df_prepared.group_by_dynamic(
-                index_column="timestamp", every=polars_window, by="src_ip"
+                index_column="timestamp", every=polars_window, group_by="src_ip"
             ).agg(
                 [
                     pl.count().alias("packet_count"),

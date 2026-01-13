@@ -10,11 +10,11 @@ from datetime import datetime
 import polars as pl
 import pytest
 
+from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.core.errors import (
     FileNotFoundError,
     InvalidFileFormatError,
 )
-from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.workflows import NetworkParquetAnalysis  # Backwards compatibility alias
 
 

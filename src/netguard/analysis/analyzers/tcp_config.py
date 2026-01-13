@@ -32,7 +32,10 @@ class PortScanConfig:
     sensitivity: str
 
     def __str__(self) -> str:
-        return f"PortScanConfig(threshold:={self.threshold}),window={self.time_window}, sensitivity={self.sensitivity})"
+        return (
+            f"PortScanConfig(threshold={self.threshold}, "
+            f"window={self.time_window}, sensitivity={self.sensitivity})"
+        )
 
     # Perfiles predefinidos
 

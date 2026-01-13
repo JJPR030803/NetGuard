@@ -18,7 +18,7 @@ Custom exceptions for packet capture operations.
 from netguard.sniffer import PacketCapture
 from netguard.core.exceptions import (
     InterfaceNotFoundError,
-    PacketCaptureException,
+    PacketCaptureError,
     FilterError,
     InterfacePermissionError
 )
@@ -30,7 +30,7 @@ except InterfaceNotFoundError as e:
     print(f"Interface not found: {e}")
 except FilterError as e:
     print(f"Invalid filter: {e}")
-except PacketCaptureException as e:
+except PacketCaptureError as e:
     print(f"Capture failed: {e}")
 except InterfacePermissionError as e:
     print(f"Permission denied: {e}")

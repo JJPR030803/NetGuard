@@ -215,23 +215,23 @@ capture = PacketCapture(
 ```python
 from netguard.sniffer import PacketCapture
 from netguard.core.exceptions import (
-    InterfaceNotFoundError,
-    PacketCaptureException,
-    FilterError,
-    InterfacePermissionError
+  InterfaceNotFoundError,
+  PacketCaptureError,
+  FilterError,
+  InterfacePermissionError
 )
 
 try:
-    capture = PacketCapture(interface="invalid")
-    capture.start()
+  capture = PacketCapture(interface="invalid")
+  capture.start()
 except InterfaceNotFoundError as e:
-    print(f"Interface error: {e}")
+  print(f"Interface error: {e}")
 except FilterError as e:
-    print(f"Filter error: {e}")
-except PacketCaptureException as e:
-    print(f"Capture error: {e}")
+  print(f"Filter error: {e}")
+except PacketCaptureError as e:
+  print(f"Capture error: {e}")
 except InterfacePermissionError as e:
-    print(f"Permission denied: {e}")
+  print(f"Permission denied: {e}")
 ```
 
 ## Performance Considerations

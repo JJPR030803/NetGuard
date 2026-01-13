@@ -1,5 +1,7 @@
 """DNS protocol analyzer for network traffic analysis."""
 
+from typing import ClassVar
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
@@ -20,7 +22,7 @@ class DnsAnalyzer(BaseAnalyzer):
     DNS_PORT = 53
 
     # DNS Query Types
-    QUERY_TYPES = {
+    QUERY_TYPES: ClassVar[dict[int, str]] = {
         1: "A",  # IPv4 address
         2: "NS",  # Name server
         5: "CNAME",  # Canonical name
@@ -34,7 +36,7 @@ class DnsAnalyzer(BaseAnalyzer):
     }
 
     # DNS Response Codes
-    RESPONSE_CODES = {
+    RESPONSE_CODES: ClassVar[dict[int, str]] = {
         0: "NOERROR",  # No error
         1: "FORMERR",  # Format error
         2: "SERVFAIL",  # Server failure

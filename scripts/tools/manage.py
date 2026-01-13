@@ -125,11 +125,14 @@ def test_watch():
 @code_app.command("lint")
 def lint(
     fix: bool = typer.Option(False, "--fix", help="Fix lint errors"),
+    unsafe_fix:bool = typer.Option(False,"--unsafe-fixes",help="3 hidden fixes can be enabled with the '--unsafe-fixes' option")
 ) -> None:
     """Run linting with ruff"""
     cmd = ["ruff", "check", "src/", "tests/"]
     if fix:
         cmd.append("--fix")
+    if unsafe_fix:
+        cmd.append("--unsafe-fixes")
     typer.echo("🔍 Linting code...")
     result = run_uv_command(cmd)
     if result.returncode == 0:
@@ -151,6 +154,16 @@ def format_code(
     else:
         typer.echo("🔧 Formatting code...")
     cmd.extend(["src/", "tests/"])
+    result = run_uv_command(cmd)
+    sys.exit(result.returncode)
+
+@code_app.command("type_check")
+def type_check(
+        type_checck:bool = typer.Option(False, "--check", help="Type check"),
+)->None:
+    """Type check with mypy"""
+    cmd:list[str] = ["mypy","src/netguard"]
+    typer.secho("Checking type annotations",color=True,fg='green')
     result = run_uv_command(cmd)
     sys.exit(result.returncode)
 

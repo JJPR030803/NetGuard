@@ -5,18 +5,13 @@ Provides a single interface to analyze parquet files across all protocols.
 This is the main entry point for analyzing network captures.
 """
 
+import contextlib
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Optional
 
 import polars as pl
 import polars.selectors as cs
-
-from netguard.analysis.utils import format_bytes, format_duration
-from netguard.core.data_store import DataStore
-from netguard.core.errors import InvalidFileFormatError
-from netguard.core.errors import FileNotFoundError as ParquetFileNotFoundError
-from netguard.core.loggers import get_logger
 
 # Import all analyzers
 from netguard.analysis.analyzers.anomaly_analyzer import AnomalyAnalyzer
@@ -27,6 +22,11 @@ from netguard.analysis.analyzers.icmp_analyzer import IcmpAnalyzer
 from netguard.analysis.analyzers.ip_analyzer import IpAnalyzer
 from netguard.analysis.analyzers.tcp_analyzer import TcpAnalyzer
 from netguard.analysis.analyzers.udp_analyzer import UdpAnalyzer
+from netguard.analysis.utils import format_bytes, format_duration
+from netguard.core.data_store import DataStore
+from netguard.core.errors import FileNotFoundError as ParquetFileNotFoundError
+from netguard.core.errors import InvalidFileFormatError
+from netguard.core.loggers import get_logger
 
 __all__ = ["ParquetAnalysisFacade"]
 
@@ -57,7 +57,16 @@ class ParquetAnalysisFacade:
         anomaly: Anomaly detection analyzer
     """
 
-    PROTOCOLS = {"TCP", "UDP", "IP", "IPv6", "DHCP", "DNS", "ARP", "ICMP"}
+    _tcp: Optional[TcpAnalyzer]
+    _udp: Optional[UdpAnalyzer]
+    _dns: Optional[DnsAnalyzer]
+    _arp: Optional[ArpAnalyzer]
+    _icmp: Optional[IcmpAnalyzer]
+    _flow: Optional[FlowAnalyzer]
+    _ip: Optional[IpAnalyzer]
+    _anomaly: Optional[AnomalyAnalyzer]
+
+    PROTOCOLS: ClassVar[set[str]] = {"TCP", "UDP", "IP", "IPv6", "DHCP", "DNS", "ARP", "ICMP"}
 
     def __init__(self, path: str):
         """
@@ -244,9 +253,7 @@ class ParquetAnalysisFacade:
             pl.DataFrame: Packets with this IP as source or destination
         """
         ip_columns = self.df.select(cs.contains("IP") | cs.contains("IPv6")).columns
-        return self.df.filter(
-            pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)
-        )
+        return self.df.filter(pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns))
 
     def get_timestamps(self) -> pl.DataFrame:
         """Get all timestamps from the capture."""
@@ -267,7 +274,7 @@ class ParquetAnalysisFacade:
         """Return the underlying DataFrame."""
         return self.df
 
-    def get_schema(self) -> Dict[str, str]:
+    def get_schema(self) -> dict[str, str]:
         """Return the DataFrame schema."""
         return {col: str(dtype) for col, dtype in zip(self.df.columns, self.df.dtypes)}
 
@@ -275,7 +282,7 @@ class ParquetAnalysisFacade:
         """Get total packet count."""
         return len(self.df)
 
-    def get_date_range(self) -> Dict[str, Any]:
+    def get_date_range(self) -> dict[str, Any]:
         """
         Get the date range of the capture.
 
@@ -291,14 +298,12 @@ class ParquetAnalysisFacade:
 
         duration = None
         if min_ts and max_ts:
-            try:
+            with contextlib.suppress(AttributeError, TypeError):
                 duration = (max_ts - min_ts).total_seconds()
-            except (AttributeError, TypeError):
-                pass
 
         return {"start": min_ts, "end": max_ts, "duration": duration}
 
-    def get_analyzers_available(self) -> Dict[str, bool]:
+    def get_analyzers_available(self) -> dict[str, bool]:
         """Get which analyzers are available."""
         return {
             "tcp": self._tcp is not None,
@@ -315,7 +320,7 @@ class ParquetAnalysisFacade:
     # SUMMARY METHODS
     # ============================================================================
 
-    def generate_summary(self) -> Dict[str, Any]:
+    def generate_summary(self) -> dict[str, Any]:
         """
         Generate comprehensive analysis summary.
 
@@ -353,16 +358,14 @@ class ParquetAnalysisFacade:
                 .agg(pl.count().alias("count"))
                 .sort("count", descending=True)
             )
-            summary["protocols"] = {
-                str(row[0]): int(row[1]) for row in protocol_counts.iter_rows()
-            }
+            summary["protocols"] = {str(row[0]): int(row[1]) for row in protocol_counts.iter_rows()}
 
         # Get unique host counts
         src_cols = [c for c in ["IP_src", "IPv6_src"] if c in self.df.columns]
         dst_cols = [c for c in ["IP_dst", "IPv6_dst"] if c in self.df.columns]
 
         if src_cols or dst_cols:
-            all_ips = []
+            all_ips: list[Any] = []
             if src_cols:
                 all_ips.extend(
                     self.df.select(pl.coalesce(src_cols)).to_series().drop_nulls().to_list()
@@ -374,15 +377,13 @@ class ParquetAnalysisFacade:
             summary["unique_hosts"] = len(set(all_ips))
 
         # Format for readability
-        if summary["file_info"]["size_mb"]:
-            summary["file_info"]["size_formatted"] = format_bytes(
-                int(summary["file_info"]["size_mb"] * 1024 * 1024)
-            )
+        file_info = summary["file_info"]
+        if isinstance(file_info, dict) and file_info.get("size_mb"):
+            file_info["size_formatted"] = format_bytes(int(file_info["size_mb"] * 1024 * 1024))
 
-        if summary["date_range"]["duration"]:
-            summary["date_range"]["duration_formatted"] = format_duration(
-                summary["date_range"]["duration"]
-            )
+        date_range = summary["date_range"]
+        if isinstance(date_range, dict) and date_range.get("duration"):
+            date_range["duration_formatted"] = format_duration(date_range["duration"])
 
         self.logger.log_analysis_complete("network_summary")
         return summary
@@ -419,17 +420,21 @@ class ParquetAnalysisFacade:
             for key, value in summary.items():
                 if isinstance(value, dict):
                     for sub_key, sub_value in value.items():
-                        flat_data.append({
-                            "category": key,
-                            "metric": sub_key,
-                            "value": str(sub_value),
-                        })
+                        flat_data.append(
+                            {
+                                "category": key,
+                                "metric": sub_key,
+                                "value": str(sub_value),
+                            }
+                        )
                 else:
-                    flat_data.append({
-                        "category": "general",
-                        "metric": key,
-                        "value": str(value),
-                    })
+                    flat_data.append(
+                        {
+                            "category": "general",
+                            "metric": key,
+                            "value": str(value),
+                        }
+                    )
 
             df = pl.DataFrame(flat_data)
             if output:
@@ -442,17 +447,21 @@ class ParquetAnalysisFacade:
             for key, value in summary.items():
                 if isinstance(value, dict):
                     for sub_key, sub_value in value.items():
-                        flat_data.append({
-                            "category": key,
-                            "metric": sub_key,
-                            "value": str(sub_value),
-                        })
+                        flat_data.append(
+                            {
+                                "category": key,
+                                "metric": sub_key,
+                                "value": str(sub_value),
+                            }
+                        )
                 else:
-                    flat_data.append({
-                        "category": "general",
-                        "metric": key,
-                        "value": str(value),
-                    })
+                    flat_data.append(
+                        {
+                            "category": "general",
+                            "metric": key,
+                            "value": str(value),
+                        }
+                    )
 
             df = pl.DataFrame(flat_data)
             if output:
@@ -512,7 +521,7 @@ class ParquetAnalysisFacade:
             )
 
         behavioral_df = df_with_unified_ips.group_by_dynamic(
-            index_column="timestamp", every=time_window, by=group_by_col
+            index_column="timestamp", every=time_window, group_by=group_by_col
         ).agg(
             # Volume
             pl.count().alias("packet_count"),

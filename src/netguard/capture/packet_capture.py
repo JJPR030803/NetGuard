@@ -11,10 +11,11 @@ import os
 import platform
 from collections import deque
 from datetime import datetime
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Lock, Thread
 from time import sleep, time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional, Union
 
 import pandas as pd
 import polars as pl
@@ -24,6 +25,7 @@ from scapy.layers.inet import ICMP, IP, TCP, UDP
 from scapy.layers.l2 import ARP, STP, Ether
 
 from netguard.core.config import SnifferConfig
+from netguard.core.data_store import DataStore
 from netguard.core.exceptions import DataConversionError
 from netguard.core.loggers import (
     DebugLogger,
@@ -51,6 +53,9 @@ class PacketCapture:
         packets (list[Packet]): A list of captured packet objects.
     """
 
+    realtime_packets: deque
+    display_thread: Optional[Thread]
+
     def __init__(self, config: Optional[SnifferConfig] = None, realtime_display: bool = False):
         """
         Initialize PacketCapture with configuration.
@@ -59,10 +64,6 @@ class PacketCapture:
             config (Optional[SnifferConfig], optional): Configuration object. Defaults to None.
             realtime_display (bool, optional): Enable real-time packet display. Defaults to False.
         """
-        # Import here to avoid circular imports
-
-        from netguard.core.config import SnifferConfig
-
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
 
@@ -77,22 +78,9 @@ class PacketCapture:
         self.error_logger = ErrorLogger(log_dir=self.config.log_dir)
         self.packet_logger = PacketLogger(log_dir=self.config.log_dir)
 
-        # Validation using config values
-        if self.config.max_memory_packets < 100:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
-            )
-            raise ValueError("max_memory_packets must be at least 100")
-
-        if self.config.max_memory_packets % 10 != 0:
-            self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}"
-            )
-            raise ValueError("max_memory_packets must be multiple of 10")
-
         # Initialize other attributes
         self.packets: list[Packet] = []
-        self.packet_queue: Queue[list[Packet]] = Queue()
+        self.packet_queue: Queue[list[ScapyPacket]] = Queue()
         self.is_running: bool = False
         self.max_processing_batch = self.config.max_processing_batch_size
         self.stats_lock = Lock()
@@ -108,34 +96,25 @@ class PacketCapture:
         self.realtime_display = (
             realtime_display if realtime_display else self.config.enable_realtime_display
         )
-        self.realtime_packets = deque(maxlen=50)  # Store last 50 packets for display
-        self.display_thread = None
+        self.realtime_packets: deque = deque(maxlen=50)  # Store last 50 packets for display
+        self.display_thread: Optional[Thread] = None
         self.display_running = False
 
         self.info_logger.log(f"Initializing PacketCapture for interface: {self.config.interface}")
 
         if self.config.max_memory_packets < 100:
             self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be at least 100"
+                f"Invalid max_memory_packets: {self.config.max_memory_packets}, must be >= 100"
             )
             raise ValueError("max_memory_packets must be at least 100")
+
         if self.config.max_memory_packets % 10 != 0:
             self.error_logger.log(
-                f"Invalid max_memory_packets value: {self.config.max_memory_packets}, must be multiple of 10"
+                f"Invalid max_memory_packets: {self.config.max_memory_packets}, "
+                "must be a multiple of 10"
             )
-            raise ValueError("max_memory_packets must be multiple of 10 for faster processing")
+            raise ValueError("max_memory_packets must be multiple of 10")
 
-        self.packets: list[Packet] = []
-        self.packet_queue: Queue[list[Packet]] = Queue()
-        self.is_running: bool = False
-        self.max_processing_batch = self.config.max_processing_batch_size
-        self.stats_lock = Lock()
-        self.stats = {
-            "processed_packets": 0,
-            "dropped_packets": 0,
-            "processing_time": 0.0,
-            "batch_count": 0,
-        }
         self.debug_logger.log(
             f"PacketCapture initialized with max_memory_packets: {self.max_memory_packets}, "
             f"max_processing_batch: {self.max_processing_batch}"
@@ -148,7 +127,7 @@ class PacketCapture:
             self.stats["processing_time"] += processing_time
             self.stats["batch_count"] += 1
 
-    @perf.monitor("process_queue")
+    @perf.monitor("process_queue")  # type: ignore
     def process_queue(self) -> None:
         """Process packets in batches."""
         self.debug_logger.log("Starting packet queue processing")
@@ -158,7 +137,7 @@ class PacketCapture:
 
         while self.is_running or not self.packet_queue.empty():
             try:
-                batch = self.packet_queue.get(timeout=1)  # Get the batch
+                batch: list[ScapyPacket] = self.packet_queue.get(timeout=1)  # Get the batch
                 batch_size = len(batch)
                 total_batches += 1
                 total_packets += batch_size
@@ -189,7 +168,7 @@ class PacketCapture:
 
         self.info_logger.log("Packet queue processing completed")
 
-    @perf.monitor("process_packet_layers")
+    @perf.monitor("process_packet_layers")  # type: ignore
     def process_packet_layers(self, packet: ScapyPacket) -> Packet:
         """
         Optimized layer processing.
@@ -314,7 +293,7 @@ class PacketCapture:
                     fields = processor(packet[layer_type])
                     packet_layers.append(PacketLayer(layer_name=name, fields=fields))
                 except Exception:
-                    # Create but don't raise the exception - we want to continue processing other layers
+                    # Create but don't raise the exception - we want to continue processing
                     # Just log the error in a production environment
                     pass
 
@@ -340,7 +319,7 @@ class PacketCapture:
                     if fields:  # Only add if we found some fields
                         packet_layers.append(PacketLayer(layer_name=layer_name, fields=fields))
                 except Exception:
-                    # Create but don't raise the exception - we want to continue processing other layers
+                    # Create but don't raise the exception - we want to continue processing
                     # Just log the error in a production environment
                     pass
         except Exception:
@@ -374,7 +353,7 @@ class PacketCapture:
             with self.stats_lock:
                 self.stats["dropped_packets"] += 1
 
-    def start_realtime_display(self):
+    def start_realtime_display(self) -> None:
         """Start the real-time display thread."""
         if self.realtime_display and not self.display_running:
             self.display_running = True
@@ -383,14 +362,14 @@ class PacketCapture:
             self.display_thread.start()
             self.info_logger.log("Started real-time display thread")
 
-    def stop_realtime_display(self):
+    def stop_realtime_display(self) -> None:
         """Stop the real-time display thread."""
         self.display_running = False
         if self.display_thread:
             self.display_thread.join(timeout=2)  # Wait up to 2 seconds for thread to finish
             self.info_logger.log("Stopped real-time display thread")
 
-    def _realtime_display_loop(self):
+    def _realtime_display_loop(self) -> None:
         """Real-time display loop that runs in a separate thread."""
         while self.display_running:
             # Clear screen (Linux/Mac)
@@ -426,7 +405,7 @@ class PacketCapture:
 
             sleep(1)  # Update every second
 
-    def _get_session_info(self) -> Dict[str, str]:
+    def _get_session_info(self) -> dict[str, str]:
         """
         Get information about the current sniffing session.
 
@@ -461,14 +440,14 @@ class PacketCapture:
 
         return session_info
 
-    @perf.monitor("capture")
+    @perf.monitor("capture")  # type: ignore
     def capture(
         self,
-        max_packets: int = None,
-        bpf_filter: str | None = None,
-        num_threads: int = None,
+        max_packets: Optional[int] = None,
+        bpf_filter: Optional[str] = None,
+        num_threads: Optional[int] = None,
         log: bool = False,
-        realtime: bool = None,
+        realtime: Optional[bool] = None,
     ) -> None:
         """
         Capture network packets from the specified interface.
@@ -478,11 +457,16 @@ class PacketCapture:
         using the process_packet_layers method and added to the packets list.
 
         Args:
-            max_packets (int, optional): Maximum number of packets to capture. If None, uses config value.
-            bpf_filter (str | None, optional): Berkeley Packet Filter string. If None, uses config value.
-            num_threads (int, optional): Number of processing threads to use. If None, uses config value.
+            max_packets (int, optional): Maximum number of packets to capture.
+                If None, uses config value.
+            bpf_filter (str | None, optional): Berkeley Packet Filter string.
+                If None, uses config value.
+            num_threads (int, optional): Number of processing threads to use.
+                If None, uses config value.
             log (bool, optional): Whether to log detailed session information. Defaults to False.
-            realtime (bool, optional): Enable real-time display of packets. If None, uses the value from config.enable_realtime_display. Defaults to None.
+            realtime (bool, optional): Enable real-time display of packets.
+                If None, uses the value from config.enable_realtime_display.
+                Defaults to None.
 
         Raises:
             Exception: If there's an error during packet capture or processing.
@@ -505,7 +489,8 @@ class PacketCapture:
 
         self.info_logger.log(f"Starting packet capture on interface {self.interface}")
         self.debug_logger.log(
-            f"Capture parameters: max_packets={max_packets}, filter='{bpf_filter}', threads={num_threads}, realtime={realtime}"
+            f"Capture parameters: max_packets={max_packets}, filter='{bpf_filter}', "
+            f"threads={num_threads}, realtime={realtime}"
         )
 
         # Log detailed session information if requested
@@ -546,7 +531,8 @@ class PacketCapture:
         def packet_callback_wrapper(packet: ScapyPacket) -> None:
             if self.max_memory_packets and len(self.packets) >= self.max_memory_packets:
                 self.debug_logger.log(
-                    f"Memory limit reached ({self.max_memory_packets} packets), trimming packet list"
+                    f"Memory limit reached ({self.max_memory_packets} packets), "
+                    "trimming packet list"
                 )
                 self.packets = self.packets[-self.max_memory_packets :]
                 gc.collect()
@@ -616,7 +602,7 @@ class PacketCapture:
                 self.info_logger.log(f"Total Processing Time: {processing_time:.2f} seconds")
 
                 # Calculate layer distribution
-                layer_counts = {}
+                layer_counts: dict[str, int] = {}
                 for packet in self.packets:
                     for layer in packet.layers:
                         layer_name = layer.layer_name
@@ -693,7 +679,7 @@ class PacketCapture:
 
         # Layer distribution
         if self.packets:
-            layer_counts = {}
+            layer_counts: dict[str, int] = {}
             for packet in self.packets:
                 for layer in packet.layers:
                     layer_name = layer.layer_name
@@ -709,7 +695,7 @@ class PacketCapture:
 
         print("=" * 50)
 
-    def packets_to_json(self) -> List[Dict[str, Any]]:
+    def packets_to_json(self) -> list[dict[str, Any]]:
         """
         Convert captured packets to JSON format.
 
@@ -718,7 +704,7 @@ class PacketCapture:
         """
         return [packet.to_json() for packet in self.packets]
 
-    def packets_to_polars(self) -> List[pl.DataFrame]:
+    def packets_to_polars(self) -> list[pl.DataFrame]:
         """
         Convert captured packets to Polars DataFrame format.
 
@@ -727,7 +713,7 @@ class PacketCapture:
         """
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
+                "Polars is not installed. Please install it with 'pip install polars'."
             )
 
         result = []
@@ -746,7 +732,7 @@ class PacketCapture:
 
         return result
 
-    def packets_to_pandas(self) -> List[pd.DataFrame]:
+    def packets_to_pandas(self) -> list[pd.DataFrame]:
         """
         Convert captured packets to Pandas DataFrame format.
 
@@ -769,7 +755,7 @@ class PacketCapture:
 
         return result
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         """
         Convert all captured packets to a single JSON object.
 
@@ -790,148 +776,70 @@ class PacketCapture:
                 source_format="packets", target_format="JSON", error_details=str(e)
             ) from e
 
-    @perf.monitor("to_pandas_df")
+    @perf.monitor("to_pandas_df")  # type: ignore
     def to_pandas_df(self) -> pd.DataFrame:
         """
-        Convert all captured packets to a single pandas DataFrame.
+        Convert all captured packets to a single Pandas DataFrame.
 
         Returns:
-            pd.DataFrame: A DataFrame containing all captured packets.
-        """
+            pd.DataFrame: A DataFrame containing all captured packets data.
 
+        Raises:
+            DataConversionError: If conversion fails.
+        """
         if not self.packets:
             return pd.DataFrame()
 
         try:
-            # Create a list to store flattened packet data
-            flattened_packets = []
-
+            rows = []
             for packet in self.packets:
-                # Start with basic packet info
-                packet_data = {
-                    "timestamp": packet.timestamp,
-                    "raw_size": packet.raw_size,
-                }
-
-                # Add layer information
+                row = {"timestamp": packet.timestamp, "raw_size": packet.raw_size}
                 for layer in packet.layers:
-                    layer_prefix = f"{layer.layer_name}_"
-                    for field_name, field_value in layer.fields.items():
-                        # Convert complex types to strings
-                        if isinstance(field_value, (list, dict, tuple)):
-                            field_value = str(field_value)
-                        packet_data[f"{layer_prefix}{field_name}"] = field_value
-
-                flattened_packets.append(packet_data)
-
-            # Create DataFrame from flattened packet data
-            result = pd.DataFrame(flattened_packets)
-
-            return result
+                    for k, v in layer.fields.items():
+                        row[f"{layer.layer_name}_{k}"] = v
+                rows.append(row)
+            return pd.DataFrame(rows)
         except Exception as e:
             raise DataConversionError(
-                source_format="packets",
-                target_format="pandas DataFrame",
-                error_details=str(e),
+                source_format="packets", target_format="Pandas DataFrame", error_details=str(e)
             ) from e
 
-    @perf.monitor("to_polars_df")
+    @perf.monitor("to_polars_df")  # type: ignore
     def to_polars_df(self) -> pl.DataFrame:
         """
         Convert all captured packets to a single Polars DataFrame.
 
         Returns:
-            pl.DataFrame: A DataFrame containing all captured packets.
+            pl.DataFrame: A DataFrame containing all captured packets data.
 
         Raises:
-            ImportError: If the polars package is not installed.
+            DataConversionError: If conversion fails.
+            ImportError: If Polars is not available.
         """
-
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
+                "Polars is not installed. Please install it with 'pip install polars'."
             )
 
         if not self.packets:
             return pl.DataFrame()
 
-        def convert_to_string(value: Any) -> Optional[str]:
-            """Helper function to convert any value to a string representation."""
-            if value is None:
-                return None
-            if isinstance(value, (str, int, float, bool)):
-                return str(value)
-            if isinstance(value, bytes):
-                return value.hex()
-            if isinstance(value, (list, tuple)):
-                return str([convert_to_string(item) for item in value])
-            if isinstance(value, dict):
-                return str({k: convert_to_string(v) for k, v in value.items()})
-            return str(value)
-
         try:
-            # Create a list to store flattened packet data
-            flattened_packets = []
-
-            # First pass: collect all possible columns
-            columns = {"timestamp", "raw_size"}
+            rows = []
             for packet in self.packets:
+                row: dict[str, Any] = {"timestamp": packet.timestamp, "raw_size": packet.raw_size}
                 for layer in packet.layers:
-                    for field_name in layer.fields:
-                        columns.add(f"{layer.layer_name}_{field_name}")
-
-            # Second pass: create flattened packet data
-            for packet in self.packets:
-                # Start with basic packet info
-                packet_data = {
-                    "timestamp": packet.timestamp,  # Keep as float for conversion to datetime
-                    "raw_size": str(packet.raw_size),
-                }
-
-                # Initialize all columns with empty string
-                for col in columns:
-                    if col not in packet_data:
-                        packet_data[col] = ""
-
-                # Add layer information
-                for layer in packet.layers:
-                    layer_prefix = f"{layer.layer_name}_"
-                    for field_name, field_value in layer.fields.items():
-                        column_name = f"{layer_prefix}{field_name}"
-                        converted_value = convert_to_string(field_value)
-                        packet_data[column_name] = (
-                            converted_value if converted_value is not None else ""
-                        )
-
-                flattened_packets.append(packet_data)
-
-            # Create schema with appropriate types
-            schema = {}
-            for col in columns:
-                if col == "timestamp":
-                    schema[col] = pl.Float64  # Will be converted to datetime later
-                else:
-                    schema[col] = pl.Utf8
-
-            # Use pl.DataFrame constructor
-            df = pl.DataFrame(flattened_packets, schema=schema)
-
-            # Convert timestamp to datetime
-            df = df.with_columns(
-                [pl.col("timestamp").cast(pl.Float64).cast(pl.Datetime).alias("timestamp")]
-            )
-
-            return df
-
+                    for k, v in layer.fields.items():
+                        row[f"{layer.layer_name}_{k}"] = v
+                rows.append(row)
+            return pl.DataFrame(rows)
         except Exception as e:
             raise DataConversionError(
-                source_format="packets",
-                target_format="Polars DataFrame",
-                error_details=str(e),
+                source_format="packets", target_format="Polars DataFrame", error_details=str(e)
             ) from e
 
-    @perf.monitor("save_to_parquet")
-    def save_to_parquet(self, filepath: Optional[str] = None) -> str:
+    @perf.monitor("save_to_parquet")  # type: ignore
+    def save_to_parquet(self, filepath: Optional[Union[str, Path]] = None) -> str:
         """
         Save captured packets to parquet file.
 
@@ -946,28 +854,20 @@ class PacketCapture:
         Raises:
             DataExportError: If save fails
         """
-        from netguard.core.data_store import DataStore
-
         if filepath is None:
             # Use config to determine path
             timestamp = int(time())
             base_filename = self.config.export_filename.replace(".parquet", "")
-            filepath = os.path.join(
-                self.config.export_dir,
-                f"{base_filename}_{timestamp}.parquet",
-            )
+            filepath = Path(self.config.export_dir) / f"{base_filename}_{timestamp}.parquet"
+
+        # Convert to string for saving and returning
+        filepath_str = str(filepath)
 
         # Convert to DataFrame
         df = self.to_polars_df()
 
         # Save via DataStore
-        DataStore.save_packets(df, filepath)
+        DataStore.save_packets(df, filepath_str)
 
-        self.info_logger.log(f"Saved {len(df)} packets to {filepath}")
-        return filepath
-
-
-def capture(self, max_packets: int = 100, log: bool = False) -> None:
-    if log:
-        self.packet_logger.log(f"Starting packet capture on interface {self.interface}")
-        self.debug_
+        self.info_logger.log(f"Saved {len(df)} packets to {filepath_str}")
+        return filepath_str

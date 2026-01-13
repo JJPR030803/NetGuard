@@ -4,23 +4,20 @@ This module tests the facade pattern implementation that provides
 unified access to all protocol-specific analyzers.
 """
 
-import pytest
-import polars as pl
 from datetime import datetime
 from pathlib import Path
 
-from netguard.analysis.facade import ParquetAnalysisFacade
-from netguard.analysis.base_analyzer import BaseAnalyzer
+import polars as pl
+import pytest
+
+from netguard.analysis.analyzers.anomaly_analyzer import AnomalyAnalyzer
+from netguard.analysis.analyzers.flow_analyzer import FlowAnalyzer
+from netguard.analysis.analyzers.ip_analyzer import IpAnalyzer
 from netguard.analysis.analyzers.tcp_analyzer import TcpAnalyzer
 from netguard.analysis.analyzers.udp_analyzer import UdpAnalyzer
-from netguard.analysis.analyzers.ip_analyzer import IpAnalyzer
-from netguard.analysis.analyzers.dns_analyzer import DnsAnalyzer
-from netguard.analysis.analyzers.arp_analyzer import ArpAnalyzer
-from netguard.analysis.analyzers.icmp_analyzer import IcmpAnalyzer
-from netguard.analysis.analyzers.flow_analyzer import FlowAnalyzer
-from netguard.analysis.analyzers.anomaly_analyzer import AnomalyAnalyzer
+from netguard.analysis.base_analyzer import BaseAnalyzer
+from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.core.errors import InvalidFileFormatError
-
 
 # ============================================================================
 # TEST FIXTURES
@@ -40,40 +37,56 @@ def mixed_protocol_df(base_timestamp) -> pl.DataFrame:
         datetime(2024, 1, 1, 10, 0, 6),
         datetime(2024, 1, 1, 10, 0, 7),
     ]
-    return pl.DataFrame({
-        "timestamp": timestamps,
-        "IP_src": [
-            "192.168.1.100", "192.168.1.101", "192.168.1.100", "192.168.1.102",
-            "192.168.1.100", "192.168.1.101", "192.168.1.100", "192.168.1.103",
-        ],
-        "IP_dst": [
-            "8.8.8.8", "1.1.1.1", "93.184.216.34", "8.8.4.4",
-            "8.8.8.8", "1.1.1.1", "93.184.216.34", "8.8.4.4",
-        ],
-        "IP_proto": [6, 6, 17, 17, 6, 17, 1, 6],  # TCP, TCP, UDP, UDP, TCP, UDP, ICMP, TCP
-        "IP_len": [60, 120, 80, 45, 64, 100, 64, 200],
-        "IP_flags": ["DF", "DF", "", "", "MF", "", "", "DF"],
-        "TCP_sport": [50000, 50001, None, None, 50002, None, None, 50003],
-        "TCP_dport": [80, 443, None, None, 22, None, None, 8080],
-        "TCP_flags": ["S", "SA", None, None, "A", None, None, "FA"],
-        "UDP_sport": [None, None, 53, 123, None, 5353, None, None],
-        "UDP_dport": [None, None, 53, 123, None, 5353, None, None],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": timestamps,
+            "IP_src": [
+                "192.168.1.100",
+                "192.168.1.101",
+                "192.168.1.100",
+                "192.168.1.102",
+                "192.168.1.100",
+                "192.168.1.101",
+                "192.168.1.100",
+                "192.168.1.103",
+            ],
+            "IP_dst": [
+                "8.8.8.8",
+                "1.1.1.1",
+                "93.184.216.34",
+                "8.8.4.4",
+                "8.8.8.8",
+                "1.1.1.1",
+                "93.184.216.34",
+                "8.8.4.4",
+            ],
+            "IP_proto": [6, 6, 17, 17, 6, 17, 1, 6],  # TCP, TCP, UDP, UDP, TCP, UDP, ICMP, TCP
+            "IP_len": [60, 120, 80, 45, 64, 100, 64, 200],
+            "IP_flags": ["DF", "DF", "", "", "MF", "", "", "DF"],
+            "TCP_sport": [50000, 50001, None, None, 50002, None, None, 50003],
+            "TCP_dport": [80, 443, None, None, 22, None, None, 8080],
+            "TCP_flags": ["S", "SA", None, None, "A", None, None, "FA"],
+            "UDP_sport": [None, None, 53, 123, None, 5353, None, None],
+            "UDP_dport": [None, None, 53, 123, None, 5353, None, None],
+        }
+    )
 
 
 @pytest.fixture
 def tcp_only_df(base_timestamp) -> pl.DataFrame:
     """Create a DataFrame with only TCP traffic."""
-    return pl.DataFrame({
-        "timestamp": [base_timestamp] * 3,
-        "IP_src": ["192.168.1.100", "192.168.1.101", "192.168.1.102"],
-        "IP_dst": ["8.8.8.8", "1.1.1.1", "93.184.216.34"],
-        "IP_proto": [6, 6, 6],
-        "IP_len": [60, 120, 80],
-        "TCP_sport": [50000, 50001, 50002],
-        "TCP_dport": [80, 443, 22],
-        "TCP_flags": ["S", "SA", "A"],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [base_timestamp] * 3,
+            "IP_src": ["192.168.1.100", "192.168.1.101", "192.168.1.102"],
+            "IP_dst": ["8.8.8.8", "1.1.1.1", "93.184.216.34"],
+            "IP_proto": [6, 6, 6],
+            "IP_len": [60, 120, 80],
+            "TCP_sport": [50000, 50001, 50002],
+            "TCP_dport": [80, 443, 22],
+            "TCP_flags": ["S", "SA", "A"],
+        }
+    )
 
 
 @pytest.fixture
@@ -96,12 +109,14 @@ def tcp_parquet_file(tcp_only_df, temp_dir) -> Path:
 def empty_parquet_file(temp_dir) -> Path:
     """Create an empty parquet file."""
     filepath = temp_dir / "empty.parquet"
-    empty_df = pl.DataFrame({
-        "timestamp": [],
-        "IP_src": [],
-        "IP_dst": [],
-        "IP_proto": [],
-    })
+    empty_df = pl.DataFrame(
+        {
+            "timestamp": [],
+            "IP_src": [],
+            "IP_dst": [],
+            "IP_proto": [],
+        }
+    )
     empty_df.write_parquet(filepath)
     return filepath
 
@@ -462,9 +477,7 @@ class TestParquetAnalysisFacadeIntegration:
         """Test that all analyzers inherit from BaseAnalyzer."""
         facade = ParquetAnalysisFacade(str(test_parquet_file))
 
-        analyzers = [
-            facade.tcp, facade.udp, facade.ip, facade.flow, facade.anomaly
-        ]
+        analyzers = [facade.tcp, facade.udp, facade.ip, facade.flow, facade.anomaly]
 
         for analyzer in analyzers:
             if analyzer is not None:

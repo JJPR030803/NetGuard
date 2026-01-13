@@ -1,5 +1,7 @@
 """Flow analyzer for network traffic analysis."""
 
+from typing import ClassVar, Optional
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
@@ -22,7 +24,7 @@ class FlowAnalyzer(BaseAnalyzer):
     UDP_FLOW_TIMEOUT = 120  # 2 minutes for UDP
 
     # Protocol numbers for flow analysis
-    PROTOCOL_NUMBERS = {
+    PROTOCOL_NUMBERS: ClassVar[dict[int, str]] = {
         1: "ICMP",
         6: "TCP",
         17: "UDP",
@@ -34,19 +36,21 @@ class FlowAnalyzer(BaseAnalyzer):
 
         # Don't filter - flow analyzer works with all protocols
         self._flows_created = False
-        self._flow_df = None
+        self._flow_df: Optional[pl.DataFrame] = None
 
     def __str__(self) -> str:
         """Human-readable string representation with flow info."""
         base_str = super().__str__()
-        flow_info = f", {len(self._flow_df)} flows" if self._flows_created else ""
+        flow_info = ""
+        if self._flows_created and self._flow_df is not None:
+            flow_info = f", {len(self._flow_df)} flows"
         return f"{base_str}{flow_info}"
 
     # ============================================================================
     # FLOW CREATION METHODS
     # ============================================================================
 
-    def create_flows(self, timeout: int = None) -> pl.DataFrame:
+    def create_flows(self, timeout: Optional[int] = None) -> pl.DataFrame:
         """
         Group packets into flows based on 5-tuple.
 
@@ -319,7 +323,7 @@ class FlowAnalyzer(BaseAnalyzer):
         # TODO: Implement
         raise NotImplementedError("calculate_inter_arrival_times not yet implemented")
 
-    def detect_periodic_patterns(self, ip_address: str = None) -> pl.DataFrame:
+    def detect_periodic_patterns(self, ip_address: Optional[str] = None) -> pl.DataFrame:
         """
         Identify periodic behavior in traffic patterns.
 

@@ -6,13 +6,12 @@ Compatible with multiple operating systems.
 
 import platform
 import shutil
-import string
 
 # B404: We need to use subprocess for system commands, but we've implemented
 # security measures to mitigate risks (full paths, no shell=True, input validation)
 import subprocess  # nosec B404
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import ClassVar, Optional, Union
 
 import netifaces
 
@@ -27,6 +26,14 @@ from .config import SnifferConfig
 
 
 class Interface:
+    # Valid characters for interface names (alphanumeric, dash, underscore, dot, colon)
+    VALID_IFACE_CHARS: ClassVar[set[str]] = set(
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+"
+    )
+    info_logger: Union[InfoLogger, ConsoleLogger]
+    debug_logger: Union[DebugLogger, ConsoleLogger]
+    error_logger: Union[ErrorLogger, ConsoleLogger]
+
     def __init__(
         self,
         config: Optional[SnifferConfig] = None,
@@ -43,11 +50,11 @@ class Interface:
 
         # Legacy support - override config with direct parameters if provided
         if interface is not None:
-            self.config.interface = interface
+            self.config.interface = interface  # type: ignore
         if interface_detection_method is not None:
-            self.config.interface_detection_method = interface_detection_method
+            self.config.interface_detection_method = interface_detection_method  # type: ignore
         if log_dir is not None:
-            self.config.log_dir = log_dir
+            self.config.log_dir = log_dir  # type: ignore
 
         # Initialize loggers
         self.info_logger = InfoLogger(log_dir=self.config.log_dir)
@@ -56,7 +63,6 @@ class Interface:
 
         self.os_type = platform.system().lower()
         self.interfaces = {}
-        self.VALID_IFACE_CHARS = set(string.ascii_letters + string.digits + "-_.")
 
         try:
             self.interfaces = self._get_interfaces()
@@ -65,7 +71,7 @@ class Interface:
             self.error_logger.log(f"Error detecting interfaces: {e!s}")
             self.interfaces = {}
 
-    def _setup_loggers(self):
+    def _setup_loggers(self) -> None:
         """Setup loggers based on configuration."""
         log_dir = self.config.log_dir if self.config.log_to_file else None
 
@@ -82,7 +88,7 @@ class Interface:
             ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
         )
 
-    def _auto_select_interface(self):
+    def _auto_select_interface(self) -> None:
         """Auto-select best interface based on config preferences."""
         for interface_type in self.config.preferred_interface_types:
             interfaces = self.get_interface_by_type(interface_type)
@@ -91,13 +97,13 @@ class Interface:
                     iface for iface in interfaces if self.interfaces[iface].get("state") == "UP"
                 ]
                 if active_interfaces:
-                    self.config.interface = active_interfaces[0]
+                    self.config.interface = active_interfaces[0]  # type: ignore
                     self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
                     return
 
         # Fallback to first available interface
         if self.interfaces:
-            self.config.interface = list(self.interfaces.keys())[0]
+            self.config.interface = next(iter(self.interfaces.keys()))  # type: ignore
             self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
 
     def get_recommended_interface(self) -> Optional[str]:
@@ -105,7 +111,8 @@ class Interface:
         Get a recommended interface based on configuration preferences.
 
         Returns:
-            Optional[str]: The name of the recommended interface, or None if no suitable interface is found.
+            str | None: The name of the recommended interface, or None if no
+                suitable interface is found.
         """
         if not self.interfaces:
             self.error_logger.log("No interfaces available for recommendation")
@@ -166,10 +173,7 @@ class Interface:
         interfaces (dict): A dictionary of detected network interfaces and their properties.
     """
 
-    # Valid characters for interface names (alphanumeric, dash, underscore, dot, colon)
-    VALID_IFACE_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+")
-
-    def _get_interfaces(self) -> Dict[str, dict]:
+    def _get_interfaces(self) -> dict[str, dict]:
         """
         Get network interfaces based on the current operating system.
 
@@ -202,7 +206,7 @@ class Interface:
             self.error_logger.log(f"Error detecting network interfaces: {e!s}")
             raise
 
-    def _get_linux_interfaces(self) -> Dict[str, dict]:
+    def _get_linux_interfaces(self) -> dict[str, dict]:
         """
         Get network interfaces on Linux systems.
 
@@ -280,7 +284,7 @@ class Interface:
             pass
         return interfaces
 
-    def _get_macos_interfaces(self) -> Dict[str, dict]:
+    def _get_macos_interfaces(self) -> dict[str, dict]:
         """
         Get network interfaces on macOS systems.
 
@@ -319,7 +323,7 @@ class Interface:
                 if ifconfig_path and self._is_valid_interface_name(iface):
                     try:
                         # B603: This subprocess call is safe because:
-                        # 1. We use the full path to the executable (ifconfig_path from shutil.which)
+                        # 1. Full path to executable (ifconfig_path from shutil.which)
                         # 2. We validate the interface name with _is_valid_interface_name()
                         # 3. We don't use shell=True
                         ifconfig = subprocess.run(  # nosec B603
@@ -344,7 +348,7 @@ class Interface:
             pass
         return interfaces
 
-    def _get_windows_interfaces(self) -> Dict[str, dict]:
+    def _get_windows_interfaces(self) -> dict[str, dict]:
         """
         Get network interfaces on Windows systems.
 
@@ -411,8 +415,8 @@ class Interface:
             current_interface = None
             interface_info = {}
 
-            for line in netsh_output.split("\n"):
-                line = line.strip()
+            for raw_line in netsh_output.split("\n"):
+                line = raw_line.strip()
                 if not line:
                     continue
 
@@ -519,7 +523,7 @@ class Interface:
             print("-" * 60)
         self.info_logger.log("Finished displaying network interfaces")
 
-    def get_interface_by_type(self, type_name: str) -> List[str]:
+    def get_interface_by_type(self, type_name: str) -> list[str]:
         """
         Get all interfaces of a specific type.
 
@@ -536,7 +540,7 @@ class Interface:
         self.info_logger.log(f"Found {len(interfaces)} interfaces of type '{type_name}'")
         return interfaces
 
-    def get_active_interfaces(self) -> List[str]:
+    def get_active_interfaces(self) -> list[str]:
         """
         Get all active network interfaces.
 

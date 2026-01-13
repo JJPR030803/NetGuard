@@ -1,11 +1,11 @@
-import os
 import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
 # Add the src directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from netguard.models.packet_data_structures import (
     ARPPacketModel,

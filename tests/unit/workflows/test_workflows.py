@@ -4,6 +4,8 @@ import json
 from datetime import datetime, time
 from unittest.mock import Mock, patch
 
+import polars as pl
+
 from netguard.workflows import (
     DailyAudit,
     IPInvestigation,
@@ -124,7 +126,7 @@ class TestWorkflowReport:
         assert result is None  # Returns None when writing to file
         assert output_file.exists()
 
-        with open(output_file) as f:
+        with output_file.open() as f:
             data = json.load(f)
         assert data["title"] == "Test Report"
 
@@ -142,7 +144,7 @@ class TestDailyAudit:
         mock_analysis.assert_called_once_with("test.parquet", lazy_load=False)
 
     @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
-    def test_daily_audit_custom_business_hours(self, mock_analysis):
+    def test_daily_audit_custom_business_hours(self, _mock_analysis):
         """Test DailyAudit with custom business hours."""
         custom_hours = (time(8, 0), time(18, 0))
         audit = DailyAudit("test.parquet", business_hours=custom_hours)
@@ -152,7 +154,7 @@ class TestDailyAudit:
     @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
     def test_daily_audit_lazy_load(self, mock_analysis):
         """Test DailyAudit with lazy loading."""
-        audit = DailyAudit("test.parquet", lazy_load=True)
+        DailyAudit("test.parquet", lazy_load=True)
 
         mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
 
@@ -191,7 +193,7 @@ class TestIPInvestigation:
     @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
     def test_ip_investigation_lazy_load(self, mock_analysis):
         """Test IPInvestigation with lazy loading."""
-        inv = IPInvestigation("test.parquet", ip="10.0.0.1", lazy_load=True)
+        IPInvestigation("test.parquet", ip="10.0.0.1", lazy_load=True)
 
         mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
 
@@ -200,8 +202,6 @@ class TestIPInvestigation:
         """Test that run() returns a WorkflowReport."""
         # Setup mock
         mock_instance = Mock()
-        import polars as pl
-
         mock_df = pl.DataFrame({"timestamp": [], "source_ip": [], "destination_ip": []})
         mock_instance.find_ip_information.return_value = mock_df
         mock_analysis.return_value = mock_instance
@@ -227,12 +227,12 @@ class TestThreatHunting:
     @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
     def test_threat_hunting_lazy_load(self, mock_analysis):
         """Test ThreatHunting with lazy loading."""
-        hunter = ThreatHunting("test.parquet", lazy_load=True)
+        ThreatHunting("test.parquet", lazy_load=True)
 
         mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
 
     @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
-    def test_hunt_for_c2_returns_report(self, mock_analysis):
+    def test_hunt_for_c2_returns_report(self, _mock_analysis):
         """Test hunt_for_c2() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")
         report = hunter.hunt_for_c2()
@@ -241,7 +241,7 @@ class TestThreatHunting:
         assert "C2 Threat Hunting Report" in report.title
 
     @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
-    def test_hunt_for_data_theft_returns_report(self, mock_analysis):
+    def test_hunt_for_data_theft_returns_report(self, _mock_analysis):
         """Test hunt_for_data_theft() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")
         report = hunter.hunt_for_data_theft()
@@ -250,7 +250,7 @@ class TestThreatHunting:
         assert "Data Theft Threat Hunting Report" in report.title
 
     @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
-    def test_hunt_for_lateral_movement_returns_report(self, mock_analysis):
+    def test_hunt_for_lateral_movement_returns_report(self, _mock_analysis):
         """Test hunt_for_lateral_movement() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")
         report = hunter.hunt_for_lateral_movement()

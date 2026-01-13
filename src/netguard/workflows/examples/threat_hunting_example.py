@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from netguard.workflows.workflows import ThreatHunting
 
 
-def main():
+def main() -> int:
     # Configuration
     parquet_file = "capture.parquet"
 
@@ -30,7 +30,7 @@ def main():
 
     # Create threat hunter
     print(f"Initializing threat hunting on: {parquet_file}")
-    hunter = ThreatHunting(parquet_file, lazy_load=True)
+    hunter = ThreatHunting(parquet_file)
 
     # Hunt for C2 communication
     print("\n" + "=" * 80)

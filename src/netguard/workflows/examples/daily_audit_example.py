@@ -17,7 +17,7 @@ from datetime import time
 from netguard.workflows.workflows import DailyAudit
 
 
-def main():
+def main() -> int:
     # Path to your parquet file
     parquet_file = "capture.parquet"
 
@@ -35,7 +35,6 @@ def main():
     audit = DailyAudit(
         parquet_file,
         business_hours=business_hours,
-        lazy_load=True,  # Use lazy loading for better memory efficiency
     )
 
     # Run the audit

@@ -1,11 +1,11 @@
 import logging
-import os
 import threading
 import time
 import tracemalloc
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 import polars as pl
 import psutil
@@ -30,6 +30,8 @@ class PerformanceMetrics:
         def complete_monitoring():
             pass
     """
+
+    logger: Optional[logging.Logger]
 
     def __init__(
         self,
@@ -58,10 +60,10 @@ class PerformanceMetrics:
             self.logger.setLevel(logging.DEBUG)
 
             # Create directory if it doesn't exist
-            os.makedirs(log_dir, exist_ok=True)
+            Path(log_dir).mkdir(parents=True, exist_ok=True)
 
             # Create file handler
-            log_file = os.path.join(log_dir, "performance.log")
+            log_file = Path(log_dir) / "performance.log"
             file_handler = logging.FileHandler(log_file)
             file_handler.setLevel(logging.DEBUG)
 
@@ -75,7 +77,7 @@ class PerformanceMetrics:
             self.logger = None
         self._system_monitoring_active = False
 
-    def timeit(self, label: Optional[str] = None):
+    def timeit(self, label: Optional[str] = None) -> Callable:
         """
         Decorator to measure execution time.
 
@@ -94,7 +96,7 @@ class PerformanceMetrics:
 
         def decorator(func: Callable) -> Callable:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if not self.enabled:
                     return func(*args, **kwargs)
 
@@ -115,7 +117,7 @@ class PerformanceMetrics:
 
         return decorator
 
-    def memory(self, label: Optional[str] = None):
+    def memory(self, label: Optional[str] = None) -> Callable:
         """
         Decorator to measure memory usage.
 
@@ -134,7 +136,7 @@ class PerformanceMetrics:
 
         def decorator(func: Callable) -> Callable:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if not self.enabled:
                     return func(*args, **kwargs)
 
@@ -157,7 +159,7 @@ class PerformanceMetrics:
 
         return decorator
 
-    def monitor(self, label: Optional[str] = None):
+    def monitor(self, label: Optional[str] = None) -> Callable:
         """
         Decorator to measure both timing and memory usage.
 
@@ -176,7 +178,7 @@ class PerformanceMetrics:
 
         def decorator(func: Callable) -> Callable:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if not self.enabled:
                     return func(*args, **kwargs)
 
@@ -204,7 +206,7 @@ class PerformanceMetrics:
 
         return decorator
 
-    def system_monitor(self, interval: int = 5):
+    def system_monitor(self, interval: int = 5) -> None:
         """
         Start continuous system monitoring.
 
@@ -217,7 +219,7 @@ class PerformanceMetrics:
         if self._system_monitoring_active:
             return
 
-        def monitor():
+        def monitor() -> None:
             self._system_monitoring_active = True
             while self.enabled and self._system_monitoring_active:
                 metric_data = {
@@ -234,19 +236,19 @@ class PerformanceMetrics:
             thread = threading.Thread(target=monitor, daemon=True)
             thread.start()
 
-    def stop_system_monitor(self):
+    def stop_system_monitor(self) -> None:
         """Stop system monitoring."""
         self._system_monitoring_active = False
 
-    def enable(self):
+    def enable(self) -> None:
         """Enable performance monitoring."""
         self.enabled = True
 
-    def disable(self):
+    def disable(self) -> None:
         """Disable performance monitoring."""
         self.enabled = False
 
-    def _log_metric(self, metric_data: Dict[str, Any]):
+    def _log_metric(self, metric_data: dict[str, Any]) -> None:
         """Log performance metric to console, file, and/or parquet."""
         # Always print to console
         print(f"[PERF] {metric_data['label']}: {metric_data}")
@@ -259,13 +261,14 @@ class PerformanceMetrics:
         if self.log_to_file and self.parquet_path:
             self._save_to_parquet(metric_data)
 
-    def _save_to_parquet(self, metric_data: Dict[str, Any]):
+    def _save_to_parquet(self, metric_data: dict[str, Any]) -> None:
         """Save metric data to parquet file."""
         try:
             df = pl.DataFrame([metric_data])
+            parquet_path = Path(self.parquet_path)
 
-            if not os.path.exists(self.parquet_path):
-                os.makedirs(os.path.dirname(self.parquet_path), exist_ok=True)
+            if not parquet_path.exists():
+                parquet_path.parent.mkdir(parents=True, exist_ok=True)
                 df.write_parquet(self.parquet_path)
             else:
                 existing_df = pl.read_parquet(self.parquet_path)
@@ -275,24 +278,23 @@ class PerformanceMetrics:
             print(f"[PERF] Error saving to parquet: {e}")
 
 
-# Create a module-level variable to hold the singleton instance
-_perf_instance = None
+# Use a dictionary to hold the singleton instance (avoids global statement)
+_perf_state: dict[str, Optional[PerformanceMetrics]] = {"instance": None}
 
 
-# Define a function to get the singleton instance
-def get_perf_instance():
+def get_perf_instance() -> PerformanceMetrics:
     """Get the singleton PerformanceMetrics instance."""
-    global _perf_instance
-    if _perf_instance is None:
-        _perf_instance = PerformanceMetrics(log_to_file=False)
-    return _perf_instance
+    if _perf_state["instance"] is None:
+        _perf_state["instance"] = PerformanceMetrics(log_to_file=False)
+    assert _perf_state["instance"] is not None
+    return _perf_state["instance"]
 
 
 # Define a class to provide the same interface as PerformanceMetrics
 class PerformanceMetricsProxy:
     """A proxy class that forwards calls to the singleton PerformanceMetrics instance."""
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the singleton instance."""
         return getattr(get_perf_instance(), name)
 

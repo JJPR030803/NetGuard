@@ -1,16 +1,22 @@
 """Utility functions for parquet analysis."""
 
 import ipaddress
+import math
 import re
+from collections import Counter
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Union
+from typing import Any, Union, overload
 
 import polars as pl
 
-from netguard.core.errors import InvalidIPAddressError, InvalidTimeWindowError
+from netguard.core.errors import (
+    InvalidIPAddressError,
+    InvalidTimeWindowError,
+    MissingColumnError,
+)
 
 
-def parse_tcp_flags(flags: str) -> Dict[str, bool]:
+def parse_tcp_flags(flags: str) -> dict[str, bool]:
     """
     Parse TCP flags string into a dictionary of boolean values.
 
@@ -88,7 +94,7 @@ def is_public_ip(ip: str) -> bool:
         return False
 
 
-def calculate_entropy(values: List[Any]) -> float:
+def calculate_entropy(values: list[Any]) -> float:
     """
     Calculate Shannon entropy of a list of values.
 
@@ -106,9 +112,6 @@ def calculate_entropy(values: List[Any]) -> float:
     """
     if not values:
         return 0.0
-
-    import math
-    from collections import Counter
 
     counts = Counter(values)
     total = len(values)
@@ -431,7 +434,7 @@ def get_protocol_name(protocol_number: int) -> str:
     return protocol_map.get(protocol_number, f"Protocol-{protocol_number}")
 
 
-def validate_dataframe_columns(df: pl.DataFrame, required_columns: List[str]) -> None:
+def validate_dataframe_columns(df: pl.DataFrame, required_columns: list[str]) -> None:
     """
     Validate that DataFrame contains required columns.
 
@@ -442,8 +445,6 @@ def validate_dataframe_columns(df: pl.DataFrame, required_columns: List[str]) ->
     Raises:
         MissingColumnError: If required column is missing
     """
-    from netguard.core.errors import MissingColumnError
-
     missing = [col for col in required_columns if col not in df.columns]
     if missing:
         raise MissingColumnError(missing[0], df.columns)
@@ -463,18 +464,28 @@ def has_column(df: pl.DataFrame, column: str) -> bool:
     return column in df.columns
 
 
-def safe_cast_to_int(series: pl.Series, default: int = 0) -> pl.Series:
+@overload
+def safe_cast_to_int(data: pl.Expr, default: int = 0) -> pl.Expr: ...
+
+
+@overload
+def safe_cast_to_int(data: pl.Series, default: int = 0) -> pl.Series: ...
+
+
+def safe_cast_to_int(
+    data: Union[pl.Series, pl.Expr], default: int = 0
+) -> Union[pl.Series, pl.Expr]:
     """
-    Safely cast a series to integer, replacing nulls with default.
+    Safely cast a series or expression to integer, replacing nulls with default.
 
     Args:
-        series: Polars Series
+        data: Polars Series or Expr
         default: Default value for null entries
 
     Returns:
-        pl.Series: Integer series
+        pl.Series or pl.Expr: Integer series/expression
     """
-    return series.cast(pl.Int64, strict=False).fill_null(default)
+    return data.cast(pl.Int64, strict=False).fill_null(default)
 
 
 def safe_cast_to_str(series: pl.Series, default: str = "") -> pl.Series:

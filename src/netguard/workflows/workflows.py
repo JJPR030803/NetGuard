@@ -21,9 +21,9 @@ class WorkflowReport:
     def __init__(self, title: str):
         self.title = title
         self.timestamp = datetime.now()
-        self.sections = {}
-        self.findings = []
-        self.severity_counts = {
+        self.sections: dict[str, Any] = {}
+        self.findings: list[dict[str, Any]] = []
+        self.severity_counts: dict[str, int] = {
             "critical": 0,
             "high": 0,
             "medium": 0,
@@ -31,11 +31,13 @@ class WorkflowReport:
             "info": 0,
         }
 
-    def add_section(self, name: str, data: Any):
+    def add_section(self, name: str, data: Any) -> None:
         """Add a section to the report."""
         self.sections[name] = data
 
-    def add_finding(self, severity: str, category: str, description: str, details: Any = None):
+    def add_finding(
+        self, severity: str, category: str, description: str, details: Any = None
+    ) -> None:
         """
         Add a security finding.
 
@@ -209,7 +211,7 @@ class DailyAudit:
         self.logger.info(f"Daily audit complete: {len(report.findings)} findings")
         return report
 
-    def _check_basic_stats(self, report: WorkflowReport):
+    def _check_basic_stats(self, report: WorkflowReport) -> None:
         """Add basic network statistics."""
         try:
             total_packets = self.analysis.get_packet_count()
@@ -227,250 +229,271 @@ class DailyAudit:
         except Exception as e:
             self.logger.error(f"Failed to get basic stats: {e}")
 
-    def _check_port_scans(self, report: WorkflowReport):
+    def _check_port_scans(self, report: WorkflowReport) -> None:
         """Detect port scanning activity."""
-        try:
-            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=100, time_window="1m")
-
-            if len(port_scans) > 0:
-                report.add_finding(
-                    "high",
-                    "Port Scan",
-                    f"Detected {len(port_scans)} potential port scanning sources",
-                    f"Top scanner: {port_scans[0] if len(port_scans) > 0 else 'N/A'}",
+        if self.analysis.anomaly:
+            try:
+                port_scans = self.analysis.anomaly.detect_port_scanning(
+                    threshold=100, time_window="1m"
                 )
-        except Exception as e:
-            self.logger.warning(f"Port scan detection failed: {e}")
 
-    def _check_syn_floods(self, report: WorkflowReport):
+                if len(port_scans) > 0:
+                    report.add_finding(
+                        "high",
+                        "Port Scan",
+                        f"Detected {len(port_scans)} potential port scanning sources",
+                        f"Top scanner: {port_scans[0] if len(port_scans) > 0 else 'N/A'}",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Port scan detection failed: {e}")
+
+    def _check_syn_floods(self, report: WorkflowReport) -> None:
         """Detect SYN flood attacks."""
-        try:
-            syn_floods = self.analysis.anomaly.detect_syn_flood(threshold=1000, time_window="1m")
-
-            if len(syn_floods) > 0:
-                report.add_finding(
-                    "critical",
-                    "SYN Flood",
-                    f"Detected {len(syn_floods)} potential SYN flood attacks",
-                    f"Affected targets: {len(syn_floods)}",
+        if self.analysis.anomaly:
+            try:
+                syn_floods = self.analysis.anomaly.detect_syn_flood(
+                    threshold=1000, _time_window="1m"
                 )
-        except Exception as e:
-            self.logger.warning(f"SYN flood detection failed: {e}")
 
-    def _check_udp_floods(self, report: WorkflowReport):
+                if len(syn_floods) > 0:
+                    report.add_finding(
+                        "critical",
+                        "SYN Flood",
+                        f"Detected {len(syn_floods)} potential SYN flood attacks",
+                        f"Affected targets: {len(syn_floods)}",
+                    )
+            except Exception as e:
+                self.logger.warning(f"SYN flood detection failed: {e}")
+
+    def _check_udp_floods(self, report: WorkflowReport) -> None:
         """Detect UDP flood attacks."""
-        try:
-            udp_floods = self.analysis.anomaly.detect_udp_flood(threshold=500, time_window="1m")
-
-            if len(udp_floods) > 0:
-                report.add_finding(
-                    "high",
-                    "UDP Flood",
-                    f"Detected {len(udp_floods)} potential UDP flood attacks",
+        if self.analysis.anomaly:
+            try:
+                udp_floods = self.analysis.anomaly.detect_udp_flood(
+                    threshold=500, _time_window="1m"
                 )
-        except Exception as e:
-            self.logger.warning(f"UDP flood detection failed: {e}")
 
-    def _check_dns_threats(self, report: WorkflowReport):
+                if len(udp_floods) > 0:
+                    report.add_finding(
+                        "high",
+                        "UDP Flood",
+                        f"Detected {len(udp_floods)} potential UDP flood attacks",
+                    )
+            except Exception as e:
+                self.logger.warning(f"UDP flood detection failed: {e}")
+
+    def _check_dns_threats(self, report: WorkflowReport) -> None:
         """Check for DNS-related threats."""
-        try:
-            # DNS tunneling
-            tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=100)
-            if len(tunneling) > 0:
-                report.add_finding(
-                    "high",
-                    "DNS Tunneling",
-                    f"Detected {len(tunneling)} potential DNS tunneling queries",
-                    f"Longest query length: {tunneling['query_length'].max() if len(tunneling) > 0 else 'N/A'}",
-                )
+        if self.analysis.dns:
+            try:
+                # DNS tunneling
+                tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=100)
+                if len(tunneling) > 0:
+                    max_val = tunneling["query_length"].max()
+                    max_query_len = str(max_val) if max_val is not None else "N/A"
+                    report.add_finding(
+                        "high",
+                        "DNS Tunneling",
+                        f"Detected {len(tunneling)} potential DNS tunneling queries",
+                        f"Longest query length: {max_query_len}",
+                    )
 
-            # DGA domains
-            dga = self.analysis.dns.identify_dga_domains()
-            if len(dga) > 0:
-                report.add_finding(
-                    "high",
-                    "DGA Domains",
-                    f"Detected {len(dga)} potential DGA-generated domains",
-                )
+                # DGA domains
+                dga = self.analysis.dns.identify_dga_domains()
+                if len(dga) > 0:
+                    report.add_finding(
+                        "high",
+                        "DGA Domains",
+                        f"Detected {len(dga)} potential DGA-generated domains",
+                    )
 
-            # DNS amplification
-            amplification = self.analysis.dns.detect_dns_amplification()
-            if len(amplification) > 0:
-                report.add_finding(
-                    "medium",
-                    "DNS Amplification",
-                    f"Detected {len(amplification)} potential DNS amplification attempts",
-                )
-        except Exception as e:
-            self.logger.warning(f"DNS threat detection failed: {e}")
+                # DNS amplification
+                amplification = self.analysis.dns.detect_dns_amplification()
+                if len(amplification) > 0:
+                    report.add_finding(
+                        "medium",
+                        "DNS Amplification",
+                        f"Detected {len(amplification)} potential DNS amplification attempts",
+                    )
+            except Exception as e:
+                self.logger.warning(f"DNS threat detection failed: {e}")
 
-    def _check_arp_threats(self, report: WorkflowReport):
+    def _check_arp_threats(self, report: WorkflowReport) -> None:
         """Check for ARP-related threats."""
-        try:
-            # ARP spoofing
-            spoofing = self.analysis.arp.detect_arp_spoofing()
-            if len(spoofing) > 0:
-                report.add_finding(
-                    "critical",
-                    "ARP Spoofing",
-                    f"Detected {len(spoofing)} potential ARP spoofing attempts",
-                    f"Conflicting IP-MAC pairs: {len(spoofing)}",
-                )
+        if self.analysis.arp:
+            try:
+                # ARP spoofing
+                spoofing = self.analysis.arp.detect_arp_spoofing()
+                if len(spoofing) > 0:
+                    report.add_finding(
+                        "critical",
+                        "ARP Spoofing",
+                        f"Detected {len(spoofing)} potential ARP spoofing attempts",
+                        f"Conflicting IP-MAC pairs: {len(spoofing)}",
+                    )
 
-            # ARP scanning
-            scanning = self.analysis.arp.detect_arp_scanning()
-            if len(scanning) > 0:
-                report.add_finding(
-                    "medium",
-                    "ARP Scanning",
-                    f"Detected {len(scanning)} hosts performing ARP scanning",
-                )
-        except Exception as e:
-            self.logger.warning(f"ARP threat detection failed: {e}")
+                # ARP scanning
+                scanning = self.analysis.arp.detect_arp_scanning()
+                if len(scanning) > 0:
+                    report.add_finding(
+                        "medium",
+                        "ARP Scanning",
+                        f"Detected {len(scanning)} hosts performing ARP scanning",
+                    )
+            except Exception as e:
+                self.logger.warning(f"ARP threat detection failed: {e}")
 
-    def _check_icmp_threats(self, report: WorkflowReport):
+    def _check_icmp_threats(self, report: WorkflowReport) -> None:
         """Check for ICMP-related threats."""
-        try:
-            # ICMP flood
-            flood = self.analysis.icmp.detect_icmp_flood(threshold=100)
-            if len(flood) > 0:
-                report.add_finding(
-                    "medium",
-                    "ICMP Flood",
-                    f"Detected {len(flood)} potential ICMP flood sources",
-                )
+        if self.analysis.icmp:
+            try:
+                # ICMP flood
+                flood = self.analysis.icmp.detect_icmp_flood(threshold=100)
+                if len(flood) > 0:
+                    report.add_finding(
+                        "medium",
+                        "ICMP Flood",
+                        f"Detected {len(flood)} potential ICMP flood sources",
+                    )
 
-            # ICMP tunneling
-            tunneling = self.analysis.icmp.detect_icmp_tunneling()
-            if len(tunneling) > 0:
-                report.add_finding(
-                    "high",
-                    "ICMP Tunneling",
-                    f"Detected {len(tunneling)} potential ICMP tunneling packets",
-                )
-        except Exception as e:
-            self.logger.warning(f"ICMP threat detection failed: {e}")
+                # ICMP tunneling
+                tunneling = self.analysis.icmp.detect_icmp_tunneling()
+                if len(tunneling) > 0:
+                    report.add_finding(
+                        "high",
+                        "ICMP Tunneling",
+                        f"Detected {len(tunneling)} potential ICMP tunneling packets",
+                    )
+            except Exception as e:
+                self.logger.warning(f"ICMP threat detection failed: {e}")
 
-    def _check_top_talkers(self, report: WorkflowReport):
+    def _check_top_talkers(self, report: WorkflowReport) -> None:
         """Identify top bandwidth consumers."""
-        try:
-            top_ips = self.analysis.ip.get_most_active_ips(n=5, by="bytes")
-            if len(top_ips) > 0:
-                report.add_section(
-                    "Top 5 Bandwidth Consumers",
-                    top_ips.to_pandas() if hasattr(top_ips, "to_pandas") else top_ips,
-                )
-        except Exception as e:
-            self.logger.warning(f"Top talkers analysis failed: {e}")
+        if self.analysis.ip:
+            try:
+                top_ips = self.analysis.ip.get_most_active_ips(n=5, by="bytes")
+                if len(top_ips) > 0:
+                    report.add_section(
+                        "Top 5 Bandwidth Consumers",
+                        top_ips.to_pandas() if hasattr(top_ips, "to_pandas") else top_ips,
+                    )
+            except Exception as e:
+                self.logger.warning(f"Top talkers analysis failed: {e}")
 
-    def _check_failed_connections(self, report: WorkflowReport):
+    def _check_failed_connections(self, report: WorkflowReport) -> None:
         """Check for excessive failed connections."""
-        try:
-            incomplete = self.analysis.tcp.detect_incomplete_connections()
-            if len(incomplete) > 100:  # Threshold for concern
-                report.add_finding(
-                    "medium",
-                    "Failed Connections",
-                    f"High number of incomplete TCP connections: {len(incomplete)}",
-                    "May indicate connection timeouts or scanning",
-                )
-        except Exception as e:
-            self.logger.warning(f"Failed connection check failed: {e}")
+        if self.analysis.tcp:
+            try:
+                incomplete = self.analysis.tcp.detect_incomplete_connections()
+                if len(incomplete) > 100:  # Threshold for concern
+                    report.add_finding(
+                        "medium",
+                        "Failed Connections",
+                        f"High number of incomplete TCP connections: {len(incomplete)}",
+                        "May indicate connection timeouts or scanning",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Failed connection check failed: {e}")
 
-    def _check_suspicious_ips(self, report: WorkflowReport):
+    def _check_suspicious_ips(self, report: WorkflowReport) -> None:
         """Identify suspicious IP behavior."""
-        try:
-            # Hub IPs (communicating with many others)
-            hubs = self.analysis.ip.detect_hub_ips(threshold=50)
-            if len(hubs) > 0:
-                report.add_finding(
-                    "medium",
-                    "Hub IPs",
-                    f"Detected {len(hubs)} IPs communicating with >50 unique hosts",
-                    "May indicate scanning or botnet activity",
-                )
+        if self.analysis.ip:
+            try:
+                # Hub IPs (communicating with many others)
+                hubs = self.analysis.ip.detect_hub_ips(threshold=50)
+                if len(hubs) > 0:
+                    report.add_finding(
+                        "medium",
+                        "Hub IPs",
+                        f"Detected {len(hubs)} IPs communicating with >50 unique hosts",
+                        "May indicate scanning or botnet activity",
+                    )
 
-            # Asymmetric traffic
-            asymmetric = self.analysis.ip.get_asymmetric_ips(threshold=0.9)
-            if len(asymmetric) > 0:
-                report.add_finding(
-                    "low",
-                    "Asymmetric Traffic",
-                    f"Detected {len(asymmetric)} IPs with >90% traffic imbalance",
-                    "One-way communication patterns",
-                )
-        except Exception as e:
-            self.logger.warning(f"Suspicious IP check failed: {e}")
+                # Asymmetric traffic
+                asymmetric = self.analysis.ip.get_asymmetric_ips(threshold=0.9)
+                if len(asymmetric) > 0:
+                    report.add_finding(
+                        "low",
+                        "Asymmetric Traffic",
+                        f"Detected {len(asymmetric)} IPs with >90% traffic imbalance",
+                        "One-way communication patterns",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Suspicious IP check failed: {e}")
 
-    def _check_data_exfiltration(self, report: WorkflowReport):
+    def _check_data_exfiltration(self, report: WorkflowReport) -> None:
         """Detect potential data exfiltration."""
-        try:
-            exfiltration = self.analysis.anomaly.detect_data_exfiltration(
-                threshold=100_000_000  # 100MB
-            )
-            if len(exfiltration) > 0:
-                report.add_finding(
-                    "critical",
-                    "Data Exfiltration",
-                    f"Detected {len(exfiltration)} IPs with >100MB outbound transfer",
-                    "Potential data exfiltration or backup activity",
+        if self.analysis.anomaly:
+            try:
+                exfiltration = self.analysis.anomaly.detect_data_exfiltration(
+                    threshold=100_000_000  # 100MB
                 )
-        except Exception as e:
-            self.logger.warning(f"Data exfiltration check failed: {e}")
+                if len(exfiltration) > 0:
+                    report.add_finding(
+                        "critical",
+                        "Data Exfiltration",
+                        f"Detected {len(exfiltration)} IPs with >100MB outbound transfer",
+                        "Potential data exfiltration or backup activity",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Data exfiltration check failed: {e}")
 
-    def _check_off_hours_activity(self, report: WorkflowReport):
+    def _check_off_hours_activity(self, report: WorkflowReport) -> None:
         """Detect activity outside business hours."""
-        try:
-            off_hours = self.analysis.anomaly.detect_off_hours_activity(
-                business_hours=self.business_hours
-            )
-            if len(off_hours) > 0:
-                report.add_finding(
-                    "low",
-                    "Off-Hours Activity",
-                    f"Detected {len(off_hours)} packets outside business hours",
-                    f"Business hours: {self.business_hours[0]}-{self.business_hours[1]}",
+        if self.analysis.anomaly:
+            try:
+                off_hours = self.analysis.anomaly.detect_off_hours_activity(
+                    business_hours=self.business_hours
                 )
-        except Exception as e:
-            self.logger.warning(f"Off-hours activity check failed: {e}")
+                if len(off_hours) > 0:
+                    report.add_finding(
+                        "low",
+                        "Off-Hours Activity",
+                        f"Detected {len(off_hours)} packets outside business hours",
+                        f"Business hours: {self.business_hours[0]}-{self.business_hours[1]}",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Off-hours activity check failed: {e}")
 
-    def _check_beaconing(self, report: WorkflowReport):
+    def _check_beaconing(self, report: WorkflowReport) -> None:
         """Detect beaconing behavior (C2 communication)."""
-        try:
-            self.analysis.flow.create_flows()
-            beacons = self.analysis.flow.detect_beacon_behavior(tolerance=0.1)
-            if len(beacons) > 0:
-                report.add_finding(
-                    "high",
-                    "Beaconing Detected",
-                    f"Detected {len(beacons)} flows with periodic communication patterns",
-                    "May indicate C2 (Command & Control) communication",
-                )
-        except Exception as e:
-            self.logger.warning(f"Beaconing detection failed: {e}")
+        if self.analysis.flow:
+            try:
+                self.analysis.flow.create_flows()
+                beacons = self.analysis.flow.detect_beacon_behavior(tolerance=0.1)
+                if len(beacons) > 0:
+                    report.add_finding(
+                        "high",
+                        "Beaconing Detected",
+                        f"Detected {len(beacons)} flows with periodic communication patterns",
+                        "May indicate C2 (Command & Control) communication",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Beaconing detection failed: {e}")
 
-    def _check_scanning_patterns(self, report: WorkflowReport):
+    def _check_scanning_patterns(self, report: WorkflowReport) -> None:
         """Detect various scanning patterns."""
-        try:
-            # Vertical scanning (same port, multiple hosts)
-            vertical = self.analysis.anomaly.detect_vertical_scanning()
-            if len(vertical) > 0:
-                report.add_finding(
-                    "medium",
-                    "Vertical Scan",
-                    f"Detected {len(vertical)} vertical scanning patterns",
-                )
+        if self.analysis.anomaly:
+            try:
+                # Vertical scanning (same port, multiple hosts)
+                vertical = self.analysis.anomaly.detect_vertical_scanning()
+                if len(vertical) > 0:
+                    report.add_finding(
+                        "medium",
+                        "Vertical Scan",
+                        f"Detected {len(vertical)} vertical scanning patterns",
+                    )
 
-            # Horizontal scanning (multiple ports, same host)
-            horizontal = self.analysis.anomaly.detect_horizontal_scanning()
-            if len(horizontal) > 0:
-                report.add_finding(
-                    "medium",
-                    "Horizontal Scan",
-                    f"Detected {len(horizontal)} horizontal scanning patterns",
-                )
-        except Exception as e:
-            self.logger.warning(f"Scanning pattern detection failed: {e}")
+                # Horizontal scanning (multiple ports, same host)
+                horizontal = self.analysis.anomaly.detect_horizontal_scanning()
+                if len(horizontal) > 0:
+                    report.add_finding(
+                        "medium",
+                        "Horizontal Scan",
+                        f"Detected {len(horizontal)} horizontal scanning patterns",
+                    )
+            except Exception as e:
+                self.logger.warning(f"Scanning pattern detection failed: {e}")
 
 
 class IPInvestigation:
@@ -531,7 +554,7 @@ class IPInvestigation:
         self.logger.info(f"IP investigation complete: {len(report.findings)} findings")
         return report
 
-    def _get_basic_info(self, report: WorkflowReport):
+    def _get_basic_info(self, report: WorkflowReport) -> None:
         """Get basic information about the IP."""
         try:
             ip_traffic = self.analysis.find_ip_information(self.ip)
@@ -549,15 +572,16 @@ class IPInvestigation:
         except Exception as e:
             self.logger.error(f"Failed to get basic info: {e}")
 
-    def _analyze_traffic_stats(self, report: WorkflowReport):
+    def _analyze_traffic_stats(self, report: WorkflowReport) -> None:
         """Analyze traffic statistics for the IP."""
-        try:
-            stats = self.analysis.ip.get_ip_traffic_stats(self.ip)
-            report.add_section("Traffic Statistics", stats)
-        except Exception as e:
-            self.logger.warning(f"Traffic stats analysis failed: {e}")
+        if self.analysis.ip:
+            try:
+                stats = self.analysis.ip.get_ip_traffic_stats(self.ip)
+                report.add_section("Traffic Statistics", stats)
+            except Exception as e:
+                self.logger.warning(f"Traffic stats analysis failed: {e}")
 
-    def _analyze_protocol_breakdown(self, report: WorkflowReport):
+    def _analyze_protocol_breakdown(self, report: WorkflowReport) -> None:
         """Analyze protocol usage for the IP."""
         try:
             # This would need to be implemented in parquet_analysis
@@ -568,7 +592,7 @@ class IPInvestigation:
         except Exception as e:
             self.logger.warning(f"Protocol breakdown failed: {e}")
 
-    def _analyze_connections(self, report: WorkflowReport):
+    def _analyze_connections(self, report: WorkflowReport) -> None:
         """Analyze all connections involving this IP."""
         try:
             ip_traffic = self.analysis.find_ip_information(self.ip)
@@ -590,51 +614,60 @@ class IPInvestigation:
         except Exception as e:
             self.logger.warning(f"Connection analysis failed: {e}")
 
-    def _check_scanning_behavior(self, report: WorkflowReport):
+    def _check_scanning_behavior(self, report: WorkflowReport) -> None:
         """Check if this IP is performing scanning."""
-        try:
-            # Check if IP appears in port scan detection
-            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=50, time_window="1m")
-
-            if self.ip in str(port_scans):  # Simple check
-                report.add_finding(
-                    "high", "Port Scanning", f"IP {self.ip} is performing port scanning"
+        if self.analysis.anomaly:
+            try:
+                # Check if IP appears in port scan detection
+                port_scans = self.analysis.anomaly.detect_port_scanning(
+                    threshold=50, time_window="1m"
                 )
-        except Exception as e:
-            self.logger.warning(f"Scanning behavior check failed: {e}")
 
-    def _check_attack_patterns(self, report: WorkflowReport):
+                if self.ip in str(port_scans):  # Simple check
+                    report.add_finding(
+                        "high", "Port Scanning", f"IP {self.ip} is performing port scanning"
+                    )
+            except Exception as e:
+                self.logger.warning(f"Scanning behavior check failed: {e}")
+
+    def _check_attack_patterns(self, report: WorkflowReport) -> None:
         """Check for attack patterns from this IP."""
-        try:
-            # Check SYN flood
-            syn_floods = self.analysis.anomaly.detect_syn_flood(threshold=500, time_window="1m")
-            if self.ip in str(syn_floods):
-                report.add_finding(
-                    "critical",
-                    "SYN Flood",
-                    f"IP {self.ip} is source of SYN flood attack",
+        if self.analysis.anomaly:
+            try:
+                # Check SYN flood
+                syn_floods = self.analysis.anomaly.detect_syn_flood(
+                    threshold=500, _time_window="1m"
                 )
+                if self.ip in str(syn_floods):
+                    report.add_finding(
+                        "critical",
+                        "SYN Flood",
+                        f"IP {self.ip} is source of SYN flood attack",
+                    )
 
-            # Check UDP flood
-            udp_floods = self.analysis.anomaly.detect_udp_flood(threshold=300, time_window="1m")
-            if self.ip in str(udp_floods):
-                report.add_finding(
-                    "high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack"
+                # Check UDP flood
+                udp_floods = self.analysis.anomaly.detect_udp_flood(
+                    threshold=300, _time_window="1m"
                 )
-        except Exception as e:
-            self.logger.warning(f"Attack pattern check failed: {e}")
+                if self.ip in str(udp_floods):
+                    report.add_finding(
+                        "high", "UDP Flood", f"IP {self.ip} is source of UDP flood attack"
+                    )
+            except Exception as e:
+                self.logger.warning(f"Attack pattern check failed: {e}")
 
-    def _check_dns_activity(self, report: WorkflowReport):
+    def _check_dns_activity(self, report: WorkflowReport) -> None:
         """Analyze DNS activity for this IP."""
-        try:
-            # Check if IP is a top querier
-            top_queriers = self.analysis.dns.get_top_querying_ips(n=20)
-            if self.ip in str(top_queriers):
-                report.add_finding(
-                    "info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers"
-                )
-        except Exception as e:
-            self.logger.warning(f"DNS activity check failed: {e}")
+        if self.analysis.dns:
+            try:
+                # Check if IP is a top querier
+                top_queriers = self.analysis.dns.get_top_querying_ips(n=20)
+                if self.ip in str(top_queriers):
+                    report.add_finding(
+                        "info", "DNS Activity", f"IP {self.ip} is among top 20 DNS queriers"
+                    )
+            except Exception as e:
+                self.logger.warning(f"DNS activity check failed: {e}")
 
 
 class ThreatHunting:
@@ -660,42 +693,45 @@ class ThreatHunting:
         report = WorkflowReport("C2 Threat Hunting Report")
 
         # Beaconing detection
-        try:
-            self.analysis.flow.create_flows()
-            beacons = self.analysis.flow.detect_beacon_behavior(tolerance=0.1)
-            if len(beacons) > 0:
-                report.add_finding(
-                    "high",
-                    "Beaconing",
-                    f"Detected {len(beacons)} potential C2 beaconing patterns",
-                    beacons,
-                )
-        except Exception as e:
-            self.logger.error(f"Beaconing detection failed: {e}")
+        if self.analysis.flow:
+            try:
+                self.analysis.flow.create_flows()
+                beacons = self.analysis.flow.detect_beacon_behavior(tolerance=0.1)
+                if len(beacons) > 0:
+                    report.add_finding(
+                        "high",
+                        "Beaconing",
+                        f"Detected {len(beacons)} potential C2 beaconing patterns",
+                        beacons,
+                    )
+            except Exception as e:
+                self.logger.error(f"Beaconing detection failed: {e}")
 
         # Long-lived connections
-        try:
-            long_lived = self.analysis.tcp.identify_long_lived_connections(threshold="30m")
-            if len(long_lived) > 0:
-                report.add_finding(
-                    "medium",
-                    "Long-lived Connections",
-                    f"Detected {len(long_lived)} connections lasting >30 minutes",
-                )
-        except Exception as e:
-            self.logger.error(f"Long-lived connection detection failed: {e}")
+        if self.analysis.tcp:
+            try:
+                long_lived = self.analysis.tcp.identify_long_lived_connections(threshold="30m")
+                if len(long_lived) > 0:
+                    report.add_finding(
+                        "medium",
+                        "Long-lived Connections",
+                        f"Detected {len(long_lived)} connections lasting >30 minutes",
+                    )
+            except Exception as e:
+                self.logger.error(f"Long-lived connection detection failed: {e}")
 
         # DNS tunneling
-        try:
-            tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=80)
-            if len(tunneling) > 0:
-                report.add_finding(
-                    "high",
-                    "DNS Tunneling",
-                    f"Detected {len(tunneling)} potential DNS tunneling queries",
-                )
-        except Exception as e:
-            self.logger.error(f"DNS tunneling detection failed: {e}")
+        if self.analysis.dns:
+            try:
+                tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=80)
+                if len(tunneling) > 0:
+                    report.add_finding(
+                        "high",
+                        "DNS Tunneling",
+                        f"Detected {len(tunneling)} potential DNS tunneling queries",
+                    )
+            except Exception as e:
+                self.logger.error(f"DNS tunneling detection failed: {e}")
 
         return report
 
@@ -704,40 +740,43 @@ class ThreatHunting:
         report = WorkflowReport("Data Theft Threat Hunting Report")
 
         # Large outbound transfers
-        try:
-            exfil = self.analysis.anomaly.detect_data_exfiltration(threshold=50_000_000)
-            if len(exfil) > 0:
-                report.add_finding(
-                    "critical",
-                    "Large Outbound Transfer",
-                    f"Detected {len(exfil)} IPs with >50MB outbound",
-                )
-        except Exception as e:
-            self.logger.error(f"Data exfiltration detection failed: {e}")
+        if self.analysis.anomaly:
+            try:
+                exfil = self.analysis.anomaly.detect_data_exfiltration(threshold=50_000_000)
+                if len(exfil) > 0:
+                    report.add_finding(
+                        "critical",
+                        "Large Outbound Transfer",
+                        f"Detected {len(exfil)} IPs with >50MB outbound",
+                    )
+            except Exception as e:
+                self.logger.error(f"Data exfiltration detection failed: {e}")
 
         # DNS tunneling (can be used for data exfil)
-        try:
-            tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=100)
-            if len(tunneling) > 0:
-                report.add_finding(
-                    "high",
-                    "DNS Tunneling",
-                    f"Detected {len(tunneling)} potential DNS tunneling queries",
-                )
-        except Exception as e:
-            self.logger.error(f"DNS tunneling detection failed: {e}")
+        if self.analysis.dns:
+            try:
+                tunneling = self.analysis.dns.detect_dns_tunneling(length_threshold=100)
+                if len(tunneling) > 0:
+                    report.add_finding(
+                        "high",
+                        "DNS Tunneling",
+                        f"Detected {len(tunneling)} potential DNS tunneling queries",
+                    )
+            except Exception as e:
+                self.logger.error(f"DNS tunneling detection failed: {e}")
 
         # ICMP tunneling
-        try:
-            icmp_tunnel = self.analysis.icmp.detect_icmp_tunneling()
-            if len(icmp_tunnel) > 0:
-                report.add_finding(
-                    "high",
-                    "ICMP Tunneling",
-                    f"Detected {len(icmp_tunnel)} potential ICMP tunneling packets",
-                )
-        except Exception as e:
-            self.logger.error(f"ICMP tunneling detection failed: {e}")
+        if self.analysis.icmp:
+            try:
+                icmp_tunnel = self.analysis.icmp.detect_icmp_tunneling()
+                if len(icmp_tunnel) > 0:
+                    report.add_finding(
+                        "high",
+                        "ICMP Tunneling",
+                        f"Detected {len(icmp_tunnel)} potential ICMP tunneling packets",
+                    )
+            except Exception as e:
+                self.logger.error(f"ICMP tunneling detection failed: {e}")
 
         return report
 
@@ -746,27 +785,31 @@ class ThreatHunting:
         report = WorkflowReport("Lateral Movement Threat Hunting Report")
 
         # Hub IPs (talking to many internal hosts)
-        try:
-            hubs = self.analysis.ip.detect_hub_ips(threshold=30)
-            if len(hubs) > 0:
-                report.add_finding(
-                    "medium",
-                    "Hub IPs",
-                    f"Detected {len(hubs)} IPs communicating with >30 hosts",
-                )
-        except Exception as e:
-            self.logger.error(f"Hub detection failed: {e}")
+        if self.analysis.ip:
+            try:
+                hubs = self.analysis.ip.detect_hub_ips(threshold=30)
+                if len(hubs) > 0:
+                    report.add_finding(
+                        "medium",
+                        "Hub IPs",
+                        f"Detected {len(hubs)} IPs communicating with >30 hosts",
+                    )
+            except Exception as e:
+                self.logger.error(f"Hub detection failed: {e}")
 
         # Port scanning within network
-        try:
-            port_scans = self.analysis.anomaly.detect_port_scanning(threshold=20, time_window="5m")
-            if len(port_scans) > 0:
-                report.add_finding(
-                    "high",
-                    "Internal Port Scanning",
-                    f"Detected {len(port_scans)} sources performing port scans",
+        if self.analysis.anomaly:
+            try:
+                port_scans = self.analysis.anomaly.detect_port_scanning(
+                    threshold=20, time_window="5m"
                 )
-        except Exception as e:
-            self.logger.error(f"Port scan detection failed: {e}")
+                if len(port_scans) > 0:
+                    report.add_finding(
+                        "high",
+                        "Internal Port Scanning",
+                        f"Detected {len(port_scans)} sources performing port scans",
+                    )
+            except Exception as e:
+                self.logger.error(f"Port scan detection failed: {e}")
 
         return report

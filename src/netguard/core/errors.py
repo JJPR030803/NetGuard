@@ -1,4 +1,4 @@
-"""Custom exceptions for parquet analysis module."""
+from typing import Optional, Union
 
 
 class ParquetAnalysisError(Exception):
@@ -13,15 +13,14 @@ class InvalidProtocolError(ParquetAnalysisError):
     def __init__(self, protocol: str, valid_protocols: set):
         self.protocol = protocol
         self.valid_protocols = valid_protocols
-        super().__init__(
-            f"Invalid protocol: '{protocol}'. Valid protocols are: {', '.join(sorted(valid_protocols))}"
-        )
+        valid_str = ", ".join(sorted(valid_protocols))
+        super().__init__(f"Invalid protocol: '{protocol}'. Valid protocols are: {valid_str}")
 
 
 class MissingColumnError(ParquetAnalysisError):
     """Raised when a required column is missing from the DataFrame."""
 
-    def __init__(self, column: str, available_columns: list = None):
+    def __init__(self, column: str, available_columns: Optional[list[str]] = None):
         self.column = column
         self.available_columns = available_columns
         msg = f"Required column '{column}' not found in DataFrame"
@@ -48,7 +47,7 @@ class InvalidTimeWindowError(ParquetAnalysisError):
 class EmptyDataFrameError(ParquetAnalysisError):
     """Raised when operations are attempted on an empty DataFrame."""
 
-    def __init__(self, operation: str = None):
+    def __init__(self, operation: Optional[str] = None):
         msg = "Cannot perform operation on empty DataFrame"
         if operation:
             msg = f"Cannot perform '{operation}' on empty DataFrame"
@@ -58,7 +57,7 @@ class EmptyDataFrameError(ParquetAnalysisError):
 class InvalidThresholdError(ParquetAnalysisError):
     """Raised when an invalid threshold value is provided."""
 
-    def __init__(self, threshold, message: str = None):
+    def __init__(self, threshold: Union[int, float], message: Optional[str] = None):
         self.threshold = threshold
         msg = f"Invalid threshold: {threshold}"
         if message:
@@ -80,7 +79,8 @@ class AnalyzerNotInitializedError(ParquetAnalysisError):
     def __init__(self, analyzer_name: str):
         self.analyzer_name = analyzer_name
         super().__init__(
-            f"Analyzer '{analyzer_name}' not initialized. Make sure the DataFrame contains the required protocol columns."
+            f"Analyzer '{analyzer_name}' not initialized. "
+            "Make sure the DataFrame contains the required protocol columns."
         )
 
 
@@ -95,7 +95,7 @@ class FileNotFoundError(ParquetAnalysisError):
 class InvalidFileFormatError(ParquetAnalysisError):
     """Raised when the file is not a valid parquet file."""
 
-    def __init__(self, file_path: str, original_error: Exception = None):
+    def __init__(self, file_path: str, original_error: Optional[Exception] = None):
         self.file_path = file_path
         self.original_error = original_error
         msg = f"Invalid parquet file format: '{file_path}'"

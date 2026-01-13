@@ -9,7 +9,7 @@ import logging
 import sys
 from logging import Formatter
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from ..utils.logger import HandlerConfig, HandlerTypes, Logger
 
@@ -39,7 +39,7 @@ class ConsoleLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Console logs are not saved to a file
         pass
 
@@ -67,7 +67,7 @@ class SecurityLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.warning(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -95,7 +95,7 @@ class PacketLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.debug(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -128,7 +128,7 @@ class FileLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -165,7 +165,7 @@ class RotatingFileLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -200,7 +200,7 @@ class TimedRotatingFileLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -228,7 +228,7 @@ class ErrorLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.error(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -256,7 +256,7 @@ class DebugLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.debug(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -283,7 +283,7 @@ class CriticalLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.critical(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -310,7 +310,7 @@ class WarningLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.warning(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -337,7 +337,7 @@ class InfoLogger(Logger):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def save_logs(self):
+    def save_logs(self, path: str) -> None:
         # Logs are automatically saved by the handler
         pass
 
@@ -354,7 +354,7 @@ class PreprocessingLogger:
         level: int = logging.INFO,
         log_file: Optional[Path] = None,
         detailed: bool = False,
-    ):
+    ) -> None:
         """
         Initialize preprocessing logger.
 
@@ -391,27 +391,27 @@ class PreprocessingLogger:
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
 
-    def debug(self, message: str, **kwargs):
+    def debug(self, message: str, **kwargs: Any) -> None:
         """Log debug message."""
         self.logger.debug(message, **kwargs)
 
-    def info(self, message: str, **kwargs):
+    def info(self, message: str, **kwargs: Any) -> None:
         """Log info message."""
         self.logger.info(message, **kwargs)
 
-    def warning(self, message: str, **kwargs):
+    def warning(self, message: str, **kwargs: Any) -> None:
         """Log warning message."""
         self.logger.warning(message, **kwargs)
 
-    def error(self, message: str, **kwargs):
+    def error(self, message: str, **kwargs: Any) -> None:
         """Log error message."""
         self.logger.error(message, **kwargs)
 
-    def critical(self, message: str, **kwargs):
+    def critical(self, message: str, **kwargs: Any) -> None:
         """Log critical message."""
         self.logger.critical(message, **kwargs)
 
-    def log_operation(self, operation: str, duration: float, **details):
+    def log_operation(self, operation: str, duration: float, **details: Any) -> None:
         """
         Log an operation with performance metrics.
 
@@ -426,7 +426,9 @@ class PreprocessingLogger:
             + (f" | {details_str}" if details_str else "")
         )
 
-    def log_dataframe_info(self, df_name: str, shape: tuple, memory_mb: float = None):
+    def log_dataframe_info(
+        self, df_name: str, shape: tuple, memory_mb: Optional[float] = None
+    ) -> None:
         """
         Log DataFrame information.
 
@@ -436,9 +438,9 @@ class PreprocessingLogger:
             memory_mb: Memory usage in MB (optional)
         """
         mem_str = f", {memory_mb:.2f} MB" if memory_mb else ""
-        self.info(f"DataFrame '{df_name}': {shape[0]} rows × {shape[1]} cols{mem_str}")
+        self.info(f"DataFrame '{df_name}': {shape[0]} rows x {shape[1]} cols{mem_str}")
 
-    def log_analysis_start(self, analysis_type: str, **params):
+    def log_analysis_start(self, analysis_type: str, **params: Any) -> None:
         """
         Log the start of an analysis operation.
 
@@ -451,7 +453,7 @@ class PreprocessingLogger:
             f"Starting {analysis_type} analysis" + (f" with {params_str}" if params_str else "")
         )
 
-    def log_analysis_complete(self, analysis_type: str, result_count: int = None):
+    def log_analysis_complete(self, analysis_type: str, result_count: Optional[int] = None) -> None:
         """
         Log completion of an analysis operation.
 
@@ -463,8 +465,8 @@ class PreprocessingLogger:
         self.info(f"Completed {analysis_type} analysis{count_str}")
 
 
-# Global logger instance
-_global_logger: Optional[PreprocessingLogger] = None
+# Global logger state (using dict to avoid global statement)
+_logger_state: dict[str, Optional[PreprocessingLogger]] = {"instance": None}
 
 
 def get_logger(
@@ -485,17 +487,15 @@ def get_logger(
     Returns:
         PreprocessingLogger: Logger instance
     """
-    global _global_logger
-
-    if _global_logger is None:
-        _global_logger = PreprocessingLogger(
+    if _logger_state["instance"] is None:
+        _logger_state["instance"] = PreprocessingLogger(
             name=name, level=level, log_file=log_file, detailed=detailed
         )
+    assert _logger_state["instance"] is not None
+    return _logger_state["instance"]
 
-    return _global_logger
 
-
-def set_log_level(level: int):
+def set_log_level(level: int) -> None:
     """
     Set logging level for all handlers.
 
@@ -508,37 +508,37 @@ def set_log_level(level: int):
         handler.setLevel(level)
 
 
-def enable_debug_logging():
+def enable_debug_logging() -> None:
     """Enable debug logging."""
     set_log_level(logging.DEBUG)
 
 
-def disable_logging():
+def disable_logging() -> None:
     """Disable all logging."""
     set_log_level(logging.CRITICAL + 1)
 
 
 # Convenience functions
-def debug(message: str, **kwargs):
+def debug(message: str, **kwargs: Any) -> None:
     """Log debug message using global logger."""
     get_logger().debug(message, **kwargs)
 
 
-def info(message: str, **kwargs):
+def info(message: str, **kwargs: Any) -> None:
     """Log info message using global logger."""
     get_logger().info(message, **kwargs)
 
 
-def warning(message: str, **kwargs):
+def warning(message: str, **kwargs: Any) -> None:
     """Log warning message using global logger."""
     get_logger().warning(message, **kwargs)
 
 
-def error(message: str, **kwargs):
+def error(message: str, **kwargs: Any) -> None:
     """Log error message using global logger."""
     get_logger().error(message, **kwargs)
 
 
-def critical(message: str, **kwargs):
+def critical(message: str, **kwargs: Any) -> None:
     """Log critical message using global logger."""
     get_logger().critical(message, **kwargs)

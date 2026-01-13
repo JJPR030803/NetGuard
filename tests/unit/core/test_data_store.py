@@ -4,13 +4,13 @@ This module tests the centralized parquet I/O operations
 provided by the DataStore class.
 """
 
-import pytest
+import random
+
 import polars as pl
-from pathlib import Path
+import pytest
 
 from netguard.core.data_store import DataStore
-from netguard.core.exceptions import DataExportError, DataImportError
-
+from netguard.core.exceptions import DataImportError
 
 # ============================================================================
 # TEST FIXTURES
@@ -20,32 +20,35 @@ from netguard.core.exceptions import DataExportError, DataImportError
 @pytest.fixture
 def sample_packet_df(base_timestamp) -> pl.DataFrame:
     """Create a sample packet DataFrame for testing."""
-    return pl.DataFrame({
-        "timestamp": [base_timestamp] * 5,
-        "IP_src": ["192.168.1.100", "192.168.1.101", "10.0.0.1", "172.16.0.1", "8.8.8.8"],
-        "IP_dst": ["8.8.8.8", "1.1.1.1", "192.168.1.100", "192.168.1.101", "192.168.1.100"],
-        "IP_proto": [6, 6, 17, 17, 1],  # TCP, TCP, UDP, UDP, ICMP
-        "IP_len": [60, 120, 80, 45, 64],
-        "TCP_sport": [50000, 50001, None, None, None],
-        "TCP_dport": [80, 443, None, None, None],
-        "UDP_sport": [None, None, 53, 123, None],
-        "UDP_dport": [None, None, 53, 123, None],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [base_timestamp] * 5,
+            "IP_src": ["192.168.1.100", "192.168.1.101", "10.0.0.1", "172.16.0.1", "8.8.8.8"],
+            "IP_dst": ["8.8.8.8", "1.1.1.1", "192.168.1.100", "192.168.1.101", "192.168.1.100"],
+            "IP_proto": [6, 6, 17, 17, 1],  # TCP, TCP, UDP, UDP, ICMP
+            "IP_len": [60, 120, 80, 45, 64],
+            "TCP_sport": [50000, 50001, None, None, None],
+            "TCP_dport": [80, 443, None, None, None],
+            "UDP_sport": [None, None, 53, 123, None],
+            "UDP_dport": [None, None, 53, 123, None],
+        }
+    )
 
 
 @pytest.fixture
 def large_packet_df(base_timestamp) -> pl.DataFrame:
     """Create a larger packet DataFrame for performance testing."""
-    import random
     n_packets = 1000
 
-    return pl.DataFrame({
-        "timestamp": [base_timestamp] * n_packets,
-        "IP_src": [f"192.168.1.{i % 255}" for i in range(n_packets)],
-        "IP_dst": [f"10.0.0.{i % 255}" for i in range(n_packets)],
-        "IP_proto": [random.choice([6, 17, 1]) for _ in range(n_packets)],
-        "IP_len": [random.randint(40, 1500) for _ in range(n_packets)],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [base_timestamp] * n_packets,
+            "IP_src": [f"192.168.1.{i % 255}" for i in range(n_packets)],
+            "IP_dst": [f"10.0.0.{i % 255}" for i in range(n_packets)],
+            "IP_proto": [random.choice([6, 17, 1]) for _ in range(n_packets)],
+            "IP_len": [random.randint(40, 1500) for _ in range(n_packets)],
+        }
+    )
 
 
 # ============================================================================
@@ -99,7 +102,6 @@ class TestDataStoreSavePackets:
 
         # Create initial file with 5 rows
         DataStore.save_packets(sample_packet_df, str(filepath))
-        initial_size = filepath.stat().st_size
 
         # Overwrite with smaller data
         small_df = sample_packet_df.head(2)
@@ -195,7 +197,7 @@ class TestDataStoreGetSchema:
 
         schema = DataStore.get_schema(str(filepath))
 
-        for col, dtype in schema.items():
+        for _col, dtype in schema.items():
             assert isinstance(dtype, str)
 
 
@@ -223,7 +225,15 @@ class TestDataStoreGetFileInfo:
 
         info = DataStore.get_file_info(str(filepath))
 
-        required_keys = ["path", "filename", "size_bytes", "size_mb", "columns", "column_count", "schema"]
+        required_keys = [
+            "path",
+            "filename",
+            "size_bytes",
+            "size_mb",
+            "columns",
+            "column_count",
+            "schema",
+        ]
         for key in required_keys:
             assert key in info, f"Missing required key: {key}"
 

@@ -6,7 +6,7 @@ schema handling.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import polars as pl
 
@@ -61,10 +61,7 @@ class DataStore:
             # Write parquet
             df.write_parquet(filepath, compression=compression)
 
-            logger.info(
-                f"Saved {len(df)} packets to {filepath} "
-                f"({df.estimated_size('mb'):.2f} MB)"
-            )
+            logger.info(f"Saved {len(df)} packets to {filepath} ({df.estimated_size('mb'):.2f} MB)")
         except Exception as e:
             raise DataExportError(
                 export_format="parquet",
@@ -96,8 +93,7 @@ class DataStore:
             df = pl.read_parquet(filepath)
 
             logger.info(
-                f"Loaded {len(df)} packets from {filepath} "
-                f"({df.estimated_size('mb'):.2f} MB)"
+                f"Loaded {len(df)} packets from {filepath} ({df.estimated_size('mb'):.2f} MB)"
             )
             return df
         except FileNotFoundError:
@@ -110,7 +106,7 @@ class DataStore:
             ) from e
 
     @staticmethod
-    def get_schema(filepath: str) -> Dict[str, str]:
+    def get_schema(filepath: str) -> dict[str, str]:
         """
         Get parquet file schema without loading full file.
 
@@ -124,7 +120,7 @@ class DataStore:
         return {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)}
 
     @staticmethod
-    def get_file_info(filepath: str) -> Dict[str, Any]:
+    def get_file_info(filepath: str) -> dict[str, Any]:
         """
         Get parquet file metadata without loading data.
 
@@ -191,7 +187,7 @@ class DataStore:
             raise DataExportError(
                 export_format="parquet",
                 destination=filepath,
-                error_details=f"Append failed: {str(e)}",
+                error_details=f"Append failed: {e!s}",
             ) from e
 
     @staticmethod

@@ -1,6 +1,7 @@
 import polars as pl
-from tcp_analyzer import TcpAnalyzer
-from tcp_config import ScanProfile, get_scan_config
+
+from netguard.analysis.analyzers.tcp_analyzer import TcpAnalyzer
+from netguard.analysis.analyzers.tcp_config import ScanProfile, get_scan_config
 
 if __name__ == "__main__":
     PATH = "/mnt/shared/tesis/netguard/src/netguard/data/packet_capture.parquet"

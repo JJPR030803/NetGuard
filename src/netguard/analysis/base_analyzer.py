@@ -1,11 +1,6 @@
-"""Base class for all protocol analyzers.
-
-This module provides the BaseAnalyzer class that all protocol-specific
-analyzers (TCP, UDP, DNS, etc.) inherit from. It provides common
-functionality and enforces a consistent interface across all analyzers.
-"""
-
-from typing import Any, Dict, Optional
+import contextlib
+from datetime import datetime, timedelta
+from typing import Any, Optional
 
 import polars as pl
 
@@ -47,11 +42,7 @@ class BaseAnalyzer:
 
     def __repr__(self) -> str:
         """Technical representation for debugging."""
-        return (
-            f"{self.__class__.__name__}("
-            f"packets={self._packet_count}, "
-            f"shape={self.df.shape})"
-        )
+        return f"{self.__class__.__name__}(packets={self._packet_count}, shape={self.df.shape})"
 
     def __str__(self) -> str:
         """Human-readable string representation."""
@@ -59,15 +50,15 @@ class BaseAnalyzer:
         if "timestamp" in self.df.columns and len(self.df) > 0:
             min_ts = self.df["timestamp"].min()
             max_ts = self.df["timestamp"].max()
-            date_range = f", {min_ts} to {max_ts}"
+            date_range = f", {min_ts!s} to {max_ts!s}"
 
         return f"{self.__class__.__name__}: {self._packet_count} packets{date_range}"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare two analyzer instances."""
         if not isinstance(other, self.__class__):
             return False
-        return self.df.frame_equal(other.df)
+        return self.df.equals(other.df)
 
     def __len__(self) -> int:
         """Return packet count."""
@@ -76,6 +67,9 @@ class BaseAnalyzer:
     def __bool__(self) -> bool:
         """Return True if analyzer has packets."""
         return self._packet_count > 0
+
+    def __hash__(self)->None:
+        raise ValueError("Cannot be used as a hash")
 
     @property
     def packet_count(self) -> int:
@@ -97,7 +91,7 @@ class BaseAnalyzer:
         """Get DataFrame shape (rows, columns)."""
         return self.df.shape
 
-    def get_date_range(self) -> Dict[str, Any]:
+    def get_date_range(self) -> dict[str, Any]:
         """
         Get the date range of packets.
 
@@ -110,16 +104,16 @@ class BaseAnalyzer:
         min_ts = self.df["timestamp"].min()
         max_ts = self.df["timestamp"].max()
 
-        duration = None
-        if min_ts and max_ts:
-            try:
-                duration = (max_ts - min_ts).total_seconds()
-            except AttributeError:
-                # If timestamps are not datetime objects
-                try:
+        duration: Optional[float] = None
+        if min_ts is not None and max_ts is not None:
+            # Try to calculate duration
+            with contextlib.suppress(AttributeError, TypeError, ValueError):
+                if (isinstance(min_ts, datetime) and isinstance(max_ts, datetime)) or (
+                    isinstance(min_ts, timedelta) and isinstance(max_ts, timedelta)
+                ):
+                    duration = (max_ts - min_ts).total_seconds()
+                elif isinstance(min_ts, (int, float)) and isinstance(max_ts, (int, float)):
                     duration = float(max_ts - min_ts)
-                except (TypeError, ValueError):
-                    pass
 
         return {
             "start": min_ts,
@@ -127,7 +121,7 @@ class BaseAnalyzer:
             "duration": duration,
         }
 
-    def get_memory_usage(self) -> Dict[str, float]:
+    def get_memory_usage(self) -> dict[str, float]:
         """
         Get memory usage information.
 
@@ -152,7 +146,7 @@ class BaseAnalyzer:
         """
         return column in self.df.columns
 
-    def get_column_types(self) -> Dict[str, str]:
+    def get_column_types(self) -> dict[str, str]:
         """
         Get mapping of column names to data types.
 
@@ -208,7 +202,7 @@ class BaseAnalyzer:
         """
         return self.df.describe()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert analyzer state to dictionary (for serialization).
 

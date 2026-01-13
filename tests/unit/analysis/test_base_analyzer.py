@@ -4,12 +4,12 @@ This module tests the base analyzer class that all protocol-specific
 analyzers inherit from.
 """
 
-import pytest
-import polars as pl
 from datetime import datetime
 
-from netguard.analysis.base_analyzer import BaseAnalyzer
+import polars as pl
+import pytest
 
+from netguard.analysis.base_analyzer import BaseAnalyzer
 
 # ============================================================================
 # TEST FIXTURES
@@ -19,40 +19,45 @@ from netguard.analysis.base_analyzer import BaseAnalyzer
 @pytest.fixture
 def sample_df(base_timestamp) -> pl.DataFrame:
     """Create a sample DataFrame for testing."""
-    return pl.DataFrame({
-        "timestamp": [base_timestamp] * 5,
-        "IP_src": ["192.168.1.100", "192.168.1.101", "10.0.0.1", "172.16.0.1", "8.8.8.8"],
-        "IP_dst": ["8.8.8.8", "1.1.1.1", "192.168.1.100", "192.168.1.101", "192.168.1.100"],
-        "IP_proto": [6, 6, 17, 17, 1],
-        "IP_len": [60, 120, 80, 45, 64],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [base_timestamp] * 5,
+            "IP_src": ["192.168.1.100", "192.168.1.101", "10.0.0.1", "172.16.0.1", "8.8.8.8"],
+            "IP_dst": ["8.8.8.8", "1.1.1.1", "192.168.1.100", "192.168.1.101", "192.168.1.100"],
+            "IP_proto": [6, 6, 17, 17, 1],
+            "IP_len": [60, 120, 80, 45, 64],
+        }
+    )
 
 
 @pytest.fixture
 def empty_df() -> pl.DataFrame:
     """Create an empty DataFrame for testing edge cases."""
-    return pl.DataFrame({
-        "timestamp": [],
-        "IP_src": [],
-        "IP_dst": [],
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [],
+            "IP_src": [],
+            "IP_dst": [],
+        }
+    )
 
 
 @pytest.fixture
 def df_with_timestamps() -> pl.DataFrame:
     """Create DataFrame with varied timestamps."""
-    base = datetime(2024, 1, 1, 10, 0, 0)
-    return pl.DataFrame({
-        "timestamp": [
-            datetime(2024, 1, 1, 10, 0, 0),
-            datetime(2024, 1, 1, 10, 0, 30),
-            datetime(2024, 1, 1, 10, 1, 0),
-            datetime(2024, 1, 1, 10, 5, 0),
-            datetime(2024, 1, 1, 11, 0, 0),
-        ],
-        "IP_src": ["192.168.1.100"] * 5,
-        "IP_dst": ["8.8.8.8"] * 5,
-    })
+    return pl.DataFrame(
+        {
+            "timestamp": [
+                datetime(2024, 1, 1, 10, 0, 0),
+                datetime(2024, 1, 1, 10, 0, 30),
+                datetime(2024, 1, 1, 10, 1, 0),
+                datetime(2024, 1, 1, 10, 5, 0),
+                datetime(2024, 1, 1, 11, 0, 0),
+            ],
+            "IP_src": ["192.168.1.100"] * 5,
+            "IP_dst": ["8.8.8.8"] * 5,
+        }
+    )
 
 
 @pytest.fixture

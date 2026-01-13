@@ -1,6 +1,6 @@
 """Anomaly detection analyzer for network traffic analysis."""
 
-from typing import Optional, Union
+from typing import ClassVar, Optional, Union
 
 import polars as pl
 
@@ -26,15 +26,15 @@ class AnomalyAnalyzer(BaseAnalyzer):
     DEFAULT_SCAN_CONFIG = get_scan_config(ScanProfile.BALANCED)
 
     # Protocol numbers for anomaly detection
-    PROTOCOL_NUMBERS = {
+    PROTOCOL_NUMBERS: ClassVar[dict[int, str]] = {
         1: "ICMP",
         6: "TCP",
         17: "UDP",
     }
 
     # Attack signatures
-    XMAS_SCAN_FLAGS = ["F", "P", "U"]  # FIN, PSH, URG
-    NULL_SCAN_FLAGS = []  # No flags set
+    XMAS_SCAN_FLAGS: ClassVar[list[str]] = ["F", "P", "U"]  # FIN, PSH, URG
+    NULL_SCAN_FLAGS: ClassVar[list[str]] = []  # No flags set
 
     # Default thresholds
     DEFAULT_PORT_SCAN_THRESHOLD = 100
@@ -102,7 +102,9 @@ class AnomalyAnalyzer(BaseAnalyzer):
 
         return self.df
 
-    def detect_host_scanning(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
+    def detect_host_scanning(
+        self, threshold: Optional[int] = None, _time_window: str = "1m"
+    ) -> pl.DataFrame:
         """
         Detect host scanning activity (many dest IPs, same port).
 
@@ -157,7 +159,9 @@ class AnomalyAnalyzer(BaseAnalyzer):
     # ATTACK DETECTION METHODS
     # ============================================================================
 
-    def detect_syn_flood(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
+    def detect_syn_flood(
+        self, threshold: Optional[int] = None, _time_window: str = "1m"
+    ) -> pl.DataFrame:
         """
         Detect SYN flood attacks.
 
@@ -179,7 +183,9 @@ class AnomalyAnalyzer(BaseAnalyzer):
         threshold = threshold or self.DEFAULT_SYN_FLOOD_THRESHOLD
         raise NotImplementedError("detect_syn_flood not yet implemented")
 
-    def detect_udp_flood(self, threshold: int = None, time_window: str = "1m") -> pl.DataFrame:
+    def detect_udp_flood(
+        self, threshold: Optional[int] = None, _time_window: str = "1m"
+    ) -> pl.DataFrame:
         """
         Detect UDP flood attacks.
 

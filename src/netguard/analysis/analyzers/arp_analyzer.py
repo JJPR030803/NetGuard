@@ -1,5 +1,7 @@
 """ARP protocol analyzer for network traffic analysis."""
 
+from typing import ClassVar
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
@@ -17,7 +19,7 @@ class ArpAnalyzer(BaseAnalyzer):
     """
 
     # ARP Operation Codes
-    ARP_OPERATIONS = {
+    ARP_OPERATIONS: ClassVar[dict[int, str]] = {
         1: "REQUEST",
         2: "REPLY",
         3: "RARP-REQUEST",
@@ -27,7 +29,7 @@ class ArpAnalyzer(BaseAnalyzer):
     }
 
     # Hardware Types
-    HARDWARE_TYPES = {
+    HARDWARE_TYPES: ClassVar[dict[int, str]] = {
         1: "ETHERNET",
         6: "IEEE802",
         7: "ARCNET",

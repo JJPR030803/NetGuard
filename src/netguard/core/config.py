@@ -37,9 +37,8 @@ Example:
     SnifferConfig.generate_default_config('path/to/default_config.yaml')
 """
 
-import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import yaml
 
@@ -79,11 +78,14 @@ class SnifferConfig:
 
         Interface Settings:
         ------------------
-        interface (str): Name of the network interface to use (e.g., "eth0", "wlan0"). Default: "eth0"
+        interface (str): Name of the network interface to use (e.g., "eth0", "wlan0").
+            Default: "eth0"
 
-        interface_detection_method (str): Method for detecting interfaces ("auto", "manual", "preferred_type"). Default: "auto"
+        interface_detection_method (str): Method for detecting interfaces
+            ("auto", "manual", "preferred_type"). Default: "auto"
 
-        preferred_interface_types (List[str]): List of interface types in order of preference. Default: ["ethernet", "wireless"]
+        preferred_interface_types (List[str]): List of interface types in order
+            of preference. Default: ["ethernet", "wireless"]
 
 
         Capture Settings:
@@ -188,7 +190,7 @@ class SnifferConfig:
         # Interface settings
         interface: str = "eth0",
         interface_detection_method: str = "auto",
-        preferred_interface_types: Optional[List[str]] = None,
+        preferred_interface_types: Optional[list[str]] = None,
         # Capture settings
         filter_expression: str = "",
         packet_count: int = 0,
@@ -325,7 +327,8 @@ class SnifferConfig:
         # Validate max_processing_batch_size
         if self._max_processing_batch_size < 1:
             raise ValueError(
-                f"max_processing_batch_size must be at least 1, got {self._max_processing_batch_size}"
+                f"max_processing_batch_size must be at least 1, "
+                f"got {self._max_processing_batch_size}"
             )
 
         # Validate log_level
@@ -374,9 +377,8 @@ class SnifferConfig:
             raise ValueError(f"max_filter_length must be at least 1, got {self._max_filter_length}")
 
         # Validate interface name (if validation enabled)
-        if self._validate_interface_names:
-            if not self._interface or not self._interface.strip():
-                raise ValueError("interface name cannot be empty")
+        if self._validate_interface_names and (not self._interface or not self._interface.strip()):
+            raise ValueError("interface name cannot be empty")
 
     def _ensure_extension(self, filename: str, format: str) -> str:
         """
@@ -402,15 +404,15 @@ class SnifferConfig:
         configuration. It is called automatically during initialization.
         """
         # Create log directory if it doesn't exist
-        os.makedirs(self._log_dir, exist_ok=True)
+        Path(self._log_dir).mkdir(parents=True, exist_ok=True)
 
         # Create export directory if it doesn't exist
-        os.makedirs(self._export_dir, exist_ok=True)
+        Path(self._export_dir).mkdir(parents=True, exist_ok=True)
 
         # Create performance metrics directory if it doesn't exist
-        performance_dir = os.path.dirname(self._performance_parquet_path)
-        if performance_dir:
-            os.makedirs(performance_dir, exist_ok=True)
+        performance_dir = Path(self._performance_parquet_path).parent
+        if performance_dir != Path():
+            performance_dir.mkdir(parents=True, exist_ok=True)
 
     # ========================================================================
     # Interface Settings Properties (Read-Only)
@@ -427,7 +429,7 @@ class SnifferConfig:
         return self._interface_detection_method
 
     @property
-    def preferred_interface_types(self) -> List[str]:
+    def preferred_interface_types(self) -> list[str]:
         """List of preferred interface types in order of preference."""
         return self._preferred_interface_types.copy()  # Return copy to prevent modification
 
@@ -560,7 +562,7 @@ class SnifferConfig:
 
         This is a convenience property that combines export_dir and export_filename.
         """
-        return os.path.join(self._export_dir, self._export_filename)
+        return str(Path(self._export_dir) / self._export_filename)
 
     # ========================================================================
     # Performance Settings Properties (Read-Only)
@@ -681,7 +683,7 @@ class SnifferConfig:
             print(config.packet_count)
             ```
         """
-        with open(yaml_file, "r") as f:
+        with Path(yaml_file).open() as f:
             config_data = yaml.safe_load(f)
 
         # Initialize with defaults
@@ -857,12 +859,12 @@ class SnifferConfig:
         }
 
         # Ensure directory exists
-        yaml_dir = os.path.dirname(yaml_file)
-        if yaml_dir:  # Only create directory if path contains one
-            os.makedirs(yaml_dir, exist_ok=True)
+        yaml_path = Path(yaml_file)
+        if yaml_path.parent != Path():
+            yaml_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write to file
-        with open(yaml_file, "w") as f:
+        with yaml_path.open("w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
     @classmethod

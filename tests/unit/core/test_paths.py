@@ -5,22 +5,23 @@ This module tests all functionality of the path management system,
 including path computation, directory creation, and convenience functions.
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch
-import tempfile
+import os
 import shutil
+import tempfile
+from pathlib import Path
+
+import pytest
 
 from netguard.core.paths import (
     NetGuardPaths,
-    get_project_root,
-    get_source_root,
+    get_config_dir,
     get_data_root,
     get_log_dir,
     get_parquet_dir,
     get_performance_metrics_dir,
-    get_config_dir,
     get_performance_parquet_path,
+    get_project_root,
+    get_source_root,
 )
 
 
@@ -72,6 +73,7 @@ class TestNetGuardPathsInit:
 
         assert paths.get_project_root() == temp_project_root
         assert isinstance(paths.get_project_root(), Path)
+
 
 # Tests passed upto: 27/12/2025
 class TestNetGuardPathsGetters:
@@ -153,13 +155,18 @@ class TestNetGuardPathsGetters:
 
         parquet_path = paths.get_performance_parquet_path()
         expected = (
-            temp_project_root / "src" / "netguard" / "data" /
-            "performance_metrics" / "perf_metrics.parquet"
+            temp_project_root
+            / "src"
+            / "netguard"
+            / "data"
+            / "performance_metrics"
+            / "perf_metrics.parquet"
         )
 
         assert parquet_path == expected
         # The parent directory should exist
         assert parquet_path.parent.exists()
+
 
 # Tests passed upto: 27/12/2025
 class TestNetGuardPathsDirectoryCreation:
@@ -197,6 +204,7 @@ class TestNetGuardPathsDirectoryCreation:
         assert (temp_project_root / "src" / "netguard" / "data" / "performance_metrics").exists()
         assert (temp_project_root / "src" / "netguard" / "data" / "configs").exists()
 
+
 # Tests passed upt: 27/12/2025
 class TestNetGuardPathsStringRepresentation:
     """Test string representation methods."""
@@ -229,7 +237,8 @@ class TestNetGuardPathsStringRepresentation:
         assert "project_root=" in repr_str
         assert str(temp_project_root) in repr_str
 
-#Tests passed upt: 27/12/2025
+
+# Tests passed upt: 27/12/2025
 class TestConvenienceFunctions:
     """Test module-level convenience functions."""
 
@@ -307,6 +316,7 @@ class TestConvenienceFunctions:
         assert source_root == project_root / "src" / "netguard"
         assert data_root == source_root / "data"
 
+
 # Tests passed upto: 27/12/2025
 class TestPathResolution:
     """Test path resolution behavior."""
@@ -327,8 +337,7 @@ class TestPathResolution:
     def test_relative_path_converted_to_absolute(self, temp_project_root):
         """Test that relative paths are converted to absolute."""
         # Create a relative path
-        import os
-        original_cwd = os.getcwd()
+        original_cwd = Path.cwd()
         try:
             os.chdir(temp_project_root.parent)
             relative_path = temp_project_root.name
@@ -339,6 +348,7 @@ class TestPathResolution:
             assert paths.get_project_root() == temp_project_root
         finally:
             os.chdir(original_cwd)
+
 
 # Tests passed upto: 27/12/2025
 class TestEdgeCases:

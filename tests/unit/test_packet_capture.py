@@ -51,7 +51,7 @@ class TestPacketCapture:
         # Create mock ICMP packet
         mock_packet = MagicMock()
         mock_packet.haslayer.side_effect = lambda x: x in [IP, ICMP]
-        mock_packet.__getitem__.side_effect = lambda x: MagicMock()
+        mock_packet.__getitem__.side_effect = lambda _: MagicMock()
         mock_packet.time = 1234567890.0
         mock_packet.__len__.return_value = 100
 
@@ -74,7 +74,7 @@ class TestPacketCapture:
         packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
         packet_capture.packets = [packet]
 
-        # Call show_packets (this just prints to console, so we're just testing it doesn't raise exceptions.md)
+        # Call show_packets (just testing it doesn't raise exceptions)
         packet_capture.show_packets()
 
     def test_show_stats(self, packet_capture: PacketCapture) -> None:
@@ -104,7 +104,7 @@ class TestPacketCapture:
 
         packet_capture.packets = [packet1, packet2]
 
-        # Call show_stats (this just prints to console, so we're just testing it doesn't raise exceptions.md)
+        # Call show_stats (just testing it doesn't raise exceptions)
         packet_capture.show_stats()
 
     def test_process_packet_layers(self, packet_capture: PacketCapture) -> None:

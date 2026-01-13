@@ -14,7 +14,7 @@ The module uses a single class hierarchy based on Pydantic models, which provide
 Each packet type inherits from a base packet class and adds its specific fields and methods.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pandas as pd
 import pydantic as pyd
@@ -68,7 +68,7 @@ class Packet(BaseModel):
     """
 
     timestamp: float
-    layers: List[PacketLayer]
+    layers: list[PacketLayer]
     raw_size: int
 
     def has_layer(self, layer_name: str) -> bool:
@@ -98,7 +98,7 @@ class Packet(BaseModel):
                 return layer
         return None
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         """
         Convert the packet to a JSON representation.
         """
@@ -131,7 +131,7 @@ class BasePacket(pyd.BaseModel):
     """
 
     payload: Optional[str] = None
-    layers: List[str] = []
+    layers: list[str] = []
     timestamp: Optional[Any] = None  # Can be str or float
     dst_ip: Optional[IPvAnyAddress] = None
     src_ip: Optional[IPvAnyAddress] = None
@@ -145,12 +145,12 @@ class BasePacket(pyd.BaseModel):
         """
         return self.payload
 
-    def get_layers(self) -> List[str]:
+    def get_layers(self) -> list[str]:
         """
         Get the list of protocol layers in the packet.
 
         Returns:
-            List[str]: A list of protocol layers in the packet.
+            list[str]: A list of protocol layers in the packet.
         """
         return self.layers
 
@@ -181,12 +181,12 @@ class BasePacket(pyd.BaseModel):
         """
         return str(self.src_ip) if self.src_ip else None
 
-    def to_json(self) -> Dict[str, Any]:
+    def to_json(self) -> dict[str, Any]:
         """
         Convert the packet model to a JSON-serializable dictionary.
 
         Returns:
-            Dict[str, Any]: A dictionary representation of the packet.
+            dict[str, Any]: A dictionary representation of the packet.
         """
         return self.model_dump()
 
@@ -211,7 +211,8 @@ class BasePacket(pyd.BaseModel):
         """
         if not POLARS_AVAILABLE:
             raise ImportError(
-                "The polars package is not installed. Please install it with 'pip install polars' or 'poetry add polars'."
+                "The polars package is not installed. "
+                "Please install it with 'pip install polars' or 'poetry add polars'."
             )
 
         try:
@@ -355,7 +356,8 @@ class STPPacket(BasePacket):
     Attributes:
         protocol_id (Optional[int]): Protocol identifier.
         version (Optional[int]): STP version.
-        bpdutype (Optional[int]): Bridge Protocol Data Unit type (0x00 for Configuration, 0x80 for TCN).
+        bpdutype (Optional[int]): Bridge Protocol Data Unit type
+            (0x00 for Configuration, 0x80 for TCN).
         flags (Optional[bytes]): Flag bits, including Topology Change Notification (0x01).
         root_bridge_id (Optional[str]): ID of the root bridge.
         sender_bridge_id (Optional[str]): ID of the sender bridge.
@@ -431,7 +433,8 @@ class EthernetPacket(BasePacket):
         sfd (Optional[int]): Start Frame Delimiter, marks the beginning of the frame.
         dst_mac (Optional[MacAddress]): Destination MAC address.
         src_mac (Optional[MacAddress]): Source MAC address.
-        type (Optional[int]): EtherType field indicating the protocol of the payload (e.g., 0x0800 for IPv4).
+        type (Optional[int]): EtherType field indicating the protocol
+            of the payload (e.g., 0x0800 for IPv4).
         crc (Optional[str]): Cyclic Redundancy Check for error detection.
     """
 
@@ -510,7 +513,7 @@ class IPPacket(BasePacket):
     chksum: Optional[int] = None  # Header Checksum
     src: Optional[IPvAnyAddress] = None  # Source Address
     dst: Optional[IPvAnyAddress] = None  # Destination Address
-    options: Optional[List[dict]] = None  # Options
+    options: Optional[list[dict]] = None  # Options
 
     @classmethod
     def new(cls, **data: Any) -> "IPPacket":
@@ -661,7 +664,7 @@ class TCPPacket(BasePacket):
     window: Optional[int] = None  # Window Size
     chksum: Optional[int] = None  # Checksum
     urgptr: Optional[int] = None  # Urgent Pointer
-    options: Optional[List[tuple]] = None  # Options
+    options: Optional[list[tuple]] = None  # Options
 
     @classmethod
     def new(cls, **data: Any) -> "TCPPacket":

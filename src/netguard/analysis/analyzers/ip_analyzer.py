@@ -1,5 +1,7 @@
 """IP protocol analyzer for network traffic analysis."""
 
+from typing import ClassVar
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
@@ -21,7 +23,7 @@ class IpAnalyzer(BaseAnalyzer):
     """
 
     # IP Protocol Numbers
-    PROTOCOL_NUMBERS = {
+    PROTOCOL_NUMBERS: ClassVar[dict[int, str]] = {
         1: "ICMP",
         2: "IGMP",
         6: "TCP",
@@ -35,13 +37,13 @@ class IpAnalyzer(BaseAnalyzer):
     }
 
     # IP Flags
-    IP_FLAGS = {
+    IP_FLAGS: ClassVar[dict[str, str]] = {
         "DF": "Don't Fragment",
         "MF": "More Fragments",
     }
 
     # DSCP Classes (for QoS)
-    DSCP_CLASSES = {
+    DSCP_CLASSES: ClassVar[dict[int, str]] = {
         0: "BE",  # Best Effort
         8: "CS1",  # Class Selector 1
         10: "AF11",  # Assured Forwarding 11
@@ -125,7 +127,7 @@ class IpAnalyzer(BaseAnalyzer):
         )
 
         # Combine
-        combined = src_stats.join(dst_stats, on="ip_address", how="outer_coalesce").fill_null(0)
+        combined = src_stats.join(dst_stats, on="ip_address", how="outer").fill_null(0)
 
         # Calculate totals
         combined = combined.with_columns(
@@ -263,7 +265,7 @@ class IpAnalyzer(BaseAnalyzer):
         )
 
         # Combine
-        combined = src_stats.join(dst_stats, on="ip_address", how="outer_coalesce").fill_null(0)
+        combined = src_stats.join(dst_stats, on="ip_address", how="outer").fill_null(0)
 
         # Calculate total and ratio
         combined = combined.with_columns(

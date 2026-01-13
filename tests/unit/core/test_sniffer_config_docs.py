@@ -162,6 +162,7 @@ def run_all_tests():
     print("\n✓ All tests passed successfully!")
     print("The SnifferConfig documentation is accurate and all parameters work as expected.")
 
+
 # Tests successful upto: 27/12/2025
 if __name__ == "__main__":
     run_all_tests()

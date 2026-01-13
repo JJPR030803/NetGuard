@@ -1,5 +1,7 @@
 """ICMP protocol analyzer for network traffic analysis."""
 
+from typing import ClassVar
+
 import polars as pl
 
 from netguard.analysis.base_analyzer import BaseAnalyzer
@@ -21,7 +23,7 @@ class IcmpAnalyzer(BaseAnalyzer):
     ICMPV6_PROTOCOL_NUMBER = 58
 
     # ICMP Message Types
-    MESSAGE_TYPES = {
+    MESSAGE_TYPES: ClassVar[dict[int, str]] = {
         0: "Echo Reply",
         3: "Destination Unreachable",
         4: "Source Quench",
@@ -40,7 +42,7 @@ class IcmpAnalyzer(BaseAnalyzer):
     }
 
     # ICMP Destination Unreachable Codes
-    UNREACHABLE_CODES = {
+    UNREACHABLE_CODES: ClassVar[dict[int, str]] = {
         0: "Network Unreachable",
         1: "Host Unreachable",
         2: "Protocol Unreachable",

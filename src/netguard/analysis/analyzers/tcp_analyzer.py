@@ -1,9 +1,15 @@
 """TCP protocol analyzer for network traffic analysis."""
 
-from typing import Optional, Union
+from typing import ClassVar, Optional, Union
 
 import polars as pl
 
+from netguard.analysis.analyzers.tcp_config import (
+    PortScanConfig,
+    ScanProfile,
+    create_custom_config,
+    get_scan_config,
+)
 from netguard.analysis.base_analyzer import BaseAnalyzer
 from netguard.analysis.utils import has_column, parse_time_window
 from netguard.core.errors import EmptyDataFrameError, MissingColumnError
@@ -27,7 +33,7 @@ class TcpAnalyzer(BaseAnalyzer):
     DEFAULT_PORT_SCAN_THRESHOLD = 20
 
     # Common TCP ports
-    COMMON_PORTS = {
+    COMMON_PORTS: ClassVar[dict[int, str]] = {
         20: "FTP-DATA",
         21: "FTP",
         22: "SSH",
@@ -45,7 +51,7 @@ class TcpAnalyzer(BaseAnalyzer):
     }
 
     # TCP Flag definitions
-    TCP_FLAGS = {
+    TCP_FLAGS: ClassVar[dict[str, str]] = {
         "F": "FIN",
         "S": "SYN",
         "R": "RST",
@@ -210,18 +216,30 @@ class TcpAnalyzer(BaseAnalyzer):
                 ]
             )
             .filter(pl.col("first_syn").is_not_null(), pl.col("last_fin").is_not_null())
-            .with_columns((pl.col("last_fin") - pl.col("first_syn")).alias("duration"))
-            .select("duration")
+            .with_columns(
+                (pl.col("last_fin") - pl.col("first_syn"))
+                .dt.total_seconds()
+                .alias("duration_seconds")
+            )
+            .select("duration_seconds")
         )
 
         if len(durations) == 0:
             return {}
 
+        # Get statistics - values are floats (seconds) or None
+        stats = durations.select(
+            pl.col("duration_seconds").min().alias("min"),
+            pl.col("duration_seconds").max().alias("max"),
+            pl.col("duration_seconds").mean().alias("mean"),
+            pl.col("duration_seconds").median().alias("median"),
+        ).row(0)
+
         return {
-            "min": float(durations["duration"].min()),
-            "max": float(durations["duration"].max()),
-            "mean": float(durations["duration"].mean()),
-            "median": float(durations["duration"].median()),
+            "min": stats[0] if stats[0] is not None else 0.0,
+            "max": stats[1] if stats[1] is not None else 0.0,
+            "mean": stats[2] if stats[2] is not None else 0.0,
+            "median": stats[3] if stats[3] is not None else 0.0,
         }
 
     def identify_long_lived_connections(self, threshold: str) -> pl.DataFrame:
@@ -542,12 +560,21 @@ class TcpAnalyzer(BaseAnalyzer):
         if len(window_sizes) == 0:
             return {}
 
+        # Get all statistics in one query
+        stats = window_sizes.select(
+            pl.col("TCP_window").min().alias("min"),
+            pl.col("TCP_window").max().alias("max"),
+            pl.col("TCP_window").mean().alias("mean"),
+            pl.col("TCP_window").median().alias("median"),
+            pl.col("TCP_window").std().alias("std"),
+        ).row(0)
+
         return {
-            "min": int(window_sizes["TCP_window"].min()),
-            "max": int(window_sizes["TCP_window"].max()),
-            "mean": float(window_sizes["TCP_window"].mean()),
-            "median": float(window_sizes["TCP_window"].median()),
-            "std": float(window_sizes["TCP_window"].std()),
+            "min": int(stats[0]) if stats[0] is not None else 0,
+            "max": int(stats[1]) if stats[1] is not None else 0,
+            "mean": float(stats[2]) if stats[2] is not None else 0.0,
+            "median": float(stats[3]) if stats[3] is not None else 0.0,
+            "std": float(stats[4]) if stats[4] is not None else 0.0,
         }
 
     def detect_retransmissions(self) -> pl.DataFrame:
@@ -745,7 +772,7 @@ class TcpAnalyzer(BaseAnalyzer):
     #################################################
     def detect_port_scanning(
         self,
-        config: Union["PortScanConfig", "ScanProfile", None] = None,
+        config: Union[PortScanConfig, ScanProfile, None] = None,
         threshold: Optional[int] = None,
         time_window: Optional[str] = None,
     ) -> pl.DataFrame:
@@ -794,16 +821,8 @@ class TcpAnalyzer(BaseAnalyzer):
 
         Note:
             Primarily detects TCP SYN scans (most common). For comprehensive
-            3multiprotocol scanning, see AnomalyAnalyzer.detect_coordinated_scan()
+            multiprotocol scanning, see AnomalyAnalyzer.detect_coordinated_scan()
         """
-        # Import here to avoid circular imports
-        from tcp_config import (
-            PortScanConfig,
-            ScanProfile,
-            create_custom_config,
-            get_scan_config,
-        )
-
         # Step 1: Resolve configuration
         if isinstance(config, ScanProfile):
             scan_config = get_scan_config(config)
@@ -838,7 +857,7 @@ class TcpAnalyzer(BaseAnalyzer):
                 .sort("timestamp")
                 # Group by time windows and (src_ip, dst_ip) pairs
                 .group_by_dynamic(
-                    "timestamp", every=scan_config.time_window, by=["IP_src", "IP_dst"]
+                    "timestamp", every=scan_config.time_window, group_by=["IP_src", "IP_dst"]
                 )
                 # Calculate metrics per group
                 .agg(
@@ -897,7 +916,8 @@ class TcpAnalyzer(BaseAnalyzer):
                 )
             else:
                 print(
-                    f"⚠ Detected {len(result)} potential port scan(s) using {scan_config.sensitivity} sensitivity profile"
+                    f"⚠ Detected {len(result)} potential port scan(s) "
+                    f"using {scan_config.sensitivity} sensitivity profile"
                 )
                 # Show summary of findings
                 critical = result.filter(pl.col("severity") == "critical")
@@ -910,4 +930,4 @@ class TcpAnalyzer(BaseAnalyzer):
             return result
 
         except Exception as e:
-            raise Exception(f"Error detecting port scans with config {scan_config}: {e!s}")
+            raise Exception(f"Error detecting port scans with config {scan_config}: {e!s}") from e

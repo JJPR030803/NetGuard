@@ -28,7 +28,7 @@ The exception hierarchy is organized as follows:
 from netguard.core.loggers import ErrorLogger
 
 
-class SnifferException(Exception):
+class SnifferError(Exception):
     """Base exception class for all sniffer-related errors.
 
     This is the parent class for all exceptions.md in the sniffer module.
@@ -39,7 +39,7 @@ class SnifferException(Exception):
         logger (ErrorLogger): Logger for error messages
     """
 
-    def __init__(self, message="An error occurred in the sniffer module"):
+    def __init__(self, message: str = "An error occurred in the sniffer module") -> None:
         self.message = message
         self.logger = ErrorLogger()
         self.logger.log(f"SnifferException: {self.message}")
@@ -47,7 +47,7 @@ class SnifferException(Exception):
 
 
 # Interface-related exceptions.md
-class InterfaceException(SnifferException):
+class InterfaceError(SnifferError):
     """Base exception for interface-related errors.
 
     This exception is raised when there's an issue with network interfaces.
@@ -57,7 +57,9 @@ class InterfaceException(SnifferException):
         message (str): Explanation of the error
     """
 
-    def __init__(self, interface="", message="An interface-related error occurred"):
+    def __init__(
+        self, interface: str = "", message: str = "An interface-related error occurred"
+    ) -> None:
         self.interface = interface
         message_with_interface = (
             f"{message}" if not interface else f"{message} (Interface: {interface})"
@@ -65,7 +67,7 @@ class InterfaceException(SnifferException):
         super().__init__(message_with_interface)
 
 
-class InterfaceNotFoundError(InterfaceException):
+class InterfaceNotFoundError(InterfaceError):
     """Exception raised when a specified interface doesn't exist.
 
     This exception is raised when trying to use a network interface that
@@ -75,11 +77,11 @@ class InterfaceNotFoundError(InterfaceException):
         interface (str): Name of the interface that wasn't found
     """
 
-    def __init__(self, interface=""):
+    def __init__(self, interface: str = "") -> None:
         super().__init__(interface, "Network interface not found")
 
 
-class InterfacePermissionError(InterfaceException):
+class InterfacePermissionError(InterfaceError):
     """Exception raised when permissions are insufficient for an interface.
 
     This exception is raised when the user doesn't have sufficient permissions
@@ -89,11 +91,11 @@ class InterfacePermissionError(InterfaceException):
         interface (str): Name of the interface with permission issues
     """
 
-    def __init__(self, interface=""):
+    def __init__(self, interface: str = "") -> None:
         super().__init__(interface, "Insufficient permissions for network interface")
 
 
-class InterfaceConfigurationError(InterfaceException):
+class InterfaceConfigurationError(InterfaceError):
     """Exception raised when interface configuration is invalid.
 
     This exception is raised when there's an issue with the configuration
@@ -104,7 +106,7 @@ class InterfaceConfigurationError(InterfaceException):
         config_issue (str): Description of the configuration issue
     """
 
-    def __init__(self, interface="", config_issue=""):
+    def __init__(self, interface: str = "", config_issue: str = "") -> None:
         message = "Invalid interface configuration"
         if config_issue:
             message += f": {config_issue}"
@@ -112,7 +114,7 @@ class InterfaceConfigurationError(InterfaceException):
 
 
 # Packet capture exceptions.md
-class PacketCaptureException(SnifferException):
+class PacketCaptureError(SnifferError):
     """Base exception for packet capture errors.
 
     This exception is raised when there's an issue with packet capturing.
@@ -121,11 +123,11 @@ class PacketCaptureException(SnifferException):
         message (str): Explanation of the error
     """
 
-    def __init__(self, message="An error occurred during packet capture"):
+    def __init__(self, message: str = "An error occurred during packet capture") -> None:
         super().__init__(message)
 
 
-class PacketProcessingError(PacketCaptureException):
+class PacketProcessingError(PacketCaptureError):
     """Exception raised when processing a packet fails.
 
     This exception is raised when there's an error processing a captured packet.
@@ -135,7 +137,7 @@ class PacketProcessingError(PacketCaptureException):
         error_details (str): Details about the processing error
     """
 
-    def __init__(self, packet_id="", error_details=""):
+    def __init__(self, packet_id: str = "", error_details: str = "") -> None:
         message = "Error processing packet"
         if packet_id:
             message += f" (ID: {packet_id})"
@@ -144,7 +146,7 @@ class PacketProcessingError(PacketCaptureException):
         super().__init__(message)
 
 
-class CaptureLimitExceededError(PacketCaptureException):
+class CaptureLimitExceededError(PacketCaptureError):
     """Exception raised when capture limits are exceeded.
 
     This exception is raised when a capture operation exceeds defined limits
@@ -156,7 +158,7 @@ class CaptureLimitExceededError(PacketCaptureException):
         current_value (int): Current value that exceeded the limit
     """
 
-    def __init__(self, limit_type="", limit_value=0, current_value=0):
+    def __init__(self, limit_type: str = "", limit_value: int = 0, current_value: int = 0) -> None:
         message = "Capture limit exceeded"
         if limit_type:
             message += f" for {limit_type}"
@@ -168,7 +170,7 @@ class CaptureLimitExceededError(PacketCaptureException):
         super().__init__(message)
 
 
-class FilterError(PacketCaptureException):
+class FilterError(PacketCaptureError):
     """Exception raised when a BPF filter is invalid.
 
     This exception is raised when there's an issue with a Berkeley Packet Filter (BPF)
@@ -179,7 +181,7 @@ class FilterError(PacketCaptureException):
         error_details (str): Details about the filter error
     """
 
-    def __init__(self, filter_expression="", error_details=""):
+    def __init__(self, filter_expression: str = "", error_details: str = "") -> None:
         message = "Invalid packet filter"
         if filter_expression:
             message += f" (expression: '{filter_expression}')"
@@ -189,7 +191,7 @@ class FilterError(PacketCaptureException):
 
 
 # Data processing exceptions.md
-class DataProcessingException(SnifferException):
+class DataProcessingError(SnifferError):
     """Base exception for data processing errors.
 
     This exception is raised when there's an issue with processing captured data.
@@ -198,11 +200,11 @@ class DataProcessingException(SnifferException):
         message (str): Explanation of the error
     """
 
-    def __init__(self, message="An error occurred during data processing"):
+    def __init__(self, message: str = "An error occurred during data processing") -> None:
         super().__init__(message)
 
 
-class DataConversionError(DataProcessingException):
+class DataConversionError(DataProcessingError):
     """Exception raised when converting data between formats fails.
 
     This exception is raised when there's an error converting data between
@@ -214,7 +216,9 @@ class DataConversionError(DataProcessingException):
         error_details (str): Details about the conversion error
     """
 
-    def __init__(self, source_format="", target_format="", error_details=""):
+    def __init__(
+        self, source_format: str = "", target_format: str = "", error_details: str = ""
+    ) -> None:
         message = "Error converting data"
         if source_format and target_format:
             message += f" from {source_format} to {target_format}"
@@ -223,7 +227,7 @@ class DataConversionError(DataProcessingException):
         super().__init__(message)
 
 
-class DataExportError(DataProcessingException):
+class DataExportError(DataProcessingError):
     """Exception raised when exporting data fails.
 
     This exception is raised when there's an error exporting data to a file
@@ -235,7 +239,9 @@ class DataExportError(DataProcessingException):
         error_details (str): Details about the export error
     """
 
-    def __init__(self, export_format="", destination="", error_details=""):
+    def __init__(
+        self, export_format: str = "", destination: str = "", error_details: str = ""
+    ) -> None:
         message = "Error exporting data"
         if export_format:
             message += f" as {export_format}"
@@ -246,7 +252,7 @@ class DataExportError(DataProcessingException):
         super().__init__(message)
 
 
-class DataImportError(DataProcessingException):
+class DataImportError(DataProcessingError):
     """Exception raised when importing data fails.
 
     This exception is raised when there's an error importing data from a file
@@ -258,7 +264,7 @@ class DataImportError(DataProcessingException):
         error_details (str): Details about the import error
     """
 
-    def __init__(self, import_format="", source="", error_details=""):
+    def __init__(self, import_format: str = "", source: str = "", error_details: str = "") -> None:
         message = "Error importing data"
         if import_format:
             message += f" from {import_format}"
@@ -270,7 +276,7 @@ class DataImportError(DataProcessingException):
 
 
 # Configuration exceptions.md
-class ConfigurationException(SnifferException):
+class ConfigurationError(SnifferError):
     """Base exception for configuration errors.
 
     This exception is raised when there's an issue with sniffer configuration.
@@ -280,7 +286,9 @@ class ConfigurationException(SnifferException):
         message (str): Explanation of the error
     """
 
-    def __init__(self, config_name="", message="A configuration error occurred"):
+    def __init__(
+        self, config_name: str = "", message: str = "A configuration error occurred"
+    ) -> None:
         self.config_name = config_name
         message_with_config = (
             f"{message}" if not config_name else f"{message} (Configuration: {config_name})"
@@ -288,7 +296,7 @@ class ConfigurationException(SnifferException):
         super().__init__(message_with_config)
 
 
-class InvalidConfigurationError(ConfigurationException):
+class InvalidConfigurationError(ConfigurationError):
     """Exception raised when configuration is invalid.
 
     This exception is raised when a configuration value or setting is invalid.
@@ -299,7 +307,7 @@ class InvalidConfigurationError(ConfigurationException):
         reason (str): Reason why the configuration is invalid
     """
 
-    def __init__(self, config_name="", config_value="", reason=""):
+    def __init__(self, config_name: str = "", config_value: str = "", reason: str = "") -> None:
         message = "Invalid configuration"
         if config_value:
             message += f" value: {config_value}"
@@ -308,7 +316,7 @@ class InvalidConfigurationError(ConfigurationException):
         super().__init__(config_name, message)
 
 
-class ConfigurationNotFoundError(ConfigurationException):
+class ConfigurationNotFoundError(ConfigurationError):
     """Exception raised when configuration is not found.
 
     This exception is raised when a required configuration setting is missing.
@@ -317,5 +325,5 @@ class ConfigurationNotFoundError(ConfigurationException):
         config_name (str): Name of the configuration that is missing
     """
 
-    def __init__(self, config_name=""):
+    def __init__(self, config_name: str = "") -> None:
         super().__init__(config_name, "Configuration not found")

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from netguard.workflows.workflows import IPInvestigation
 
 
-def main():
+def main() -> int:
     # Configuration
     parquet_file = "capture.parquet"
     target_ip = "192.168.1.100"  # Change to your target IP
@@ -37,7 +37,7 @@ def main():
     print(f"Data source: {parquet_file}")
     print()
 
-    investigation = IPInvestigation(parquet_file, ip=target_ip, lazy_load=True)
+    investigation = IPInvestigation(parquet_file, ip=target_ip)
 
     # Run investigation
     print("Analyzing all activity related to this IP...")

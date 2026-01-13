@@ -12,8 +12,10 @@ Fixture Hierarchy:
     └── e2e/conftest.py         # E2E test fixtures
 """
 
+import contextlib
 import os
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -249,7 +251,8 @@ def assert_dataframe_equal():
             for col in df1.columns:
                 if df1[col].dtype != df2[col].dtype:
                     raise AssertionError(
-                        f"Dtype mismatch in column '{col}':\n  df1: {df1[col].dtype}\n  df2: {df2[col].dtype}"
+                        f"Dtype mismatch in column '{col}':\n"
+                        f"  df1: {df1[col].dtype}\n  df2: {df2[col].dtype}"
                     )
 
         # Check values
@@ -334,7 +337,6 @@ def timer():
         ...     slow_function()
         >>> assert t.elapsed < 1.0, "Function took too long"
     """
-    import time
 
     class Timer:
         def __init__(self):
@@ -367,7 +369,6 @@ def mock_env_vars():
         >>> with mock_env_vars({"DEBUG": "1"}):
         ...     # Test code here
     """
-    import contextlib
 
     @contextlib.contextmanager
     def _mock_env(**env_vars):

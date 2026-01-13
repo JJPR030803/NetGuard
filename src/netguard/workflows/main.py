@@ -13,9 +13,10 @@ import sys
 from datetime import time
 from pathlib import Path
 
+from netguard.analysis.utils import format_duration
 from netguard.core.errors import ParquetAnalysisError
 from netguard.core.loggers import get_logger, set_log_level
-from netguard.workflows.parquet_analysis import NetworkParquetAnalysis
+from netguard.workflows import NetworkParquetAnalysis
 from netguard.workflows.workflows import DailyAudit, IPInvestigation, ThreatHunting
 
 
@@ -167,7 +168,7 @@ Examples:
     return parser
 
 
-def command_info(args, analysis: NetworkParquetAnalysis):
+def command_info(args: argparse.Namespace, analysis: NetworkParquetAnalysis) -> None:
     """Execute info command."""
     print(f"\n{'=' * 60}")
     print(f"File: {args.file}")
@@ -179,15 +180,13 @@ def command_info(args, analysis: NetworkParquetAnalysis):
         print(f"Start time:    {date_range['start']}")
         print(f"End time:      {date_range['end']}")
         if date_range["duration"]:
-            from netguard.analysis.utils import format_duration
-
             print(f"Duration:      {format_duration(date_range['duration'])}")
 
     print(f"DataFrame size: {analysis.df.estimated_size('mb'):.2f} MB")
     print(f"{'=' * 60}\n")
 
 
-def command_schema(args, analysis: NetworkParquetAnalysis):
+def command_schema(args: argparse.Namespace, analysis: NetworkParquetAnalysis) -> None:
     """Execute schema command."""
     schema = analysis.get_schema()
     print(f"\n{'=' * 60}")
@@ -202,13 +201,13 @@ def command_schema(args, analysis: NetworkParquetAnalysis):
     print()
 
 
-def command_analyze(args, analysis: NetworkParquetAnalysis):
+def command_analyze(args: argparse.Namespace, analysis: NetworkParquetAnalysis) -> None:
     """Execute analyze command."""
     logger = get_logger()
 
     # Summary
     if args.summary:
-        summary = analysis.generate_network_summary()
+        summary = analysis.generate_summary()
         print("\n" + "=" * 60)
         print("NETWORK TRAFFIC SUMMARY")
         print("=" * 60)
@@ -230,15 +229,18 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.tcp:
         try:
             tcp = analysis.tcp
-            print("\n" + "=" * 60)
-            print("TCP ANALYSIS")
-            print("=" * 60)
-            print(f"Total TCP packets: {len(tcp.df):,}")
+            if tcp is None:
+                logger.warning("No TCP data available")
+            else:
+                print("\n" + "=" * 60)
+                print("TCP ANALYSIS")
+                print("=" * 60)
+                print(f"Total TCP packets: {len(tcp.df):,}")
 
-            if args.top_ports:
-                top_ports = tcp.get_most_used_ports(n=args.top_ports)
-                print(f"\nTop {args.top_ports} TCP ports:")
-                print(top_ports)
+                if args.top_ports:
+                    top_ports = tcp.get_most_used_ports(n=args.top_ports)
+                    print(f"\nTop {args.top_ports} TCP ports:")
+                    print(top_ports)
 
         except Exception as e:
             logger.error(f"TCP analysis failed: {e}")
@@ -247,15 +249,18 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.udp:
         try:
             udp = analysis.udp
-            print("\n" + "=" * 60)
-            print("UDP ANALYSIS")
-            print("=" * 60)
-            print(f"Total UDP packets: {len(udp.df):,}")
+            if udp is None:
+                logger.warning("No UDP data available")
+            else:
+                print("\n" + "=" * 60)
+                print("UDP ANALYSIS")
+                print("=" * 60)
+                print(f"Total UDP packets: {len(udp.df):,}")
 
-            if args.top_ports:
-                top_ports = udp.get_most_used_ports(n=args.top_ports)
-                print(f"\nTop {args.top_ports} UDP ports:")
-                print(top_ports)
+                if args.top_ports:
+                    top_ports = udp.get_most_used_ports(n=args.top_ports)
+                    print(f"\nTop {args.top_ports} UDP ports:")
+                    print(top_ports)
 
         except Exception as e:
             logger.error(f"UDP analysis failed: {e}")
@@ -264,14 +269,17 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.dns:
         try:
             dns = analysis.dns
-            print("\n" + "=" * 60)
-            print("DNS ANALYSIS")
-            print("=" * 60)
-            print(f"Total DNS packets: {len(dns.df):,}")
+            if dns is None:
+                logger.warning("No DNS data available")
+            else:
+                print("\n" + "=" * 60)
+                print("DNS ANALYSIS")
+                print("=" * 60)
+                print(f"Total DNS packets: {len(dns.df):,}")
 
-            top_queries = dns.get_top_queries(n=10)
-            print("\nTop 10 DNS queries:")
-            print(top_queries)
+                top_queries = dns.get_top_queries(n=10)
+                print("\nTop 10 DNS queries:")
+                print(top_queries)
 
         except Exception as e:
             logger.error(f"DNS analysis failed: {e}")
@@ -289,11 +297,14 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.top_ips:
         try:
             ip_analyzer = analysis.ip
-            top_ips = ip_analyzer.get_most_active_ips(n=args.top_ips, by="packets")
-            print("\n" + "=" * 60)
-            print(f"TOP {args.top_ips} MOST ACTIVE IPs")
-            print("=" * 60)
-            print(top_ips)
+            if ip_analyzer is None:
+                logger.warning("No IP data available")
+            else:
+                top_ips = ip_analyzer.get_most_active_ips(n=args.top_ips, by="packets")
+                print("\n" + "=" * 60)
+                print(f"TOP {args.top_ips} MOST ACTIVE IPs")
+                print("=" * 60)
+                print(top_ips)
 
         except Exception as e:
             logger.error(f"IP analysis failed: {e}")
@@ -302,25 +313,28 @@ def command_analyze(args, analysis: NetworkParquetAnalysis):
     if args.anomalies:
         try:
             anomaly = analysis.anomaly
-            print("\n" + "=" * 60)
-            print("ANOMALY DETECTION")
-            print("=" * 60)
+            if anomaly is None:
+                logger.warning("No anomaly analyzer available")
+            else:
+                print("\n" + "=" * 60)
+                print("ANOMALY DETECTION")
+                print("=" * 60)
 
-            if args.port_scan:
-                port_scans = anomaly.detect_port_scanning(threshold=100, time_window="1m")
-                print("\nPort scan detection:")
-                print(port_scans)
+                if args.port_scan:
+                    port_scans = anomaly.detect_port_scanning(threshold=100, time_window="1m")
+                    print("\nPort scan detection:")
+                    print(port_scans)
 
-            if args.syn_flood:
-                syn_floods = anomaly.detect_syn_flood(threshold=1000, time_window="1m")
-                print("\nSYN flood detection:")
-                print(syn_floods)
+                if args.syn_flood:
+                    syn_floods = anomaly.detect_syn_flood(threshold=1000, _time_window="1m")
+                    print("\nSYN flood detection:")
+                    print(syn_floods)
 
         except Exception as e:
             logger.error(f"Anomaly detection failed: {e}")
 
 
-def command_daily_audit(args):
+def command_daily_audit(args: argparse.Namespace) -> int:
     """Execute daily audit workflow."""
     logger = get_logger()
 
@@ -337,7 +351,7 @@ def command_daily_audit(args):
 
     # Run audit
     logger.info("Starting daily security audit...")
-    audit = DailyAudit(args.file, business_hours=business_hours, lazy_load=args.lazy)
+    audit = DailyAudit(args.file, business_hours=business_hours)
     report = audit.run()
 
     # Display report
@@ -356,12 +370,12 @@ def command_daily_audit(args):
     return 0
 
 
-def command_investigate_ip(args):
+def command_investigate_ip(args: argparse.Namespace) -> int:
     """Execute IP investigation workflow."""
     logger = get_logger()
 
     logger.info(f"Investigating IP: {args.ip}")
-    investigation = IPInvestigation(args.file, ip=args.ip, lazy_load=args.lazy)
+    investigation = IPInvestigation(args.file, ip=args.ip)
     report = investigation.run()
 
     # Display report
@@ -380,11 +394,11 @@ def command_investigate_ip(args):
     return 0
 
 
-def command_threat_hunt(args):
+def command_threat_hunt(args: argparse.Namespace) -> int:
     """Execute threat hunting workflow."""
     logger = get_logger()
 
-    hunter = ThreatHunting(args.file, lazy_load=args.lazy)
+    hunter = ThreatHunting(args.file)
 
     # Determine which hunts to run
     hunt_types = ["c2", "data-theft", "lateral"] if args.type == "all" else [args.type]
@@ -435,7 +449,7 @@ def command_threat_hunt(args):
     return 0
 
 
-def main():
+def main() -> int:
     """Main entry point for CLI."""
     parser = setup_argparser()
     args = parser.parse_args()
@@ -468,8 +482,7 @@ def main():
             return 1
 
         # Create analysis instance
-        lazy = args.lazy if hasattr(args, "lazy") else False
-        analysis = NetworkParquetAnalysis(file_path, lazy_load=lazy)
+        analysis = NetworkParquetAnalysis(file_path)
 
         # Execute command
         if args.command == "info":

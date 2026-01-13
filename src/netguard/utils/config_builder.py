@@ -5,7 +5,7 @@ This module provides a utility class for creating SnifferConfig instances
 in different ways (from YAML, from dict, default).
 """
 
-from typing import Dict, Optional
+from typing import Any, Optional
 
 from netguard.core.config import SnifferConfig
 
@@ -32,12 +32,12 @@ class ConfigBuilder:
         return SnifferConfig.from_yaml(yaml_path)
 
     @staticmethod
-    def from_dict(config_dict: Dict) -> SnifferConfig:
+    def from_dict(config_dict: dict) -> SnifferConfig:
         """
         Create a SnifferConfig instance from a dictionary.
 
         Args:
-            config_dict (Dict): Dictionary containing configuration values
+            config_dict (dict): Dictionary containing configuration values
 
         Returns:
             SnifferConfig: Configuration object with values from the dictionary
@@ -71,7 +71,7 @@ class ConfigBuilder:
         Returns:
             SnifferConfig: Minimal configuration object
         """
-        config_dict = {}
+        config_dict: dict[str, Any] = {}
         if interface is not None:
             config_dict["interface"] = interface
         if log_dir is not None:
