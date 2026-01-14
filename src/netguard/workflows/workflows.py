@@ -129,11 +129,12 @@ class WorkflowReport:
             "sections": {k: str(v) for k, v in self.sections.items()},
         }
 
-    def to_json(self, file_path: Optional[str] = None) -> str:
+    def to_json(self, file_path: Optional[str] = None) -> Optional[str]:
         """Export report as JSON."""
         json_str = json.dumps(self.to_dict(), indent=2, default=str)
         if file_path:
             Path(file_path).write_text(json_str)
+            return None
         return json_str
 
 

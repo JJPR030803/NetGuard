@@ -252,7 +252,11 @@ class ParquetAnalysisFacade:
         Returns:
             pl.DataFrame: Packets with this IP as source or destination
         """
-        ip_columns = self.df.select(cs.contains("IP") | cs.contains("IPv6")).columns
+        # Only compare against actual IP address columns (src/dst), not all IP-related columns
+        ip_address_patterns = ["IP_src", "IP_dst", "IPv6_src", "IPv6_dst"]
+        ip_columns = [c for c in self.df.columns if any(p in c for p in ip_address_patterns)]
+        if not ip_columns:
+            return self.df.head(0)  # Return empty DataFrame with same schema
         return self.df.filter(pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns))
 
     def get_timestamps(self) -> pl.DataFrame:
@@ -261,7 +265,11 @@ class ParquetAnalysisFacade:
 
     def get_timestamps_by_ip(self, ip_address: str) -> pl.DataFrame:
         """Get timestamps for packets involving a specific IP."""
-        ip_columns = self.df.select(cs.contains("IP") | cs.contains("IPv6")).columns
+        # Only compare against actual IP address columns (src/dst), not all IP-related columns
+        ip_address_patterns = ["IP_src", "IP_dst", "IPv6_src", "IPv6_dst"]
+        ip_columns = [c for c in self.df.columns if any(p in c for p in ip_address_patterns)]
+        if not ip_columns:
+            return self.df.select(cs.contains("timestamp")).head(0)
         return self.df.filter(
             pl.any_horizontal(pl.col(c) == ip_address for c in ip_columns)
         ).select(cs.contains("timestamp"))
@@ -520,29 +528,48 @@ class ParquetAnalysisFacade:
                 pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("total_bytes_received")
             )
 
-        behavioral_df = df_with_unified_ips.group_by_dynamic(
-            index_column="timestamp", every=time_window, group_by=group_by_col
-        ).agg(
+        # Build aggregation list - only include columns that exist
+        aggs = [
             # Volume
-            pl.count().alias("packet_count"),
+            pl.len().alias("packet_count"),
             bytes_agg,
             # Diversity
             unique_ip_agg,
-            pl.col("TCP_dport").n_unique().alias("unique_tcp_dst_port_count"),
-            pl.col("UDP_dport").n_unique().alias("unique_udp_dst_port_count"),
-            # Per protocol
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6).sum().alias("tcp_packet_count"),
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17).sum().alias("udp_packet_count"),
-            (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1).sum().alias("icmp_packet_count"),
-            # TCP flags
-            pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
-            pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
-            pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
-            pl.col("TCP_flags").str.contains("P").sum().alias("psh_count"),
-            # IP flags
-            (pl.col("IP_flags") == "MF").sum().alias("ip_fragment_count"),
-            (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count"),
-        )
+        ]
+
+        # Optional port aggregations
+        if "TCP_dport" in existing_cols:
+            aggs.append(pl.col("TCP_dport").n_unique().alias("unique_tcp_dst_port_count"))
+        if "UDP_dport" in existing_cols:
+            aggs.append(pl.col("UDP_dport").n_unique().alias("unique_udp_dst_port_count"))
+
+        # Per protocol (requires IP_proto)
+        if "IP_proto" in existing_cols:
+            aggs.extend([
+                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6).sum().alias("tcp_packet_count"),
+                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17).sum().alias("udp_packet_count"),
+                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1).sum().alias("icmp_packet_count"),
+            ])
+
+        # TCP flags (requires TCP_flags)
+        if "TCP_flags" in existing_cols:
+            aggs.extend([
+                pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
+                pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
+                pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
+                pl.col("TCP_flags").str.contains("P").sum().alias("psh_count"),
+            ])
+
+        # IP flags (requires IP_flags)
+        if "IP_flags" in existing_cols:
+            aggs.extend([
+                (pl.col("IP_flags") == "MF").sum().alias("ip_fragment_count"),
+                (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count"),
+            ])
+
+        behavioral_df = df_with_unified_ips.group_by_dynamic(
+            index_column="timestamp", every=time_window, group_by=group_by_col
+        ).agg(*aggs)
         return behavioral_df
 
     # ============================================================================

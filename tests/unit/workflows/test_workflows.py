@@ -1,6 +1,7 @@
 """Tests for preprocessing workflows."""
 
 import json
+import unittest
 from datetime import datetime, time
 from unittest.mock import Mock, patch
 
@@ -137,7 +138,8 @@ class TestDailyAudit:
     @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
     def test_daily_audit_initialization(self, mock_analysis):
         """Test DailyAudit initialization."""
-        audit = DailyAudit("test.parquet")
+        custom_hours:tuple[time, time] = (time(9, 0), time(17, 0))
+        audit = DailyAudit("test.parquet",business_hours=custom_hours)
 
         assert audit.parquet_file == "test.parquet"
         assert audit.business_hours == (time(9, 0), time(17, 0))
@@ -257,3 +259,6 @@ class TestThreatHunting:
 
         assert isinstance(report, WorkflowReport)
         assert "Lateral Movement Threat Hunting Report" in report.title
+
+if __name__=="__main__":
+    unittest.main()

@@ -5,6 +5,7 @@ as well as the new ParquetAnalysisFacade class.
 """
 
 import json
+import unittest
 from datetime import datetime
 
 import polars as pl
@@ -327,3 +328,6 @@ class TestParquetAnalysisFacadeDunderMethods:
         str_repr = str(analysis)
         assert "Network Analysis" in str_repr
         assert "3 packets" in str_repr
+
+if __name__=="__main__":
+    unittest.main()
