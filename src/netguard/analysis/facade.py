@@ -545,27 +545,39 @@ class ParquetAnalysisFacade:
 
         # Per protocol (requires IP_proto)
         if "IP_proto" in existing_cols:
-            aggs.extend([
-                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6).sum().alias("tcp_packet_count"),
-                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17).sum().alias("udp_packet_count"),
-                (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1).sum().alias("icmp_packet_count"),
-            ])
+            aggs.extend(
+                [
+                    (pl.col("IP_proto").cast(pl.Int64, strict=False) == 6)
+                    .sum()
+                    .alias("tcp_packet_count"),
+                    (pl.col("IP_proto").cast(pl.Int64, strict=False) == 17)
+                    .sum()
+                    .alias("udp_packet_count"),
+                    (pl.col("IP_proto").cast(pl.Int64, strict=False) == 1)
+                    .sum()
+                    .alias("icmp_packet_count"),
+                ]
+            )
 
         # TCP flags (requires TCP_flags)
         if "TCP_flags" in existing_cols:
-            aggs.extend([
-                pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
-                pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
-                pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
-                pl.col("TCP_flags").str.contains("P").sum().alias("psh_count"),
-            ])
+            aggs.extend(
+                [
+                    pl.col("TCP_flags").str.contains("S").sum().alias("syn_count"),
+                    pl.col("TCP_flags").str.contains("R").sum().alias("rst_count"),
+                    pl.col("TCP_flags").str.contains("F").sum().alias("fin_count"),
+                    pl.col("TCP_flags").str.contains("P").sum().alias("psh_count"),
+                ]
+            )
 
         # IP flags (requires IP_flags)
         if "IP_flags" in existing_cols:
-            aggs.extend([
-                (pl.col("IP_flags") == "MF").sum().alias("ip_fragment_count"),
-                (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count"),
-            ])
+            aggs.extend(
+                [
+                    (pl.col("IP_flags") == "MF").sum().alias("ip_fragment_count"),
+                    (pl.col("IP_flags") == "DF").sum().alias("ip_dont_fragment_count"),
+                ]
+            )
 
         behavioral_df = df_with_unified_ips.group_by_dynamic(
             index_column="timestamp", every=time_window, group_by=group_by_col

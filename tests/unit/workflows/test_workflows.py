@@ -135,11 +135,12 @@ class TestWorkflowReport:
 class TestDailyAudit:
     """Test DailyAudit workflow."""
 
+    # TODO: Fix tests here !!!!!!!!!!!!!!!!!!!!!!
     @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
     def test_daily_audit_initialization(self, mock_analysis):
         """Test DailyAudit initialization."""
-        custom_hours:tuple[time, time] = (time(9, 0), time(17, 0))
-        audit = DailyAudit("test.parquet",business_hours=custom_hours)
+        custom_hours: tuple[time, time] = (time(9, 0), time(17, 0))
+        audit = DailyAudit("test.parquet", business_hours=custom_hours)
 
         assert audit.parquet_file == "test.parquet"
         assert audit.business_hours == (time(9, 0), time(17, 0))
@@ -260,5 +261,6 @@ class TestThreatHunting:
         assert isinstance(report, WorkflowReport)
         assert "Lateral Movement Threat Hunting Report" in report.title
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     unittest.main()

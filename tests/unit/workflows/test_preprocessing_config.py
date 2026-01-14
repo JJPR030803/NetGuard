@@ -1,5 +1,7 @@
 """Tests for preprocessing configuration."""
+
 import unittest
+
 from netguard.workflows.preprocessing_config import AnalysisConfig
 
 
@@ -80,5 +82,6 @@ class TestAnalysisConfig:
         assert "min_packets_threshold" in repr_str
         assert "protocols" in repr_str
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     unittest.main()

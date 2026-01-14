@@ -159,10 +159,13 @@ def format_code(
 
 @code_app.command("type_check")
 def type_check(
-        type_checck:bool = typer.Option(False, "--check", help="Type check"),
+        relaxed:bool = typer.Option(False,"--relaxed-mode",help="Use mypy instead of ty (less strict and slower)")
 )->None:
     """Type check with mypy"""
-    cmd:list[str] = ["mypy","src/netguard"]
+    if relaxed:
+        cmd:list[str] = ["mypy","src/netguard"]
+    else:
+        cmd:list[str] = ["uv","run","ty","check","src/netguard"]
     typer.secho("Checking type annotations",color=True,fg='green')
     result = run_uv_command(cmd)
     sys.exit(result.returncode)
@@ -183,7 +186,7 @@ def check_all() -> None:
     results.append(("Linting", lint_result.returncode == 0))
 
     typer.echo("\n3. Type checking code...")
-    type_check_result = run_uv_command(["mypy", "src/netguard"])
+    type_check_result = run_uv_command(["uv","run","ty","check","src/netguard"])
     results.append(("Type Checking", type_check_result.returncode == 0))
 
     typer.echo("\n4. Running unit tests...")

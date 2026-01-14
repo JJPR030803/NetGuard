@@ -6,11 +6,12 @@ including all necessary fixtures and mocks.
 """
 
 import tempfile
+from collections.abc import Generator
 from queue import Queue
-from typing import Generator
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import polars as pl
 import pytest
 from scapy.layers.inet import ICMP, IP, TCP
 from scapy.layers.l2 import Ether
@@ -22,7 +23,6 @@ from netguard.models.packet_data_structures import (
     Packet,
     PacketLayer,
 )
-
 
 # ============================================================================
 # FIXTURES
@@ -194,9 +194,7 @@ class TestPacketCapture:
 
     def test_show_packets(self, packet_capture: PacketCapture) -> None:
         """Test showing captured packets does not raise exceptions."""
-        layer = PacketLayer(
-            layer_name="Test", fields={"field1": "value1", "field2": "value2"}
-        )
+        layer = PacketLayer(layer_name="Test", fields={"field1": "value1", "field2": "value2"})
         packet = Packet(timestamp=1234567890.0, layers=[layer], raw_size=100)
         packet_capture.packets = [packet]
 
@@ -233,16 +231,12 @@ class TestPacketCapture:
         # Should not raise
         packet_capture.show_stats()
 
-    def test_process_packet_layers_none_raises(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_packet_layers_none_raises(self, packet_capture: PacketCapture) -> None:
         """Test that processing None packet raises ValueError."""
         with pytest.raises(ValueError):
             packet_capture.process_packet_layers(None)
 
-    def test_process_packet_layers_missing_time(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_packet_layers_missing_time(self, packet_capture: PacketCapture) -> None:
         """Test processing packet missing time attribute uses default timestamp."""
         mock_packet = MagicMock()
         mock_packet.haslayer.return_value = False
@@ -256,9 +250,7 @@ class TestPacketCapture:
         assert processed.raw_size == 100
         assert len(processed.layers) == 0
 
-    def test_process_packet_layers_ethernet(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_packet_layers_ethernet(self, packet_capture: PacketCapture) -> None:
         """Test processing packet with Ethernet layer."""
         mock_packet = MagicMock()
         mock_packet.haslayer.side_effect = lambda x: x == Ether
@@ -350,9 +342,7 @@ class TestPacketCapture:
         assert processed.layers[0].fields["dport"] == 80
         assert processed.layers[0].fields["flags"] == "PA"
 
-    def test_process_packet_layers_multiple(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_packet_layers_multiple(self, packet_capture: PacketCapture) -> None:
         """Test processing packet with multiple layers (IP + TCP)."""
         mock_packet = MagicMock()
         mock_packet.haslayer.side_effect = lambda x: x in [IP, TCP]
@@ -400,24 +390,18 @@ class TestPacketCapture:
         assert processed.timestamp == 1234567890.0
         assert len(processed.layers) == 2
 
-        ip_layer = next(
-            (layer for layer in processed.layers if layer.layer_name == "IP"), None
-        )
+        ip_layer = next((layer for layer in processed.layers if layer.layer_name == "IP"), None)
         assert ip_layer is not None
         assert ip_layer.fields["src"] == "192.168.1.100"
         assert ip_layer.fields["dst"] == "10.0.0.100"
 
-        tcp_layer = next(
-            (layer for layer in processed.layers if layer.layer_name == "TCP"), None
-        )
+        tcp_layer = next((layer for layer in processed.layers if layer.layer_name == "TCP"), None)
         assert tcp_layer is not None
         assert tcp_layer.fields["sport"] == 54321
         assert tcp_layer.fields["dport"] == 443
         assert tcp_layer.fields["flags"] == "S"
 
-    def test_process_packet_layers_error_skips_layer(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_packet_layers_error_skips_layer(self, packet_capture: PacketCapture) -> None:
         """Test that layer processing errors are handled gracefully."""
 
         # Create a class that raises an error when accessing 'src'
@@ -451,9 +435,7 @@ class TestPacketCapture:
         # Layer should be skipped due to error
         assert len(processed.layers) == 0
 
-    def test_get_session_info_interface_types(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_get_session_info_interface_types(self, packet_capture: PacketCapture) -> None:
         """Test session info for different interface types."""
         with (
             patch("platform.system", return_value="Linux"),
@@ -549,9 +531,7 @@ class TestPacketCapture:
             assert packet_capture.stats["batch_count"] == 1
             assert packet_capture.stats["processing_time"] > 0
 
-    def test_process_queue_with_exception(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_process_queue_with_exception(self, packet_capture: PacketCapture) -> None:
         """Test processing packets from queue with exception."""
         mock_packet = create_mock_scapy_packet()
 
@@ -594,7 +574,6 @@ class TestPacketCapture:
     @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
     def test_packets_to_polars(self, packet_capture: PacketCapture) -> None:
         """Test converting packets to Polars DataFrames."""
-        import polars as pl
 
         layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
         layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
@@ -709,7 +688,6 @@ class TestPacketCapture:
     @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
     def test_to_polars_df(self, packet_capture: PacketCapture) -> None:
         """Test converting all packets to a single polars DataFrame."""
-        import polars as pl
 
         layer1 = PacketLayer(layer_name="Test1", fields={"field1": "value1"})
         layer2 = PacketLayer(layer_name="Test2", fields={"field2": "value2"})
@@ -741,7 +719,6 @@ class TestPacketCapture:
     @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
     def test_to_polars_df_empty(self, packet_capture: PacketCapture) -> None:
         """Test to_polars_df returns empty DataFrame for no packets."""
-        import polars as pl
 
         packet_capture.packets = []
         df = packet_capture.to_polars_df()

@@ -329,5 +329,6 @@ class TestParquetAnalysisFacadeDunderMethods:
         assert "Network Analysis" in str_repr
         assert "3 packets" in str_repr
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     unittest.main()

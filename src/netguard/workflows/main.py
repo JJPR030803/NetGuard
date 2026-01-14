@@ -8,14 +8,11 @@ parquet files using the NetworkParquetAnalysis framework.
 
 import argparse
 import json
-import logging
-import sys
 from datetime import time
 from pathlib import Path
 
 from netguard.analysis.utils import format_duration
-from netguard.core.errors import ParquetAnalysisError
-from netguard.core.loggers import get_logger, set_log_level
+from netguard.core.loggers import get_logger
 from netguard.workflows import NetworkParquetAnalysis
 from netguard.workflows.workflows import DailyAudit, IPInvestigation, ThreatHunting
 
@@ -449,64 +446,8 @@ def command_threat_hunt(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
-    """Main entry point for CLI."""
-    parser = setup_argparser()
-    args = parser.parse_args()
-
-    # Handle no command
-    if not args.command:
-        parser.print_help()
-        return 0
-
-    # Configure logging
-    logger = get_logger()
-    if args.verbose:
-        set_log_level(logging.DEBUG)
-    elif args.quiet:
-        set_log_level(logging.ERROR)
-
-    try:
-        # Handle workflow commands separately (they manage their own analysis instances)
-        if args.command == "daily-audit":
-            return command_daily_audit(args)
-        elif args.command == "investigate-ip":
-            return command_investigate_ip(args)
-        elif args.command == "threat-hunt":
-            return command_threat_hunt(args)
-
-        # For other commands, load parquet file and create analysis instance
-        file_path = args.file
-        if not Path(file_path).exists():
-            logger.error(f"File not found: {file_path}")
-            return 1
-
-        # Create analysis instance
-        analysis = NetworkParquetAnalysis(file_path)
-
-        # Execute command
-        if args.command == "info":
-            command_info(args, analysis)
-        elif args.command == "schema":
-            command_schema(args, analysis)
-        elif args.command == "analyze":
-            command_analyze(args, analysis)
-
-        return 0
-
-    except ParquetAnalysisError as e:
-        logger.error(f"Analysis error: {e}")
-        return 1
-    except KeyboardInterrupt:
-        logger.info("\nInterrupted by user")
-        return 130
-    except Exception as e:
-        logger.error(
-            f"Unexpected error: {e}",
-            exc_info=args.verbose if hasattr(args, "verbose") else False,
-        )
-        return 1
-
+# TODO set up tui with typer
 
 if __name__ == "__main__":
-    sys.exit(main())
+    pass
+# sys.exit(main())

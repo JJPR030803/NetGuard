@@ -43,7 +43,6 @@ class Interface:
     ):
         """Initialize the Interface class with configuration support."""
         # Import here to avoid circular imports
-        from .config import SnifferConfig
 
         # Use provided config or create default
         self.config = config if config is not None else SnifferConfig()
@@ -486,19 +485,25 @@ class Interface:
                 - 'vpn': For VPN tunnel interfaces
                 - 'unknown': If the type cannot be determined
         """
-        iface = iface.lower()
-        if iface in ("lo", "loopback"):
+        iface_lower = iface.lower()
+
+        # Exact matches (checked first for performance)
+        if iface_lower in ("lo", "loopback"):
             return "loopback"
-        if iface.startswith(("eth", "en", "eno")):
-            return "ethernet"
-        if iface.startswith(("wlan", "wifi", "wl")):
-            return "wireless"
-        if iface.startswith(("docker", "br-")):
-            return "docker"
-        if iface.startswith("veth"):
-            return "virtual"
-        if iface.startswith(("tun", "tap")):
-            return "vpn"
+
+        # Prefix-based detection
+        prefix_mapping = [
+            (("eth", "en", "eno"), "ethernet"),
+            (("wlan", "wifi", "wl"), "wireless"),
+            (("docker", "br-"), "docker"),
+            (("veth",), "virtual"),
+            (("tun", "tap"), "vpn"),
+        ]
+
+        for prefixes, iface_type in prefix_mapping:
+            if iface_lower.startswith(prefixes):
+                return iface_type
+
         return "unknown"
 
     def show_available_interfaces(self) -> None:

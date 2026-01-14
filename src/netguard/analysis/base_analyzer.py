@@ -68,9 +68,9 @@ class BaseAnalyzer:
         """Return True if analyzer has packets."""
         return self._packet_count > 0
 
-    def __hash__(self)->dict[None,None]:
+    def __hash__(self) -> dict[None, None]:
         raise ValueError("Cannot be used as a hash")
-        return None
+        return 0
 
     @property
     def packet_count(self) -> int:
