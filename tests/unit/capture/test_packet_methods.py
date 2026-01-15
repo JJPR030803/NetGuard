@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from pydantic import IPvAnyAddress
 from pydantic_extra_types.mac_address import MacAddress
 
 # Add the src directory to Python path
@@ -36,13 +35,14 @@ class TestMethods:
         network_packet = NetworkPacketModel(
             payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
         )
-        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
+        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")  # type: ignore[arg-type]
         stp_packet = STPPacketModel(protocol_id=0, version=2, bpdutype=0x00)
         ethernet_packet = EthernetPacketModel(
-            dst_mac="00:11:22:33:44:55", src_mac="55:44:33:22:11:00"
+            dst_mac=MacAddress("00:11:22:33:44:55"),
+            src_mac="55:44:33:22:11:00",  # type: ignore[arg-type]
         )
-        ip_packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2")
-        icmp_packet = ICMPPacketModel(type=8, code=0, src_ip="192.168.1.1", dst_ip="192.168.1.2")
+        ip_packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2")  # type: ignore[arg-type]
+        icmp_packet = ICMPPacketModel(type=8, code=0, src_ip="192.168.1.1", dst_ip="192.168.1.2")  # type: ignore[arg-type]
         tcp_packet = TCPPacketModel(sport=80, dport=443, flags="SYN")
         udp_packet = UDPPacketModel(sport=53, dport=5353, len=8)
 
@@ -67,7 +67,7 @@ class TestMethods:
         network_packet = NetworkPacketModel(
             payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
         )
-        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
+        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")  # type: ignore[arg-type]
 
         # Test to_pandas method for each packet type
         assert isinstance(network_packet.to_pandas(), pd.DataFrame)
@@ -85,7 +85,7 @@ class TestMethods:
         network_packet = NetworkPacketModel(
             payload="test", layers=["L2", "L3"], timestamp="2023-01-01"
         )
-        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")
+        arp_packet = ARPPacketModel(hw_type=1, proto_type=0x0800, sender_mac="00:11:22:33:44:55")  # type: ignore[arg-type]
 
         # Test to_polars method for each packet type
         assert isinstance(network_packet.to_polars(), pl.DataFrame)
@@ -113,16 +113,16 @@ class TestMethods:
         packet = ARPPacketModel(
             hw_type=1,
             proto_type=0x0800,
-            sender_mac="00:11:22:33:44:55",
-            sender_ip="192.168.1.1",
-            target_mac="00:00:00:00:00:00",
-            target_ip="192.168.1.2",
+            sender_mac="00:11:22:33:44:55",  # type: ignore[arg-type]
+            sender_ip="192.168.1.1",  # type: ignore[arg-type]
+            target_mac="00:00:00:00:00:00",  # type: ignore[arg-type]
+            target_ip="192.168.1.2",  # type: ignore[arg-type]
         )
 
         assert packet.hw_type == 1
         assert packet.proto_type == 0x0800
         assert packet.sender_mac == MacAddress("00:11:22:33:44:55")
-        assert packet.sender_ip == IPvAnyAddress("192.168.1.1")
+        assert str(packet.sender_ip) == "192.168.1.1"
 
     def test_tcp_packet_model_creation(self):
         """Test TCPPacketModel creation and basic properties."""
@@ -145,10 +145,10 @@ class TestMethods:
 
     def test_ip_packet_model_creation(self):
         """Test IPPacketModel creation and basic properties."""
-        packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2", proto=6)
+        packet = IPPacketModel(version=4, ttl=64, src="192.168.1.1", dst="192.168.1.2", proto=6)  # type: ignore[arg-type]
 
         assert packet.version == 4
         assert packet.ttl == 64
-        assert packet.src == IPvAnyAddress("192.168.1.1")
-        assert packet.dst == IPvAnyAddress("192.168.1.2")
+        assert str(packet.src) == "192.168.1.1"
+        assert str(packet.dst) == "192.168.1.2"
         assert packet.proto == 6

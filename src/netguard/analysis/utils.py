@@ -4,7 +4,7 @@ import ipaddress
 import math
 import re
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Union, overload
 
 import polars as pl
@@ -256,7 +256,7 @@ def parse_timestamp(ts: Any) -> datetime:
 
     if isinstance(ts, (int, float)):
         # Assume Unix epoch timestamp
-        return datetime.fromtimestamp(ts)
+        return datetime.fromtimestamp(ts, tz=timezone.utc)
 
     if isinstance(ts, str):
         # Try various formats
@@ -342,36 +342,25 @@ def parse_time_window(time_window: str) -> timedelta:
 def time_window_to_polars(time_window: str) -> str:
     """
     Convert time window string to Polars duration format.
-
-    Args:
-        time_window: Time window string (e.g., "5m", "1h")
-
-    Returns:
-        str: Polars-compatible duration string
-
-    Example:
-        >>> time_window_to_polars("5m")
-        '5m'
-        >>> time_window_to_polars("1.5h")
-        '90m'
     """
-    # Parse to validate
     td = parse_time_window(time_window)
-
-    # Convert to total seconds
     total_seconds = td.total_seconds()
 
-    # Choose appropriate unit
-    if total_seconds < 1:
+    # Handle milliseconds if sub-second precision exists
+    if total_seconds < 1 or (total_seconds % 1 != 0):
         return f"{int(total_seconds * 1000)}ms"
-    elif total_seconds < 60:
-        return f"{int(total_seconds)}s"
-    elif total_seconds < 3600:
-        return f"{int(total_seconds / 60)}m"
-    elif total_seconds < 86400:
-        return f"{int(total_seconds / 3600)}h"
-    else:
-        return f"{int(total_seconds / 86400)}d"
+
+    seconds_int = int(total_seconds)
+
+    # REMOVED: The check for 86400 (Days).
+    # This forces "2d" to fall through to the Hours check.
+
+    if seconds_int % 3600 == 0:  # Fits perfectly in Hours
+        return f"{seconds_int // 3600}h"
+    elif seconds_int % 60 == 0:  # Fits perfectly in Minutes
+        return f"{seconds_int // 60}m"
+    else:  # Fallback to Seconds
+        return f"{seconds_int}s"
 
 
 def classify_port(port: int) -> str:

@@ -211,7 +211,7 @@ class IpAnalyzer(BaseAnalyzer):
             .group_by("_destination_ip")
             .agg(
                 [
-                    pl.count().alias("packets_received"),
+                    pl.len().alias("packets_received"),
                     pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_received"),
                     pl.col("_source_ip").n_unique().alias("unique_sources"),
                 ]
@@ -245,7 +245,7 @@ class IpAnalyzer(BaseAnalyzer):
             self.df.group_by("_source_ip")
             .agg(
                 [
-                    pl.count().alias("packets_sent"),
+                    pl.len().alias("packets_sent"),
                     pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_sent"),
                 ]
             )
@@ -257,7 +257,7 @@ class IpAnalyzer(BaseAnalyzer):
             self.df.group_by("_destination_ip")
             .agg(
                 [
-                    pl.count().alias("packets_received"),
+                    pl.len().alias("packets_received"),
                     pl.col("IP_len").cast(pl.Int64, strict=False).sum().alias("bytes_received"),
                 ]
             )
@@ -265,7 +265,7 @@ class IpAnalyzer(BaseAnalyzer):
         )
 
         # Combine
-        combined = src_stats.join(dst_stats, on="ip_address", how="outer").fill_null(0)
+        combined = src_stats.join(dst_stats, on="ip_address", how="full").fill_null(0)
 
         # Calculate total and ratio
         combined = combined.with_columns(

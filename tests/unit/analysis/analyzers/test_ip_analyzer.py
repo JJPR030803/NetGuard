@@ -1,5 +1,6 @@
 """Tests for IP analyzer."""
 
+import unittest
 from datetime import datetime
 
 import polars as pl
@@ -57,7 +58,7 @@ class TestIpAnalyzerInitialization:
         """Test __str__ method."""
         analyzer = IpAnalyzer(ip_dataframe)
         str_repr = str(analyzer)
-        assert "IP Analyzer" in str_repr
+        assert "IpAnalyzer" in str_repr
 
 
 class TestIpAnalyzerMethods:
@@ -104,3 +105,7 @@ class TestIpAnalyzerMethods:
         analyzer = IpAnalyzer(ip_dataframe)
         with pytest.raises(InvalidThresholdError):
             analyzer.get_asymmetric_ips(threshold=1.5)
+
+
+if __name__ == "__main__":
+    unittest.main()

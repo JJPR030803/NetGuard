@@ -1,5 +1,6 @@
 """Tests for TCP analyzer."""
 
+import unittest
 from datetime import datetime
 
 import polars as pl
@@ -104,7 +105,7 @@ class TestTcpAnalyzerInitialization:
         """Test __str__ method."""
         analyzer = TcpAnalyzer(tcp_dataframe)
         str_repr = str(analyzer)
-        assert "TCP Analyzer" in str_repr
+        assert "TcpAnalyzer" in str_repr
         assert "5 packets" in str_repr
 
     def test_equality(self, tcp_dataframe):
@@ -301,3 +302,7 @@ class TestTcpAnalyzerEdgeCases:
         df = pl.DataFrame({"IP_proto": [6, 6]})
         analyzer = TcpAnalyzer(df)
         assert len(analyzer.df) == 2
+
+
+if __name__ == "__main__":
+    unittest.main()

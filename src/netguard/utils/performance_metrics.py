@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 import tracemalloc
+import types
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -107,7 +108,9 @@ class PerformanceMetrics:
                 metric_data = {
                     "timestamp": datetime.now(),
                     "type": "timing",
-                    "label": label or func.__name__,
+                    "label": label or func.__name__
+                    if isinstance(func, types.FunctionType)
+                    else "Performance label Error",
                     "value_ms": round(elapsed_time, 4),
                 }
                 self._log_metric(metric_data)
@@ -148,7 +151,9 @@ class PerformanceMetrics:
                 metric_data = {
                     "timestamp": datetime.now(),
                     "type": "memory",
-                    "label": label or func.__name__,
+                    "label": label or func.__name__
+                    if isinstance(func, types.FunctionType)
+                    else "Performance label ERROR",
                     "mem_current_kb": current // 1024,
                     "mem_peak_kb": peak // 1024,
                 }
@@ -194,7 +199,9 @@ class PerformanceMetrics:
                 metric_data = {
                     "timestamp": datetime.now(),
                     "type": "complete",
-                    "label": label or func.__name__,
+                    "label": label or func.__name__
+                    if isinstance(func, types.FunctionType)
+                    else "Performance label ERROR",
                     "timing_ms": round(elapsed_time, 4),
                     "mem_current_kb": current // 1024,
                     "mem_peak_kb": peak // 1024,

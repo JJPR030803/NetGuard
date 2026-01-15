@@ -127,7 +127,7 @@ class PacketCapture:
             self.stats["processing_time"] += processing_time
             self.stats["batch_count"] += 1
 
-    @perf.monitor("process_queue")  # type: ignore
+    @perf.monitor("process_queue")
     def process_queue(self) -> None:
         """Process packets in batches."""
         self.debug_logger.log("Starting packet queue processing")
@@ -168,7 +168,7 @@ class PacketCapture:
 
         self.info_logger.log("Packet queue processing completed")
 
-    @perf.monitor("process_packet_layers")  # type: ignore
+    @perf.monitor("process_packet_layers")
     def process_packet_layers(self, packet: ScapyPacket) -> Packet:
         """
         Optimized layer processing.
@@ -440,7 +440,7 @@ class PacketCapture:
 
         return session_info
 
-    @perf.monitor("capture")  # type: ignore
+    @perf.monitor("capture")
     def capture(
         self,
         max_packets: Optional[int] = None,
@@ -776,7 +776,7 @@ class PacketCapture:
                 source_format="packets", target_format="JSON", error_details=str(e)
             ) from e
 
-    @perf.monitor("to_pandas_df")  # type: ignore
+    @perf.monitor("to_pandas_df")
     def to_pandas_df(self) -> pd.DataFrame:
         """
         Convert all captured packets to a single Pandas DataFrame.
@@ -804,7 +804,7 @@ class PacketCapture:
                 source_format="packets", target_format="Pandas DataFrame", error_details=str(e)
             ) from e
 
-    @perf.monitor("to_polars_df")  # type: ignore
+    @perf.monitor("to_polars_df")
     def to_polars_df(self) -> pl.DataFrame:
         """
         Convert all captured packets to a single Polars DataFrame.
@@ -838,7 +838,7 @@ class PacketCapture:
                 source_format="packets", target_format="Polars DataFrame", error_details=str(e)
             ) from e
 
-    @perf.monitor("save_to_parquet")  # type: ignore
+    @perf.monitor("save_to_parquet")
     def save_to_parquet(self, filepath: Optional[Union[str, Path]] = None) -> str:
         """
         Save captured packets to parquet file.

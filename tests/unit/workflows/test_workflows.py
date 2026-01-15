@@ -135,8 +135,7 @@ class TestWorkflowReport:
 class TestDailyAudit:
     """Test DailyAudit workflow."""
 
-    # TODO: Fix tests here !!!!!!!!!!!!!!!!!!!!!!
-    @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_daily_audit_initialization(self, mock_analysis):
         """Test DailyAudit initialization."""
         custom_hours: tuple[time, time] = (time(9, 0), time(17, 0))
@@ -144,9 +143,9 @@ class TestDailyAudit:
 
         assert audit.parquet_file == "test.parquet"
         assert audit.business_hours == (time(9, 0), time(17, 0))
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=False)
+        mock_analysis.assert_called_once_with("test.parquet")
 
-    @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_daily_audit_custom_business_hours(self, _mock_analysis):
         """Test DailyAudit with custom business hours."""
         custom_hours = (time(8, 0), time(18, 0))
@@ -154,14 +153,7 @@ class TestDailyAudit:
 
         assert audit.business_hours == custom_hours
 
-    @patch("netguard.workflows.parquet_analysis.NetworkParquetAnalysis")
-    def test_daily_audit_lazy_load(self, mock_analysis):
-        """Test DailyAudit with lazy loading."""
-        DailyAudit("test.parquet", lazy_load=True)
-
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
-
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_daily_audit_run_returns_report(self, mock_analysis):
         """Test that run() returns a WorkflowReport."""
         # Setup mock
@@ -184,23 +176,16 @@ class TestDailyAudit:
 class TestIPInvestigation:
     """Test IPInvestigation workflow."""
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_ip_investigation_initialization(self, mock_analysis):
         """Test IPInvestigation initialization."""
         inv = IPInvestigation("test.parquet", ip="192.168.1.100")
 
         assert inv.parquet_file == "test.parquet"
         assert inv.ip == "192.168.1.100"
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=False)
+        mock_analysis.assert_called_once_with("test.parquet")
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
-    def test_ip_investigation_lazy_load(self, mock_analysis):
-        """Test IPInvestigation with lazy loading."""
-        IPInvestigation("test.parquet", ip="10.0.0.1", lazy_load=True)
-
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
-
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_ip_investigation_run_returns_report(self, mock_analysis):
         """Test that run() returns a WorkflowReport."""
         # Setup mock
@@ -219,22 +204,15 @@ class TestIPInvestigation:
 class TestThreatHunting:
     """Test ThreatHunting workflow."""
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_threat_hunting_initialization(self, mock_analysis):
         """Test ThreatHunting initialization."""
         hunter = ThreatHunting("test.parquet")
 
         assert hunter.parquet_file == "test.parquet"
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=False)
+        mock_analysis.assert_called_once_with("test.parquet")
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
-    def test_threat_hunting_lazy_load(self, mock_analysis):
-        """Test ThreatHunting with lazy loading."""
-        ThreatHunting("test.parquet", lazy_load=True)
-
-        mock_analysis.assert_called_once_with("test.parquet", lazy_load=True)
-
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_hunt_for_c2_returns_report(self, _mock_analysis):
         """Test hunt_for_c2() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")
@@ -243,7 +221,7 @@ class TestThreatHunting:
         assert isinstance(report, WorkflowReport)
         assert "C2 Threat Hunting Report" in report.title
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_hunt_for_data_theft_returns_report(self, _mock_analysis):
         """Test hunt_for_data_theft() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")
@@ -252,7 +230,7 @@ class TestThreatHunting:
         assert isinstance(report, WorkflowReport)
         assert "Data Theft Threat Hunting Report" in report.title
 
-    @patch("network_security_suite.ml.preprocessing.workflows.NetworkParquetAnalysis")
+    @patch("netguard.workflows.workflows.ParquetAnalysisFacade")
     def test_hunt_for_lateral_movement_returns_report(self, _mock_analysis):
         """Test hunt_for_lateral_movement() returns a WorkflowReport."""
         hunter = ThreatHunting("test.parquet")

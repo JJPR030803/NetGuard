@@ -1,3 +1,4 @@
+import builtins
 from typing import Optional, Union
 
 
@@ -84,7 +85,7 @@ class AnalyzerNotInitializedError(ParquetAnalysisError):
         )
 
 
-class FileNotFoundError(ParquetAnalysisError):
+class FileNotFoundError(ParquetAnalysisError, builtins.FileNotFoundError):
     """Raised when the specified parquet file is not found."""
 
     def __init__(self, file_path: str):

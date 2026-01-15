@@ -26,7 +26,7 @@ Example:
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 class NetGuardPaths:
@@ -46,7 +46,7 @@ class NetGuardPaths:
         _data_root (Path): The src/netguard/data/ directory
     """
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Optional[Union[str, Path]] = None) -> None:
         """
         Initialize the path manager.
 

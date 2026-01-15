@@ -1,6 +1,6 @@
 import contextlib
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import polars as pl
 
@@ -68,9 +68,7 @@ class BaseAnalyzer:
         """Return True if analyzer has packets."""
         return self._packet_count > 0
 
-    def __hash__(self) -> dict[None, None]:
-        raise ValueError("Cannot be used as a hash")
-        return 0
+    __hash__ = None  # Make instances unhashable
 
     @property
     def packet_count(self) -> int:
@@ -112,7 +110,7 @@ class BaseAnalyzer:
                 if (isinstance(min_ts, datetime) and isinstance(max_ts, datetime)) or (
                     isinstance(min_ts, timedelta) and isinstance(max_ts, timedelta)
                 ):
-                    duration = (max_ts - min_ts).total_seconds()
+                    duration = (cast(timedelta, max_ts) - cast(timedelta, min_ts)).total_seconds()
                 elif isinstance(min_ts, (int, float)) and isinstance(max_ts, (int, float)):
                     duration = float(max_ts - min_ts)
 

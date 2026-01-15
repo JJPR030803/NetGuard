@@ -4,6 +4,7 @@ This module tests the facade pattern implementation that provides
 unified access to all protocol-specific analyzers.
 """
 
+import unittest
 from datetime import datetime
 from pathlib import Path
 
@@ -486,3 +487,7 @@ class TestParquetAnalysisFacadeIntegration:
                 assert hasattr(analyzer, "packet_count")
                 assert hasattr(analyzer, "is_empty")
                 assert hasattr(analyzer, "has_column")
+
+
+if __name__ == "__main__":
+    unittest.main()

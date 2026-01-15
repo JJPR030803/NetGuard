@@ -8,7 +8,7 @@ This is the main entry point for analyzing network captures.
 import contextlib
 import json
 from pathlib import Path
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional, cast
 
 import polars as pl
 import polars.selectors as cs
@@ -385,13 +385,15 @@ class ParquetAnalysisFacade:
             summary["unique_hosts"] = len(set(all_ips))
 
         # Format for readability
-        file_info = summary["file_info"]
-        if isinstance(file_info, dict) and file_info.get("size_mb"):
+        file_info = cast(dict[str, Any], summary["file_info"])
+        if file_info.get("size_mb"):
             file_info["size_formatted"] = format_bytes(int(file_info["size_mb"] * 1024 * 1024))
 
-        date_range = summary["date_range"]
-        if isinstance(date_range, dict) and date_range.get("duration"):
-            date_range["duration_formatted"] = format_duration(date_range["duration"])
+        date_range = cast(dict[str, Any], summary["date_range"])
+        if date_range.get("duration"):
+            duration = date_range["duration"]
+            if isinstance(duration, (int, float)):
+                date_range["duration_formatted"] = format_duration(duration)
 
         self.logger.log_analysis_complete("network_summary")
         return summary

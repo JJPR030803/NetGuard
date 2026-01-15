@@ -1,6 +1,7 @@
 """Tests for preprocessing utility functions."""
 
-from datetime import datetime, timedelta
+import unittest
+from datetime import datetime, timedelta, timezone
 
 import polars as pl
 import pytest
@@ -229,7 +230,8 @@ class TestParseTimestamp:
     def test_unix_epoch_int(self):
         """Test parsing Unix epoch as int."""
         result = parse_timestamp(1609459200)
-        assert result == datetime(2021, 1, 1, 0, 0)
+        expected = datetime(2021, 1, 1, 0, 0, tzinfo=timezone.utc)
+        assert result == expected
 
     def test_unix_epoch_float(self):
         """Test parsing Unix epoch as float."""
@@ -473,3 +475,7 @@ class TestSafeCastToStr:
         series = pl.Series(["a", None, "c"])
         result = safe_cast_to_str(series, default="N/A")
         assert result.to_list() == ["a", "N/A", "c"]
+
+
+if __name__ == "__main__":
+    unittest.main()

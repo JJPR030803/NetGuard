@@ -11,8 +11,10 @@ Tests:
 import sys
 import traceback
 from pathlib import Path
+from typing import Any
 
 import polars as pl
+import pytest
 
 # Add src to path if running directly
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -24,14 +26,31 @@ from netguard.analysis.facade import ParquetAnalysisFacade
 from netguard.core.data_store import DataStore
 
 
-def test_datastore():
+@pytest.fixture
+def parquet_file(tmp_path: Path) -> str:
+    """Create a test parquet file with sample packet data."""
+    df: pl.DataFrame = pl.DataFrame(
+        {
+            "timestamp": [1.0, 2.0, 3.0],
+            "IP_src": ["192.168.1.1", "192.168.1.2", "192.168.1.3"],
+            "IP_dst": ["8.8.8.8", "1.1.1.1", "192.168.1.1"],
+            "IP_proto": [6, 6, 17],  # TCP, TCP, UDP
+            "raw_size": [60, 120, 80],
+        }
+    )
+    test_file = tmp_path / "test_packets.parquet"
+    DataStore.save_packets(df, str(test_file))
+    return str(test_file)
+
+
+def test_datastore() -> str:
     """Test DataStore save/load functionality."""
     print("\n" + "=" * 60)
     print("TEST 1: DataStore")
     print("=" * 60)
 
     # Create test data with proper packet structure
-    df = pl.DataFrame(
+    df: pl.DataFrame = pl.DataFrame(
         {
             "timestamp": [1.0, 2.0, 3.0],
             "IP_src": ["192.168.1.1", "192.168.1.2", "192.168.1.3"],
@@ -41,7 +60,7 @@ def test_datastore():
         }
     )
 
-    test_file = "/tmp/test_netguard_packets.parquet"
+    test_file: str = "/tmp/test_netguard_packets.parquet"
 
     # Test save
     print(f"Saving {len(df)} packets to {test_file}...")
@@ -67,14 +86,14 @@ def test_datastore():
     return test_file  # Return path for next tests
 
 
-def test_base_analyzer():
+def test_base_analyzer() -> None:
     """Test BaseAnalyzer functionality."""
     print("\n" + "=" * 60)
     print("TEST 2: BaseAnalyzer")
     print("=" * 60)
 
     # Create test DataFrame
-    df = pl.DataFrame(
+    df: pl.DataFrame = pl.DataFrame(
         {
             "timestamp": [1704067200.0, 1704067201.0, 1704067202.0],  # Unix timestamps
             "IP_src": ["192.168.1.1", "192.168.1.2", "192.168.1.3"],
@@ -83,7 +102,7 @@ def test_base_analyzer():
     )
 
     # Create a basic analyzer (using BaseAnalyzer directly)
-    analyzer = BaseAnalyzer(df)
+    analyzer: BaseAnalyzer = BaseAnalyzer(df)
 
     print(f"Analyzer repr: {analyzer!r}")
     print(f"Analyzer str: {analyzer!s}")
@@ -92,7 +111,7 @@ def test_base_analyzer():
     print(f"Length: {len(analyzer)}")
 
     # Test date range
-    date_range = analyzer.get_date_range()
+    date_range: dict[str, Any] = analyzer.get_date_range()
     print(f"Date range: {date_range}")
 
     # Verify
@@ -103,14 +122,14 @@ def test_base_analyzer():
     print("\n✅ BaseAnalyzer: ALL TESTS PASSED")
 
 
-def test_tcp_analyzer():
+def test_tcp_analyzer() -> None:
     """Test TcpAnalyzer with proper TCP packet structure."""
     print("\n" + "=" * 60)
     print("TEST 3: TcpAnalyzer")
     print("=" * 60)
 
     # Create DataFrame with TCP-specific columns
-    df = pl.DataFrame(
+    df: pl.DataFrame = pl.DataFrame(
         {
             "timestamp": [1.0, 2.0, 3.0, 4.0],
             "IP_src": ["192.168.1.100", "192.168.1.100", "192.168.1.101", "192.168.1.102"],
@@ -124,7 +143,7 @@ def test_tcp_analyzer():
     )
 
     print(f"Creating TcpAnalyzer with {len(df)} TCP packets...")
-    analyzer = TcpAnalyzer(df)
+    analyzer: TcpAnalyzer = TcpAnalyzer(df)
 
     print(f"TCP Analyzer: {analyzer}")
     print(f"TCP packet count: {analyzer.packet_count}")
@@ -137,13 +156,13 @@ def test_tcp_analyzer():
     print("\n✅ TcpAnalyzer: ALL TESTS PASSED")
 
 
-def test_ip_analyzer():
+def test_ip_analyzer() -> None:
     """Test IpAnalyzer."""
     print("\n" + "=" * 60)
     print("TEST 4: IpAnalyzer")
     print("=" * 60)
 
-    df = pl.DataFrame(
+    df: pl.DataFrame = pl.DataFrame(
         {
             "timestamp": [1.0, 2.0, 3.0],
             "IP_src": ["192.168.1.1", "192.168.1.2", "192.168.1.3"],
@@ -154,7 +173,7 @@ def test_ip_analyzer():
     )
 
     print(f"Creating IpAnalyzer with {len(df)} IP packets...")
-    analyzer = IpAnalyzer(df)
+    analyzer: IpAnalyzer = IpAnalyzer(df)
 
     print(f"IP Analyzer: {analyzer}")
     print(f"IP packet count: {analyzer.packet_count}")
@@ -165,14 +184,14 @@ def test_ip_analyzer():
     print("\n✅ IpAnalyzer: ALL TESTS PASSED")
 
 
-def test_facade_with_real_file(parquet_file: str):
+def test_facade_with_real_file(parquet_file: str) -> None:
     """Test ParquetAnalysisFacade with a real parquet file."""
     print("\n" + "=" * 60)
     print("TEST 5: ParquetAnalysisFacade")
     print("=" * 60)
 
     print(f"Loading facade from: {parquet_file}")
-    analysis = ParquetAnalysisFacade(parquet_file)
+    analysis: ParquetAnalysisFacade = ParquetAnalysisFacade(parquet_file)
 
     print(f"Facade: {analysis}")
     print(f"Repr: {analysis!r}")
@@ -180,36 +199,36 @@ def test_facade_with_real_file(parquet_file: str):
     # Test analyzer access
     print("\nAnalyzer packet counts:")
     print(f"  Total: {len(analysis.df)}")
-    print(f"  TCP: {len(analysis.tcp)}")
-    print(f"  UDP: {len(analysis.udp)}")
-    print(f"  DNS: {len(analysis.dns)}")
-    print(f"  ARP: {len(analysis.arp)}")
-    print(f"  ICMP: {len(analysis.icmp)}")
-    print(f"  IP: {len(analysis.ip)}")
+    print(f"  TCP: {len(analysis.tcp) if analysis.tcp else 0}")
+    print(f"  UDP: {len(analysis.udp) if analysis.udp else 0}")
+    print(f"  DNS: {len(analysis.dns) if analysis.dns else 0}")
+    print(f"  ARP: {len(analysis.arp) if analysis.arp else 0}")
+    print(f"  ICMP: {len(analysis.icmp) if analysis.icmp else 0}")
+    print(f"  IP: {len(analysis.ip) if analysis.ip else 0}")
 
     # Test summary generation
     print("\nGenerating summary...")
-    summary = analysis.generate_summary()
+    summary: dict[str, Any] = analysis.generate_summary()
 
     print(f"Summary keys: {list(summary.keys())}")
     print(f"File size: {summary['file_info']['size_mb']:.2f} MB")
     print(f"Total packets: {summary['packet_counts']['total']}")
 
     # Test date range
-    date_range = analysis.get_date_range()
+    date_range: dict[str, Any] = analysis.get_date_range()
     print(f"Date range: {date_range}")
 
     print("\n✅ ParquetAnalysisFacade: ALL TESTS PASSED")
 
 
-def test_facade_with_comprehensive_data():
+def test_facade_with_comprehensive_data() -> None:
     """Test facade with comprehensive packet data."""
     print("\n" + "=" * 60)
     print("TEST 6: Facade with Comprehensive Data")
     print("=" * 60)
 
     # Create comprehensive test data with all protocols
-    df = pl.DataFrame(
+    df: pl.DataFrame = pl.DataFrame(
         {
             "timestamp": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
             "IP_src": [
@@ -238,16 +257,16 @@ def test_facade_with_comprehensive_data():
     )
 
     # Save to temp file
-    test_file = "/tmp/test_comprehensive.parquet"
+    test_file: str = "/tmp/test_comprehensive.parquet"
     DataStore.save_packets(df, test_file)
 
     # Load with facade
-    analysis = ParquetAnalysisFacade(test_file)
+    analysis: ParquetAnalysisFacade = ParquetAnalysisFacade(test_file)
 
     print(f"Loaded {len(analysis.df)} packets")
-    print(f"TCP packets: {len(analysis.tcp)}")
-    print(f"UDP packets: {len(analysis.udp)}")
-    print(f"ICMP packets: {len(analysis.icmp)}")
+    print(f"TCP packets: {len(analysis.tcp) if analysis.tcp else 0}")
+    print(f"UDP packets: {len(analysis.udp) if analysis.udp else 0}")
+    print(f"ICMP packets: {len(analysis.icmp) if analysis.icmp else 0}")
 
     # Generate summary
     summary = analysis.generate_summary()

@@ -6,7 +6,7 @@ schema handling.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 
@@ -38,7 +38,9 @@ class DataStore:
     def save_packets(
         df: pl.DataFrame,
         filepath: str,
-        compression: str = "snappy",
+        compression: Literal[
+            "lz4", "uncompressed", "snappy", "gzip", "lzo", "brotli", "zstd"
+        ] = "snappy",
     ) -> None:
         """
         Save packet DataFrame to parquet file.
@@ -151,7 +153,9 @@ class DataStore:
     def append_packets(
         df: pl.DataFrame,
         filepath: str,
-        compression: str = "snappy",
+        compression: Literal[
+            "lz4", "uncompressed", "snappy", "gzip", "lzo", "brotli", "zstd"
+        ] = "snappy",
     ) -> None:
         """
         Append packets to existing parquet file.

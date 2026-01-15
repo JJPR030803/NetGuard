@@ -42,8 +42,8 @@ class ProjectContextCollector:
         self,
         sources: List[Path],
         output_file: Path,
-        extensions: List[str] = None,
-        ignore_patterns: List[str] = None,
+        extensions: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
         use_gitignore: bool = True,
         max_file_size: int = 1_000_000,  # 1MB default
         include_deps_tree: bool = False,

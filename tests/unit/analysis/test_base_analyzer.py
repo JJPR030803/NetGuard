@@ -4,6 +4,7 @@ This module tests the base analyzer class that all protocol-specific
 analyzers inherit from.
 """
 
+import unittest
 from datetime import datetime
 
 import polars as pl
@@ -439,3 +440,7 @@ class TestBaseAnalyzerInheritance:
 
         # Should only have TCP packets (2 in sample_df)
         assert analyzer.packet_count == 2
+
+
+if __name__ == "__main__":
+    unittest.main()

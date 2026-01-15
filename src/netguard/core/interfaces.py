@@ -13,7 +13,7 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import ClassVar, Optional, Union
 
-import netifaces
+import netifaces  # type: ignore[import-untyped]
 
 from netguard.core.loggers import (
     ConsoleLogger,  # Import ConsoleLogger

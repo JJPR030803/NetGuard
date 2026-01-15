@@ -5,12 +5,16 @@ provided by the DataStore class.
 """
 
 import random
+from typing import Literal
 
 import polars as pl
 import pytest
 
 from netguard.core.data_store import DataStore
 from netguard.core.exceptions import DataImportError
+
+# Type alias for compression options
+CompressionType = Literal["lz4", "uncompressed", "snappy", "gzip", "lzo", "brotli", "zstd"]
 
 # ============================================================================
 # TEST FIXTURES
@@ -88,7 +92,7 @@ class TestDataStoreSavePackets:
 
     def test_save_packets_with_compression(self, sample_packet_df, temp_dir):
         """Test saving with different compression algorithms."""
-        compressions = ["snappy", "gzip", "lz4", "zstd"]
+        compressions: list[CompressionType] = ["snappy", "gzip", "lz4", "zstd"]
 
         for compression in compressions:
             filepath = temp_dir / f"test_{compression}.parquet"

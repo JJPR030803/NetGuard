@@ -257,13 +257,13 @@ def assert_dataframe_equal():
 
         # Check values
         if check_row_order:
-            if not df1.frame_equal(df2):
+            if not df1.equals(df2):
                 raise AssertionError("DataFrames are not equal")
         else:
             # Sort both before comparing
             df1_sorted = df1.sort(df1.columns)
             df2_sorted = df2.sort(df2.columns)
-            if not df1_sorted.frame_equal(df2_sorted):
+            if not df1_sorted.equals(df2_sorted):
                 raise AssertionError("DataFrames are not equal (ignoring row order)")
 
     return _assert_equal
@@ -340,9 +340,9 @@ def timer():
 
     class Timer:
         def __init__(self):
-            self.start = None
-            self.end = None
-            self.elapsed = None
+            self.start: float = 0.0
+            self.end: float = 0.0
+            self.elapsed: float = 0.0
 
         def __enter__(self):
             self.start = time.time()

@@ -155,19 +155,37 @@ def format_code(
         typer.echo("🔧 Formatting code...")
     cmd.extend(["src/", "tests/"])
     result = run_uv_command(cmd)
+    if result.returncode == 0:
+        typer.secho(f"Correctly formatted: {result.returncode}",color=True,fg='green')
+    elif result.returncode == 1:
+        typer.secho(f"Error while formatting: {result.returncode}",fg='red')
     sys.exit(result.returncode)
 
 @code_app.command("type_check")
 def type_check(
-        relaxed:bool = typer.Option(False,"--relaxed-mode",help="Use mypy instead of ty (less strict and slower)")
+        # If ty fails for some reason use mypy (more tested)
+        relaxed:bool = typer.Option(False,"--relaxed-mode",help="Use mypy instead of ty (less strict and slower)"),
+        tests:bool = typer.Option(False,"--tests",help="Check type checking for tests"),
+        core:bool = typer.Option(False,"--netguard",help="Check type checking only for src/netguard"),
+        all: bool = typer.Option(False,"--all",help="Type check everything project wide")
 )->None:
     """Type check with mypy"""
     if relaxed:
-        cmd:list[str] = ["mypy","src/netguard"]
+        cmd:list[str] = ["mypy"]
     else:
         cmd:list[str] = ["uv","run","ty","check","src/netguard"]
+    if tests:
+        cmd.append("tests/")
+    elif core:
+        cmd.append("src/netguard")
+    elif all:
+        cmd.append(".")
     typer.secho("Checking type annotations",color=True,fg='green')
     result = run_uv_command(cmd)
+    if result.returncode == 0:
+        typer.secho("Correctly typed annotations",fg='green')
+    elif result.returncode == 1:
+        typer.secho("Error while typed annotations", fg='red')
     sys.exit(result.returncode)
 
 

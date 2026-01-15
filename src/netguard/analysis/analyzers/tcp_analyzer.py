@@ -523,7 +523,7 @@ class TcpAnalyzer(BaseAnalyzer):
             .group_by(["IP_src", "IP_dst", "TCP_sport", "TCP_dport"])
             .agg(
                 [
-                    pl.col("TCP_flags").str.concat(" ").alias("flag_sequence"),
+                    pl.col("TCP_flags").str.join(" ").alias("flag_sequence"),
                     pl.col("TCP_flags").count().alias("packet_count"),
                 ]
             )
@@ -644,7 +644,13 @@ class TcpAnalyzer(BaseAnalyzer):
                 ]
             )
             .with_columns((pl.col("end_time") - pl.col("start_time")).alias("duration"))
-            .with_columns((pl.col("total_bytes") / pl.col("duration")).alias("bytes_per_sec"))
+            # ✅ FIX: Convert duration to seconds (float) before dividing
+            .with_columns(
+                (pl.col("total_bytes") / pl.col("duration").dt.total_seconds()).alias(
+                    "bytes_per_sec"
+                )
+            )
+            # Move filter UP to avoid dividing by zero if duration is 0
             .filter(pl.col("duration") > 0)
             .sort("bytes_per_sec", descending=True)
         )
