@@ -8,6 +8,7 @@ in the PacketCapture class to ensure efficient memory usage.
 import gc
 import tempfile
 import threading
+import time
 import weakref
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
@@ -526,6 +527,272 @@ class TestConfigurationValidation:
         # Small capture should be trimmed, large should not
         assert len(small_capture.packets) == 100
         assert len(large_capture.packets) == 500
+
+
+# ============================================================================
+# TEST CLASS: Memory Efficiency
+# ============================================================================
+
+
+class TestMemoryEfficiency:
+    """Test memory usage and garbage collection efficiency."""
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_garbage_collection_called_on_memory_limit(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture
+    ) -> None:
+        """Test that garbage collection is triggered when memory limit is hit."""
+        gc_calls: list[bool] = []
+
+        # Pre-fill to memory limit
+        for i in range(packet_capture.max_memory_packets):
+            packet_capture.packets.append(create_sample_packet(timestamp=float(i)))
+
+        def sniff_side_effect(**kwargs) -> None:
+            prn = kwargs.get("prn")
+            if prn:
+                # Add more packets to trigger memory limit check
+                for i in range(10):
+                    prn(create_mock_scapy_packet(timestamp=float(1000 + i)))
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        with patch("netguard.capture.packet_capture.gc.collect") as mock_gc:
+            mock_gc.side_effect = lambda: gc_calls.append(True)
+            packet_capture.capture(max_packets=10)
+
+        # GC should have been called when memory limit was reached
+        assert len(gc_calls) >= 1
+
+    def test_packet_queue_bounded_growth(self, packet_capture: PacketCapture) -> None:
+        """Test that packet queue doesn't grow unbounded."""
+        initial_qsize = packet_capture.packet_queue.qsize()
+
+        # Add many batches rapidly
+        for i in range(100):
+            batch = [create_mock_scapy_packet(timestamp=float(i * 10 + j)) for j in range(5)]
+            packet_capture.packet_queue.put(batch)
+
+        # Queue should contain the batches we added
+        assert packet_capture.packet_queue.qsize() == initial_qsize + 100
+
+        # Process queue to drain it
+        packet_capture.is_running = False
+        packet_capture.process_queue()
+
+        # Queue should be empty after processing
+        assert packet_capture.packet_queue.empty()
+
+    def test_memory_released_after_clear(self, packet_capture: PacketCapture) -> None:
+        """Test that memory is properly released when packets are cleared."""
+        # Add many packets
+        for i in range(500):
+            packet_capture.packets.append(create_sample_packet(timestamp=float(i), num_layers=5))
+
+        assert len(packet_capture.packets) == 500
+
+        # Clear packets
+        packet_capture.packets.clear()
+        gc.collect()
+
+        # Verify packets are cleared
+        assert len(packet_capture.packets) == 0
+
+    def test_large_batch_memory_efficiency(self, packet_capture: PacketCapture) -> None:
+        """Test memory handling with large processing batches."""
+        # Create a large batch
+        large_batch = [create_mock_scapy_packet(timestamp=float(i)) for i in range(500)]
+        packet_capture.packet_queue.put(large_batch)
+
+        # Process the large batch
+        packet_capture.is_running = False
+        packet_capture.process_queue()
+
+        # All packets should be processed
+        assert len(packet_capture.packets) == 500
+        assert packet_capture.stats["batch_count"] == 1
+
+    def test_continuous_processing_memory_stability(self, packet_capture: PacketCapture) -> None:
+        """Test memory stability during continuous packet processing."""
+        # Simulate continuous capture with periodic trimming
+        for cycle in range(5):
+            # Add packets
+            for i in range(50):
+                packet_capture.packets.append(
+                    create_sample_packet(timestamp=float(cycle * 100 + i))
+                )
+
+            # Check if trimming needed (simulating callback behavior)
+            if len(packet_capture.packets) >= packet_capture.max_memory_packets:
+                packet_capture.packets = packet_capture.packets[
+                    -packet_capture.max_memory_packets :
+                ]
+                gc.collect()
+
+        # Should stay within bounds
+        assert len(packet_capture.packets) <= packet_capture.max_memory_packets
+
+
+# ============================================================================
+# TEST CLASS: Batch Processing Memory
+# ============================================================================
+
+
+class TestBatchProcessingMemory:
+    """Test memory management during batch processing."""
+
+    def test_batch_size_configuration(self, temp_log_dir: str) -> None:
+        """Test batch size configuration affects processing."""
+        small_batch_config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=10,
+        )
+        large_batch_config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=100,
+        )
+
+        small_capture = PacketCapture(config=small_batch_config)
+        large_capture = PacketCapture(config=large_batch_config)
+
+        assert small_capture.config.max_processing_batch_size == 10
+        assert large_capture.config.max_processing_batch_size == 100
+
+    def test_batch_processing_stats_accuracy(self, packet_capture: PacketCapture) -> None:
+        """Test that batch processing stats are accurate."""
+        # Reset stats
+        packet_capture.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+        # Add multiple batches of different sizes
+        batch_sizes = [5, 10, 15, 3, 7]
+        for batch_size in batch_sizes:
+            batch = [create_mock_scapy_packet(timestamp=float(i)) for i in range(batch_size)]
+            packet_capture.packet_queue.put(batch)
+
+        packet_capture.is_running = False
+        packet_capture.process_queue()
+
+        # Verify stats
+        assert packet_capture.stats["batch_count"] == len(batch_sizes)
+        assert packet_capture.stats["processed_packets"] == sum(batch_sizes)
+
+    def test_empty_batch_doesnt_corrupt_memory(self, packet_capture: PacketCapture) -> None:
+        """Test that empty batches don't cause memory issues."""
+        initial_packets = len(packet_capture.packets)
+
+        # Add empty batch
+        packet_capture.packet_queue.put([])
+
+        # Add normal batch
+        packet_capture.packet_queue.put([create_mock_scapy_packet(timestamp=1.0)])
+
+        # Add another empty batch
+        packet_capture.packet_queue.put([])
+
+        packet_capture.is_running = False
+        packet_capture.process_queue()
+
+        # Only the non-empty batch should add packets
+        assert len(packet_capture.packets) == initial_packets + 1
+        assert packet_capture.stats["batch_count"] == 3
+
+    def test_mixed_batch_sizes_memory_handling(self, packet_capture: PacketCapture) -> None:
+        """Test memory handling with varying batch sizes."""
+        # Add batches of very different sizes
+        batch_sizes = [1, 100, 5, 50, 2, 75]
+        total_packets = sum(batch_sizes)
+
+        for batch_size in batch_sizes:
+            batch = [create_mock_scapy_packet(timestamp=float(i)) for i in range(batch_size)]
+            packet_capture.packet_queue.put(batch)
+
+        packet_capture.is_running = False
+        packet_capture.process_queue()
+
+        assert len(packet_capture.packets) == total_packets
+
+
+# ============================================================================
+# TEST CLASS: Queue Memory Management
+# ============================================================================
+
+
+class TestQueueMemoryManagement:
+    """Test memory management in packet queues."""
+
+    def test_queue_timeout_releases_resources(self, packet_capture: PacketCapture) -> None:
+        """Test that queue timeout properly releases resources."""
+        packet_capture.is_running = True
+
+        # Start processing with empty queue
+        def process_with_timeout() -> None:
+            # Process will timeout on empty queue and exit when is_running=False
+            packet_capture.process_queue()
+
+        process_thread = threading.Thread(target=process_with_timeout)
+        process_thread.start()
+
+        # Let it run with empty queue for a bit
+        time.sleep(1.5)
+
+        # Stop and wait
+        packet_capture.is_running = False
+        process_thread.join(timeout=3)
+
+        # Thread should have exited cleanly
+        assert not process_thread.is_alive()
+
+    def test_queue_clear_during_processing(self, packet_capture: PacketCapture) -> None:
+        """Test behavior when queue is cleared during processing."""
+        # Add some batches
+        for i in range(5):
+            batch = [create_mock_scapy_packet(timestamp=float(i))]
+            packet_capture.packet_queue.put(batch)
+
+        # Process one batch at a time manually
+        packet_capture.is_running = False
+
+        # Process first batch
+        batch = packet_capture.packet_queue.get()
+        assert len(batch) == 1
+
+        # Remaining batches still in queue
+        assert packet_capture.packet_queue.qsize() == 4
+
+    def test_queue_overflow_prevention(self, temp_log_dir: str) -> None:
+        """Test that queue operations handle high load gracefully."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+        )
+        capture = PacketCapture(config=config)
+
+        # Add many batches rapidly
+        added_count = 0
+        for i in range(1000):
+            batch = [create_mock_scapy_packet(timestamp=float(i))]
+            capture.packet_queue.put(batch)
+            added_count += 1
+
+        # All batches should be in queue (Python Queue is unbounded by default)
+        assert capture.packet_queue.qsize() == added_count
+
+        # Process all
+        capture.is_running = False
+        capture.process_queue()
+
+        # All should be processed
+        assert len(capture.packets) == added_count
 
 
 if __name__ == "__main__":

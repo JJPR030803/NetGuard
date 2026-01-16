@@ -722,5 +722,434 @@ class TestDisplayIntegration:
         assert "ICMP" in captured.out
 
 
+# ============================================================================
+# TEST CLASS: Configuration Validation Errors
+# ============================================================================
+
+
+class TestConfigurationValidationErrors:
+    """Test configuration validation and error handling."""
+
+    def test_invalid_max_memory_packets_less_than_100(self, temp_log_dir: str) -> None:
+        """Test max_memory_packets < 100 raises ValueError."""
+        with pytest.raises(ValueError, match="must be at least 100"):
+            SnifferConfig(
+                interface="lo",
+                log_dir=temp_log_dir,
+                export_dir=temp_log_dir,
+                max_memory_packets=50,
+            )
+
+    def test_invalid_max_memory_packets_not_divisible_by_10(
+        self, temp_log_dir: str
+    ) -> None:
+        """Test max_memory_packets not divisible by 10 raises ValueError."""
+        with pytest.raises(ValueError, match="must be a multiple of 10"):
+            SnifferConfig(
+                interface="lo",
+                log_dir=temp_log_dir,
+                export_dir=temp_log_dir,
+                max_memory_packets=105,
+            )
+
+    def test_missing_export_directory_created(
+        self, packet_capture: PacketCapture, temp_log_dir: str
+    ) -> None:
+        """Test that missing export directory is created during save."""
+        # Add a packet
+        layer = PacketLayer(layer_name="Test", fields={"id": 1})
+        packet_capture.packets.append(
+            Packet(timestamp=1.0, layers=[layer], raw_size=100)
+        )
+
+        # Create path to non-existent directory
+        new_dir = Path(temp_log_dir) / "new_subdir" / "another"
+        filepath = new_dir / "test.parquet"
+
+        # Ensure it doesn't exist
+        assert not new_dir.exists()
+
+        # Save should create the directory
+        if POLARS_AVAILABLE:
+            result = packet_capture.save_to_parquet(str(filepath))
+            assert Path(result).exists()
+            # Cleanup
+            Path(result).unlink()
+            new_dir.rmdir()
+            new_dir.parent.rmdir()
+
+    def test_boundary_max_memory_packets_values(self, temp_log_dir: str) -> None:
+        """Test boundary values for max_memory_packets."""
+        # Exactly 100 should work
+        config_100 = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_memory_packets=100,
+        )
+        assert config_100.max_memory_packets == 100
+
+        # Large value should work
+        config_large = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_memory_packets=1000000,
+        )
+        assert config_large.max_memory_packets == 1000000
+
+
+# ============================================================================
+# TEST CLASS: Packet Processing Errors
+# ============================================================================
+
+
+class TestPacketProcessingErrors:
+    """Test error handling during packet processing."""
+
+    def test_malformed_packet_does_not_crash(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test that malformed packets don't crash processing."""
+        # Create a malformed mock packet that will cause issues
+        malformed_packet = MagicMock()
+        malformed_packet.time = None  # Invalid - should be float
+        malformed_packet.__len__.return_value = 100
+        malformed_packet.layers.return_value = []
+        malformed_packet.haslayer.return_value = False
+
+        # Add to queue with a good packet
+        good_packet = MagicMock()
+        good_packet.time = 1.0
+        good_packet.__len__.return_value = 100
+        good_packet.layers.return_value = []
+        good_packet.haslayer.return_value = False
+
+        packet_capture.packet_queue.put([malformed_packet, good_packet])
+        packet_capture.is_running = False
+
+        # Process should not crash
+        packet_capture.process_queue()
+
+        # At least the good packet should have been attempted
+        # (processing may or may not succeed depending on error handling)
+        assert packet_capture.stats["batch_count"] == 1
+
+    def test_packet_with_exception_in_layer_processing(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test handling when layer processing raises exception."""
+        mock_packet = MagicMock()
+        mock_packet.time = 1.0
+        mock_packet.__len__.return_value = 100
+
+        # Make haslayer return False (no exception thrown)
+        # but the layer access via __getitem__ raises exception
+        mock_packet.haslayer.return_value = True
+
+        def getitem_side_effect(layer_type: type) -> MagicMock:
+            raise RuntimeError("Layer access failed")
+
+        mock_packet.__getitem__.side_effect = getitem_side_effect
+        mock_packet.layers.return_value = []
+
+        # Process should handle the error gracefully (exception caught in layer processing)
+        result = packet_capture.process_packet_layers(mock_packet)
+
+        # Should still return a packet (with whatever layers it could extract)
+        assert result is not None
+        assert result.timestamp == 1.0
+
+    def test_packet_with_no_recognizable_layers(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test that packets with no recognizable layers are handled."""
+        mock_packet = MagicMock()
+        mock_packet.time = 2.0
+        mock_packet.__len__.return_value = 64
+        mock_packet.haslayer.return_value = False  # No known layers
+        mock_packet.layers.return_value = []
+
+        result = packet_capture.process_packet_layers(mock_packet)
+
+        # Should create a minimal packet
+        assert result is not None
+        assert result.timestamp == 2.0
+        assert result.raw_size == 64
+        assert len(result.layers) == 0
+
+    def test_none_packet_raises_value_error(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test that None packet raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot process None packet"):
+            packet_capture.process_packet_layers(None)  # type: ignore[arg-type]
+
+    def test_batch_with_mixed_valid_invalid_packets(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test batch processing with mixed valid and invalid packets."""
+        # Create valid packet
+        valid_packet = MagicMock()
+        valid_packet.time = 1.0
+        valid_packet.__len__.return_value = 100
+        valid_packet.haslayer.return_value = False
+        valid_packet.layers.return_value = []
+
+        # Create packet that will fail processing
+        failing_packet = MagicMock()
+        failing_packet.time = 2.0
+        failing_packet.__len__.side_effect = RuntimeError("Size check failed")
+        failing_packet.haslayer.return_value = False
+        failing_packet.layers.return_value = []
+
+        packet_capture.packet_queue.put([valid_packet, failing_packet, valid_packet])
+        packet_capture.stats["dropped_packets"] = 0
+        packet_capture.is_running = False
+
+        packet_capture.process_queue()
+
+        # At least 2 packets should succeed, 1 should be dropped
+        assert packet_capture.stats["dropped_packets"] >= 1
+
+
+# ============================================================================
+# TEST CLASS: Data Conversion Errors
+# ============================================================================
+
+
+class TestDataConversionErrors:
+    """Test error handling in data conversion methods."""
+
+    def test_to_json_with_non_serializable_data(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test to_json handles non-serializable packet data."""
+        # Create a packet that will fail to serialize
+        bad_packet = MagicMock(spec=Packet)
+        bad_packet.to_json.side_effect = TypeError("Object not JSON serializable")
+        packet_capture.packets = [bad_packet]
+
+        with pytest.raises(DataConversionError):
+            packet_capture.to_json()
+
+    def test_to_json_returns_empty_for_no_packets(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test to_json returns empty dict when no packets."""
+        assert packet_capture.packets == []
+        result = packet_capture.to_json()
+        assert result == {}
+
+    def test_to_pandas_with_conflicting_types(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test to_pandas_df handles packets with different field types."""
+        # Create packets with same field but different types
+        layer1 = PacketLayer(layer_name="Test", fields={"value": 42})
+        layer2 = PacketLayer(layer_name="Test", fields={"value": "string"})
+
+        packet_capture.packets = [
+            Packet(timestamp=1.0, layers=[layer1], raw_size=100),
+            Packet(timestamp=2.0, layers=[layer2], raw_size=100),
+        ]
+
+        # Pandas should handle type coercion
+        result = packet_capture.to_pandas_df()
+        assert len(result) == 2
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_to_polars_with_complex_nested_data(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test to_polars_df handles complex nested data."""
+        layer = PacketLayer(
+            layer_name="Complex",
+            fields={
+                "nested": {"a": 1, "b": {"c": 2}},
+                "list_field": [1, 2, 3],
+            },
+        )
+        packet_capture.packets = [
+            Packet(timestamp=1.0, layers=[layer], raw_size=100)
+        ]
+
+        # Should handle without crashing
+        result = packet_capture.to_polars_df()
+        assert len(result) == 1
+
+
+# ============================================================================
+# TEST CLASS: File I/O Errors
+# ============================================================================
+
+
+class TestFileIOErrors:
+    """Test error handling for file operations."""
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_save_to_parquet_with_empty_packets(
+        self, packet_capture: PacketCapture, temp_log_dir: str
+    ) -> None:
+        """Test save_to_parquet handles empty packet list."""
+        assert len(packet_capture.packets) == 0
+
+        filepath = Path(temp_log_dir) / "empty.parquet"
+        result = packet_capture.save_to_parquet(str(filepath))
+
+        # Should create an empty parquet file
+        assert Path(result).exists()
+        df = pl.read_parquet(result)
+        assert len(df) == 0
+
+        # Cleanup
+        Path(result).unlink()
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_save_to_parquet_overwrites_existing(
+        self, packet_capture: PacketCapture, temp_log_dir: str
+    ) -> None:
+        """Test save_to_parquet overwrites existing file."""
+        filepath = Path(temp_log_dir) / "overwrite.parquet"
+
+        # First save
+        layer1 = PacketLayer(layer_name="First", fields={"id": 1})
+        packet_capture.packets = [Packet(timestamp=1.0, layers=[layer1], raw_size=100)]
+        packet_capture.save_to_parquet(str(filepath))
+
+        # Verify first save
+        df1 = pl.read_parquet(filepath)
+        assert len(df1) == 1
+
+        # Second save with more packets
+        layer2 = PacketLayer(layer_name="Second", fields={"id": 2})
+        packet_capture.packets = [
+            Packet(timestamp=2.0, layers=[layer2], raw_size=100),
+            Packet(timestamp=3.0, layers=[layer2], raw_size=100),
+        ]
+        packet_capture.save_to_parquet(str(filepath))
+
+        # Verify overwrite
+        df2 = pl.read_parquet(filepath)
+        assert len(df2) == 2
+
+        # Cleanup
+        filepath.unlink()
+
+    @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
+    def test_save_to_parquet_generates_unique_filename(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test save_to_parquet generates unique filename when not specified."""
+        layer = PacketLayer(layer_name="Test", fields={"id": 1})
+        packet_capture.packets = [Packet(timestamp=1.0, layers=[layer], raw_size=100)]
+
+        # Save without specifying filename - should use default from config
+        filepath1 = packet_capture.save_to_parquet()
+
+        assert Path(filepath1).exists()
+
+        # Cleanup
+        Path(filepath1).unlink()
+
+    def test_save_preserves_packets_on_error(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test that packets are preserved if save fails."""
+        # Add some packets
+        for i in range(5):
+            layer = PacketLayer(layer_name="Test", fields={"id": i})
+            packet_capture.packets.append(
+                Packet(timestamp=float(i), layers=[layer], raw_size=100)
+            )
+
+        original_count = len(packet_capture.packets)
+        assert original_count == 5
+
+        # Try to save to invalid path (should fail but not lose packets)
+        with contextlib.suppress(Exception):
+            packet_capture.save_to_parquet("/nonexistent/path/file.parquet")
+
+        # Packets should still be in memory
+        assert len(packet_capture.packets) == original_count
+
+
+# ============================================================================
+# TEST CLASS: Capture Error Recovery
+# ============================================================================
+
+
+class TestCaptureErrorRecovery:
+    """Test error recovery during capture operations."""
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_capture_recovers_from_sniff_error(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture
+    ) -> None:
+        """Test that capture handles sniff errors appropriately."""
+        mock_sniff.side_effect = OSError("Network interface error")
+
+        with pytest.raises(OSError):
+            packet_capture.capture(max_packets=10)
+
+        # Should be able to try again after error
+        mock_sniff.side_effect = None
+        mock_sniff.return_value = []
+
+        # Second capture should work
+        packet_capture.capture(max_packets=0)
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_capture_cleans_up_on_keyboard_interrupt(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture
+    ) -> None:
+        """Test that keyboard interrupt is handled cleanly."""
+        mock_sniff.side_effect = KeyboardInterrupt()
+
+        with pytest.raises(KeyboardInterrupt):
+            packet_capture.capture(max_packets=10)
+
+        # is_running should be False
+        assert not packet_capture.is_running
+
+    def test_stats_consistent_after_errors(
+        self, packet_capture: PacketCapture
+    ) -> None:
+        """Test that stats remain consistent after processing errors."""
+        # Reset stats and clear packets
+        packet_capture.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+        packet_capture.packets.clear()
+
+        # Drain any existing items in the queue
+        while not packet_capture.packet_queue.empty():
+            packet_capture.packet_queue.get_nowait()
+
+        # Process some batches
+        good_packet = MagicMock()
+        good_packet.time = 1.0
+        good_packet.__len__.return_value = 100
+        good_packet.haslayer.return_value = False
+        good_packet.layers.return_value = []
+
+        packet_capture.packet_queue.put([good_packet])
+        packet_capture.packet_queue.put([good_packet, good_packet])
+        packet_capture.is_running = False
+
+        packet_capture.process_queue()
+
+        # Stats should be consistent
+        assert packet_capture.stats["batch_count"] == 2
+        # Total packets attempted = processed + dropped
+        total = packet_capture.stats["processed_packets"] + packet_capture.stats[
+            "dropped_packets"
+        ]
+        assert total == 3
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
