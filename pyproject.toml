@@ -239,5 +239,6 @@ skips = ["B101", "B601"]
 [dependency-groups]
 dev = [
     "pipdeptree>=2.28.0",
+    "pytest-cov>=7.0.0",
     "ty>=0.0.11",
 ]

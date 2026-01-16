@@ -5,13 +5,14 @@ Collects source files from a project and outputs them to a single file for AI co
 Supports multiple directories, ignore patterns, and .gitignore integration.
 """
 
-import argparse
 import fnmatch
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import Annotated, Optional
+
+import typer
 
 
 class ProjectContextCollector:
@@ -40,10 +41,10 @@ class ProjectContextCollector:
 
     def __init__(
         self,
-        sources: List[Path],
+        sources: list[Path],
         output_file: Path,
-        extensions: Optional[List[str]] = None,
-        ignore_patterns: Optional[List[str]] = None,
+        extensions: Optional[list[str]] = None,
+        ignore_patterns: Optional[list[str]] = None,
         use_gitignore: bool = True,
         max_file_size: int = 1_000_000,  # 1MB default
         include_deps_tree: bool = False,
@@ -57,11 +58,11 @@ class ProjectContextCollector:
         self.max_file_size = max_file_size
         self.include_deps_tree = include_deps_tree
         self.include_project_tree = include_project_tree
-        self.gitignore_patterns = set()
+        self.gitignore_patterns: set[str] = set()
         self.file_count = 0
         self.skipped_count = 0
 
-    def get_system_info(self) -> List[Tuple[str, str]]:
+    def get_system_info(self) -> list[tuple[str, str]]:
         """Get dependency and project tree information."""
         info = []
 
@@ -102,7 +103,7 @@ class ProjectContextCollector:
 
         return info
 
-    def load_gitignore(self, directory: Path) -> Set[str]:
+    def load_gitignore(self, directory: Path) -> set[str]:
         """Load patterns from .gitignore file."""
         patterns = set()
         gitignore_file = directory / ".gitignore"
@@ -137,7 +138,7 @@ class ProjectContextCollector:
                     return True
         return False
 
-    def find_files(self, source_dir: Path) -> List[Path]:
+    def find_files(self, source_dir: Path) -> list[Path]:
         """Find all matching files in the source directory."""
         files = []
         if not source_dir.is_dir():
@@ -239,62 +240,100 @@ class ProjectContextCollector:
         print("=" * 80 + "\n")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Collect project files for AI context.",
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser.add_argument(
-        "-s", "--sources", nargs="+", default=["."], help="Source directories (default: .)"
-    )
-    parser.add_argument(
-        "-o", "--output", default="project_context.txt", help="Output file path"
-    )
-    parser.add_argument(
-        "--extensions", nargs="+", help="File extensions to include"
-    )
-    parser.add_argument(
-        "-i", "--ignore", nargs="+", default=[], help="Additional glob patterns to ignore"
-    )
-    parser.add_argument(
-        "--no-gitignore", action="store_true", help="Disable .gitignore integration"
-    )
-    parser.add_argument(
-        "--max-size", type=int, default=1_000_000, help="Max file size in bytes (default: 1MB)"
-    )
-    parser.add_argument(
-        "--include-deps-tree", action="store_true", help="Include dependency tree from 'uv pip tree'"
-    )
-    parser.add_argument(
-        "--include-project-tree", action="store_true", help="Include project structure from 'tree'"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
+app = typer.Typer(
+    help="Collect project files for AI context.",
+    add_completion=False,
+    rich_markup_mode="rich",
+)
 
-    args = parser.parse_args()
-    sources = [Path(s).resolve() for s in args.sources]
+
+@app.command()
+def collect(
+    directory: Annotated[
+        Path,
+        typer.Argument(
+            help="Directory to collect context from",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = Path(),
+    sources: Annotated[
+        Optional[list[Path]],
+        typer.Option(
+            "--source",
+            "-s",
+            help="Additional source directories to include",
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            resolve_path=True,
+        ),
+    ] = None,
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output file path"),
+    ] = Path("project_context.txt"),
+    extensions: Annotated[
+        Optional[list[str]],
+        typer.Option("--ext", "-e", help="File extensions to include (e.g., -e .py -e .ts)"),
+    ] = None,
+    ignore: Annotated[
+        Optional[list[str]],
+        typer.Option("--ignore", "-i", help="Glob patterns to ignore"),
+    ] = None,
+    no_gitignore: Annotated[
+        bool,
+        typer.Option("--no-gitignore", help="Disable .gitignore integration"),
+    ] = False,
+    max_size: Annotated[
+        int,
+        typer.Option("--max-size", help="Max file size in bytes"),
+    ] = 1_000_000,
+    deps_tree: Annotated[
+        bool,
+        typer.Option("--deps-tree", "-d", help="Include dependency tree from 'uv pip tree'"),
+    ] = False,
+    project_tree: Annotated[
+        bool,
+        typer.Option("--project-tree", "-p", help="Include project structure from 'tree'"),
+    ] = False,
+) -> None:
+    """
+    Collect source files from a project directory for AI context.
+
+    Examples:
+        collect-context .
+        collect-context ./src --output context.txt
+        collect-context . -s ./tests -e .py -e .ts
+        collect-context . --deps-tree --project-tree
+    """
+    # Combine main directory with additional sources
+    all_sources = [directory]
+    if sources:
+        all_sources.extend(sources)
 
     collector = ProjectContextCollector(
-        sources=sources,
-        output_file=Path(args.output),
-        extensions=args.extensions,
-        ignore_patterns=args.ignore,
-        use_gitignore=not args.no_gitignore,
-        max_file_size=args.max_size,
-        include_deps_tree=args.include_deps_tree,
-        include_project_tree=args.include_project_tree,
+        sources=all_sources,
+        output_file=output,
+        extensions=extensions,
+        ignore_patterns=ignore or [],
+        use_gitignore=not no_gitignore,
+        max_file_size=max_size,
+        include_deps_tree=deps_tree,
+        include_project_tree=project_tree,
     )
 
     try:
         collector.collect()
     except KeyboardInterrupt:
         print("\n\n⚠️ Interrupted by user.", file=sys.stderr)
-        sys.exit(1)
+        raise typer.Exit(1) from None
     except Exception as e:
         print(f"\n❌ An unexpected error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise typer.Exit(1) from None
 
 
 if __name__ == "__main__":
-    main()
+    app()

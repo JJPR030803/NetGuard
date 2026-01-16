@@ -90,4 +90,4 @@ config/local.env
 site/
 *.coverage
 .coverage
-project_context.txt
+*context.txt
