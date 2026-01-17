@@ -149,7 +149,7 @@ class PacketCapture:
                     try:
                         processed_packet = self.process_packet_layers(packet)
                         self.packets.append(processed_packet)
-                        self.packet_logger.log(f"Processed packet: {processed_packet.id}")
+                        self.packet_logger.log(f"Processed packet: {processed_packet.timestamp}")
                     except Exception as e:
                         # Log the error but continue processing other packets
                         # We don't want to stop the entire queue processing for one packet

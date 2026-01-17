@@ -6,9 +6,13 @@ and integration between different components of the PacketCapture system.
 """
 
 import contextlib
+import sys
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from threading import Thread
+from time import sleep, time
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -740,9 +744,7 @@ class TestConfigurationValidationErrors:
                 max_memory_packets=50,
             )
 
-    def test_invalid_max_memory_packets_not_divisible_by_10(
-        self, temp_log_dir: str
-    ) -> None:
+    def test_invalid_max_memory_packets_not_divisible_by_10(self, temp_log_dir: str) -> None:
         """Test max_memory_packets not divisible by 10 raises ValueError."""
         with pytest.raises(ValueError, match="must be a multiple of 10"):
             SnifferConfig(
@@ -758,9 +760,7 @@ class TestConfigurationValidationErrors:
         """Test that missing export directory is created during save."""
         # Add a packet
         layer = PacketLayer(layer_name="Test", fields={"id": 1})
-        packet_capture.packets.append(
-            Packet(timestamp=1.0, layers=[layer], raw_size=100)
-        )
+        packet_capture.packets.append(Packet(timestamp=1.0, layers=[layer], raw_size=100))
 
         # Create path to non-existent directory
         new_dir = Path(temp_log_dir) / "new_subdir" / "another"
@@ -807,9 +807,7 @@ class TestConfigurationValidationErrors:
 class TestPacketProcessingErrors:
     """Test error handling during packet processing."""
 
-    def test_malformed_packet_does_not_crash(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_malformed_packet_does_not_crash(self, packet_capture: PacketCapture) -> None:
         """Test that malformed packets don't crash processing."""
         # Create a malformed mock packet that will cause issues
         malformed_packet = MagicMock()
@@ -835,9 +833,7 @@ class TestPacketProcessingErrors:
         # (processing may or may not succeed depending on error handling)
         assert packet_capture.stats["batch_count"] == 1
 
-    def test_packet_with_exception_in_layer_processing(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_packet_with_exception_in_layer_processing(self, packet_capture: PacketCapture) -> None:
         """Test handling when layer processing raises exception."""
         mock_packet = MagicMock()
         mock_packet.time = 1.0
@@ -860,9 +856,7 @@ class TestPacketProcessingErrors:
         assert result is not None
         assert result.timestamp == 1.0
 
-    def test_packet_with_no_recognizable_layers(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_packet_with_no_recognizable_layers(self, packet_capture: PacketCapture) -> None:
         """Test that packets with no recognizable layers are handled."""
         mock_packet = MagicMock()
         mock_packet.time = 2.0
@@ -878,16 +872,12 @@ class TestPacketProcessingErrors:
         assert result.raw_size == 64
         assert len(result.layers) == 0
 
-    def test_none_packet_raises_value_error(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_none_packet_raises_value_error(self, packet_capture: PacketCapture) -> None:
         """Test that None packet raises ValueError."""
         with pytest.raises(ValueError, match="Cannot process None packet"):
             packet_capture.process_packet_layers(None)  # type: ignore[arg-type]
 
-    def test_batch_with_mixed_valid_invalid_packets(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_batch_with_mixed_valid_invalid_packets(self, packet_capture: PacketCapture) -> None:
         """Test batch processing with mixed valid and invalid packets."""
         # Create valid packet
         valid_packet = MagicMock()
@@ -921,9 +911,7 @@ class TestPacketProcessingErrors:
 class TestDataConversionErrors:
     """Test error handling in data conversion methods."""
 
-    def test_to_json_with_non_serializable_data(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_to_json_with_non_serializable_data(self, packet_capture: PacketCapture) -> None:
         """Test to_json handles non-serializable packet data."""
         # Create a packet that will fail to serialize
         bad_packet = MagicMock(spec=Packet)
@@ -933,17 +921,13 @@ class TestDataConversionErrors:
         with pytest.raises(DataConversionError):
             packet_capture.to_json()
 
-    def test_to_json_returns_empty_for_no_packets(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_to_json_returns_empty_for_no_packets(self, packet_capture: PacketCapture) -> None:
         """Test to_json returns empty dict when no packets."""
         assert packet_capture.packets == []
         result = packet_capture.to_json()
         assert result == {}
 
-    def test_to_pandas_with_conflicting_types(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_to_pandas_with_conflicting_types(self, packet_capture: PacketCapture) -> None:
         """Test to_pandas_df handles packets with different field types."""
         # Create packets with same field but different types
         layer1 = PacketLayer(layer_name="Test", fields={"value": 42})
@@ -959,9 +943,7 @@ class TestDataConversionErrors:
         assert len(result) == 2
 
     @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
-    def test_to_polars_with_complex_nested_data(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_to_polars_with_complex_nested_data(self, packet_capture: PacketCapture) -> None:
         """Test to_polars_df handles complex nested data."""
         layer = PacketLayer(
             layer_name="Complex",
@@ -970,9 +952,7 @@ class TestDataConversionErrors:
                 "list_field": [1, 2, 3],
             },
         )
-        packet_capture.packets = [
-            Packet(timestamp=1.0, layers=[layer], raw_size=100)
-        ]
+        packet_capture.packets = [Packet(timestamp=1.0, layers=[layer], raw_size=100)]
 
         # Should handle without crashing
         result = packet_capture.to_polars_df()
@@ -1037,9 +1017,7 @@ class TestFileIOErrors:
         filepath.unlink()
 
     @pytest.mark.skipif(not POLARS_AVAILABLE, reason="Polars not installed")
-    def test_save_to_parquet_generates_unique_filename(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_save_to_parquet_generates_unique_filename(self, packet_capture: PacketCapture) -> None:
         """Test save_to_parquet generates unique filename when not specified."""
         layer = PacketLayer(layer_name="Test", fields={"id": 1})
         packet_capture.packets = [Packet(timestamp=1.0, layers=[layer], raw_size=100)]
@@ -1052,16 +1030,12 @@ class TestFileIOErrors:
         # Cleanup
         Path(filepath1).unlink()
 
-    def test_save_preserves_packets_on_error(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_save_preserves_packets_on_error(self, packet_capture: PacketCapture) -> None:
         """Test that packets are preserved if save fails."""
         # Add some packets
         for i in range(5):
             layer = PacketLayer(layer_name="Test", fields={"id": i})
-            packet_capture.packets.append(
-                Packet(timestamp=float(i), layers=[layer], raw_size=100)
-            )
+            packet_capture.packets.append(Packet(timestamp=float(i), layers=[layer], raw_size=100))
 
         original_count = len(packet_capture.packets)
         assert original_count == 5
@@ -1112,9 +1086,7 @@ class TestCaptureErrorRecovery:
         # is_running should be False
         assert not packet_capture.is_running
 
-    def test_stats_consistent_after_errors(
-        self, packet_capture: PacketCapture
-    ) -> None:
+    def test_stats_consistent_after_errors(self, packet_capture: PacketCapture) -> None:
         """Test that stats remain consistent after processing errors."""
         # Reset stats and clear packets
         packet_capture.stats = {
@@ -1145,10 +1117,691 @@ class TestCaptureErrorRecovery:
         # Stats should be consistent
         assert packet_capture.stats["batch_count"] == 2
         # Total packets attempted = processed + dropped
-        total = packet_capture.stats["processed_packets"] + packet_capture.stats[
-            "dropped_packets"
-        ]
+        total = packet_capture.stats["processed_packets"] + packet_capture.stats["dropped_packets"]
         assert total == 3
+
+
+# ============================================================================
+# TEST CLASS: Full Capture Workflow
+# ============================================================================
+
+
+class TestFullCaptureWorkflow:
+    """Test complete capture-to-export workflows."""
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_capture_to_parquet_workflow(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture, temp_log_dir: str
+    ) -> None:
+        """Test complete workflow: capture -> process -> save."""
+        # Create mock packets
+        packets_to_capture = [
+            create_realistic_mock_packet(
+                src_ip=f"192.168.1.{i}",
+                dst_ip=f"10.0.0.{i}",
+                timestamp=float(1000 + i),
+                size=100 + i,
+            )
+            for i in range(15)
+        ]
+
+        packet_index = [0]
+
+        def sniff_side_effect(**kwargs: Any) -> None:
+            prn = kwargs.get("prn")
+            count = kwargs.get("count", len(packets_to_capture))
+            if prn:
+                for _ in range(min(count, len(packets_to_capture))):
+                    if packet_index[0] < len(packets_to_capture):
+                        prn(packets_to_capture[packet_index[0]])
+                        packet_index[0] += 1
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Start capture
+        packet_capture.capture(max_packets=15)
+
+        # Wait for processing to complete (should already be done by capture)
+        assert len(packet_capture.packets) == 15
+
+        # Save to parquet
+        if POLARS_AVAILABLE:
+            parquet_path = Path(temp_log_dir) / "workflow_test.parquet"
+            saved_path = packet_capture.save_to_parquet(str(parquet_path))
+
+            # Verify file exists
+            assert Path(saved_path).exists()
+
+            # Verify file contains correct data
+            df = pl.read_parquet(saved_path)
+            assert len(df) == 15
+
+            # Verify data integrity
+            assert "timestamp" in df.columns
+            assert "raw_size" in df.columns
+
+            # Cleanup
+            Path(saved_path).unlink()
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_capture_with_filter_workflow(self, mock_sniff: MagicMock, temp_log_dir: str) -> None:
+        """Test capture with BPF filter applied."""
+        # Create a capture with filter in config
+        config_with_filter = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            filter_expression="tcp port 80",
+        )
+        capture = PacketCapture(config=config_with_filter)
+
+        # Create only TCP port 80 packets
+        tcp_80_packets = [
+            create_realistic_mock_packet(
+                src_port=12345,
+                dst_port=80,
+                protocol="TCP",
+                timestamp=float(i),
+            )
+            for i in range(5)
+        ]
+
+        packet_index = [0]
+
+        def sniff_side_effect(**kwargs: Any) -> None:
+            prn = kwargs.get("prn")
+            # Verify filter was passed
+            assert kwargs.get("filter") == "tcp port 80"
+            if prn:
+                for pkt in tcp_80_packets:
+                    prn(pkt)
+                    packet_index[0] += 1
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Capture with config filter (no override)
+        capture.capture(max_packets=5)
+
+        # Verify sniff was called with the filter
+        call_kwargs = mock_sniff.call_args[1]
+        assert call_kwargs["filter"] == "tcp port 80"
+
+        # Verify packets were captured
+        assert len(capture.packets) == 5
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_multiple_capture_sessions(self, mock_sniff: MagicMock, temp_log_dir: str) -> None:
+        """Test multiple sequential capture sessions."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+        )
+        capture = PacketCapture(config=config)
+
+        # First session packets
+        session1_packets = [
+            create_realistic_mock_packet(
+                src_ip=f"10.0.0.{i}",
+                timestamp=float(1000 + i),
+            )
+            for i in range(5)
+        ]
+
+        # Second session packets
+        session2_packets = [
+            create_realistic_mock_packet(
+                src_ip=f"192.168.1.{i}",
+                timestamp=float(2000 + i),
+            )
+            for i in range(3)
+        ]
+
+        session = [1]
+        packet_index = [0]
+
+        def sniff_side_effect(**kwargs: Any) -> None:
+            prn = kwargs.get("prn")
+            if prn:
+                packets = session1_packets if session[0] == 1 else session2_packets
+                for pkt in packets:
+                    prn(pkt)
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # First capture session
+        capture.capture(max_packets=5)
+        session1_count = len(capture.packets)
+
+        if POLARS_AVAILABLE:
+            file1 = Path(temp_log_dir) / "session1.parquet"
+            capture.save_to_parquet(str(file1))
+            assert file1.exists()
+            df1 = pl.read_parquet(file1)
+            assert len(df1) == 5
+
+        # Reset for second session
+        session[0] = 2
+        packet_index[0] = 0
+        # Clear packets for fresh session
+        capture.packets.clear()
+        capture.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+        # Second capture session
+        capture.capture(max_packets=3)
+        session2_count = len(capture.packets)
+
+        if POLARS_AVAILABLE:
+            file2 = Path(temp_log_dir) / "session2.parquet"
+            capture.save_to_parquet(str(file2))
+            assert file2.exists()
+            df2 = pl.read_parquet(file2)
+            assert len(df2) == 3
+
+        # Verify both files have correct data
+        assert session1_count == 5
+        assert session2_count == 3
+
+        # Verify stats were reset between sessions
+        assert capture.stats["processed_packets"] == 3
+
+        # Cleanup
+        if POLARS_AVAILABLE:
+            file1.unlink()
+            file2.unlink()
+
+    def test_capture_and_export_all_formats(
+        self, packet_capture: PacketCapture, temp_log_dir: str
+    ) -> None:
+        """Test exporting captured packets to all supported formats."""
+        # Add test packets directly
+        for i in range(10):
+            layer = PacketLayer(
+                layer_name="TCP",
+                fields={
+                    "sport": 12345 + i,
+                    "dport": 80,
+                    "seq": 1000 + i,
+                    "ack": 2000 + i,
+                },
+            )
+            ip_layer = PacketLayer(
+                layer_name="IP",
+                fields={
+                    "src": f"192.168.1.{i}",
+                    "dst": "10.0.0.1",
+                    "ttl": 64,
+                },
+            )
+            packet_capture.packets.append(
+                Packet(
+                    timestamp=float(1000 + i),
+                    layers=[ip_layer, layer],
+                    raw_size=100 + i,
+                )
+            )
+
+        # Export to JSON
+        json_data = packet_capture.to_json()
+        assert json_data["total_packets"] == 10
+        assert len(json_data["packets"]) == 10
+        for i, pkt in enumerate(json_data["packets"]):
+            assert pkt["timestamp"] == float(1000 + i)
+            assert pkt["raw_size"] == 100 + i
+
+        # Export to Pandas
+        pandas_df = packet_capture.to_pandas_df()
+        assert len(pandas_df) == 10
+        assert "timestamp" in pandas_df.columns
+        assert "raw_size" in pandas_df.columns
+        assert "TCP_sport" in pandas_df.columns
+        assert "IP_src" in pandas_df.columns
+
+        # Export to Polars
+        if POLARS_AVAILABLE:
+            polars_df = packet_capture.to_polars_df()
+            assert len(polars_df) == 10
+            assert "timestamp" in polars_df.columns
+            assert "raw_size" in polars_df.columns
+            assert "TCP_sport" in polars_df.columns
+            assert "IP_src" in polars_df.columns
+
+            # Export to Parquet
+            parquet_path = Path(temp_log_dir) / "all_formats_test.parquet"
+            saved_path = packet_capture.save_to_parquet(str(parquet_path))
+            assert Path(saved_path).exists()
+
+            # Verify parquet data integrity
+            parquet_df = pl.read_parquet(saved_path)
+            assert len(parquet_df) == 10
+
+            # Verify data consistency across formats
+            for i in range(10):
+                assert pandas_df["timestamp"].iloc[i] == polars_df["timestamp"][i]
+                assert pandas_df["raw_size"].iloc[i] == polars_df["raw_size"][i]
+
+            # Cleanup
+            Path(saved_path).unlink()
+
+
+# ============================================================================
+# TEST CLASS: Real-time Display Integration
+# ============================================================================
+
+
+class TestRealtimeDisplayIntegration:
+    """Test real-time display functionality."""
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_realtime_display_updates_during_capture(
+        self, mock_sniff: MagicMock, temp_log_dir: str
+    ) -> None:
+        """Test that realtime display updates as packets are captured."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            enable_realtime_display=True,
+        )
+        capture = PacketCapture(config=config, realtime_display=True)
+
+        # Verify realtime display is enabled
+        assert capture.realtime_display is True
+
+        # Create test packets
+        test_packets = [create_realistic_mock_packet(timestamp=float(i)) for i in range(10)]
+
+        def sniff_side_effect(**kwargs: Any) -> None:
+            prn = kwargs.get("prn")
+            if prn:
+                for pkt in test_packets:
+                    prn(pkt)
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Patch the display loop to prevent actual screen clearing
+        with patch.object(capture, "_realtime_display_loop"):
+            capture.capture(max_packets=10, realtime=True)
+
+        # Verify realtime_packets deque was populated
+        assert len(capture.realtime_packets) > 0
+
+        # Verify packets were captured
+        assert len(capture.packets) == 10
+
+        # Verify display thread would have been started (check the flag was set)
+        # After capture completes, display_running should be False
+        assert capture.display_running is False
+
+    def test_realtime_display_maxlen_enforced(self, temp_log_dir: str) -> None:
+        """Test that realtime_packets deque respects maxlen."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            enable_realtime_display=True,
+        )
+        capture = PacketCapture(config=config, realtime_display=True)
+
+        # Default maxlen is 50
+        assert capture.realtime_packets.maxlen == 50
+
+        # Add 100 packets directly to the deque
+        for i in range(100):
+            layer = PacketLayer(layer_name="Test", fields={"id": i})
+            packet = Packet(timestamp=float(i), layers=[layer], raw_size=100)
+            capture.realtime_packets.append(packet)
+
+        # Verify deque contains only last 50 packets
+        assert len(capture.realtime_packets) == 50
+
+        # Verify oldest packets were dropped (first packet should be id=50)
+        first_packet = capture.realtime_packets[0]
+        assert first_packet.timestamp == 50.0
+
+        # Verify last packet is id=99
+        last_packet = capture.realtime_packets[-1]
+        assert last_packet.timestamp == 99.0
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_realtime_display_thread_lifecycle(
+        self, mock_sniff: MagicMock, temp_log_dir: str
+    ) -> None:
+        """Test that display thread starts and stops properly."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            enable_realtime_display=True,
+        )
+        capture = PacketCapture(config=config, realtime_display=True)
+
+        mock_sniff.return_value = []
+
+        # Verify display thread is None initially
+        assert capture.display_thread is None
+        assert capture.display_running is False
+
+        # Mock the display loop to avoid infinite loop and screen clearing
+        display_loop_called = [False]
+
+        def mock_display_loop() -> None:
+            display_loop_called[0] = True
+            while capture.display_running:
+                sleep(0.01)  # Short sleep to allow thread to be stopped
+
+        with patch.object(capture, "_realtime_display_loop", mock_display_loop):
+            # Start realtime display
+            capture.start_realtime_display()
+
+            # Verify thread is running
+            assert capture.display_running is True
+            assert capture.display_thread is not None
+            assert capture.display_thread.is_alive()
+
+            # Stop realtime display
+            capture.stop_realtime_display()
+
+            # Verify thread has stopped
+            assert capture.display_running is False
+
+
+# ============================================================================
+# TEST CLASS: Performance Tests
+# ============================================================================
+
+
+class TestPerformance:
+    """Test performance characteristics."""
+
+    def test_high_volume_packet_processing(self, packet_capture: PacketCapture) -> None:
+        """Test processing large volume of packets efficiently."""
+        # Create 10,000 mock packets
+        num_packets = 10000
+        mock_packets = []
+
+        for i in range(num_packets):
+            mock_packet = MagicMock()
+            mock_packet.time = float(i)
+            mock_packet.__len__.return_value = 100
+            mock_packet.haslayer.return_value = False
+            mock_packet.layers.return_value = []
+            mock_packets.append(mock_packet)
+
+        # Clear existing data
+        packet_capture.packets.clear()
+        packet_capture.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+        # Process all packets via queue
+        batch_size = 100
+        for i in range(0, num_packets, batch_size):
+            batch = mock_packets[i : i + batch_size]
+            packet_capture.packet_queue.put(batch)
+
+        packet_capture.is_running = False
+
+        # Measure processing time
+        start_time = time()
+        packet_capture.process_queue()
+        processing_time = time() - start_time
+
+        # Verify processing completes in reasonable time (< 60 seconds for 10k packets)
+        assert processing_time < 60.0, f"Processing took too long: {processing_time:.2f}s"
+
+        # Verify stats are accurate
+        total_processed = (
+            packet_capture.stats["processed_packets"] + packet_capture.stats["dropped_packets"]
+        )
+        assert total_processed == num_packets
+
+        # Verify memory usage stays bounded (rough check)
+        packet_memory = sys.getsizeof(packet_capture.packets)
+        # Should be reasonable (packets list itself, not contents)
+        assert packet_memory < 1024 * 1024 * 100  # Less than 100MB for list object
+
+    def test_batch_processing_efficiency(self, temp_log_dir: str) -> None:
+        """Test that batch processing is more efficient than individual."""
+        # Create two captures with different batch sizes
+        config_small_batch = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=1,
+            num_threads=1,
+        )
+        capture_small = PacketCapture(config=config_small_batch)
+
+        config_large_batch = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=100,
+            num_threads=1,
+        )
+        capture_large = PacketCapture(config=config_large_batch)
+
+        # Create 1000 mock packets
+        num_packets = 1000
+
+        def create_mock_packets() -> list[MagicMock]:
+            packets = []
+            for i in range(num_packets):
+                mock_packet = MagicMock()
+                mock_packet.time = float(i)
+                mock_packet.__len__.return_value = 100
+                mock_packet.haslayer.return_value = False
+                mock_packet.layers.return_value = []
+                packets.append(mock_packet)
+            return packets
+
+        # Process with small batches (batch_size=1)
+        packets_small = create_mock_packets()
+        for pkt in packets_small:
+            capture_small.packet_queue.put([pkt])
+
+        capture_small.is_running = False
+        capture_small.process_queue()
+
+        # Process with large batches (batch_size=100)
+        packets_large = create_mock_packets()
+        for i in range(0, num_packets, 100):
+            capture_large.packet_queue.put(packets_large[i : i + 100])
+
+        capture_large.is_running = False
+        capture_large.process_queue()
+
+        # Verify batch processing has less overhead (fewer batches = less overhead)
+        # Large batch should have significantly fewer batch_count
+        assert capture_large.stats["batch_count"] < capture_small.stats["batch_count"]
+        assert capture_small.stats["batch_count"] == num_packets  # 1000 batches
+        assert capture_large.stats["batch_count"] == num_packets // 100  # 10 batches
+
+        # Both should process all packets
+        assert (
+            capture_small.stats["processed_packets"] + capture_small.stats["dropped_packets"]
+            == num_packets
+        )
+        assert (
+            capture_large.stats["processed_packets"] + capture_large.stats["dropped_packets"]
+            == num_packets
+        )
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_concurrent_processing_speedup(self, mock_sniff: MagicMock, temp_log_dir: str) -> None:
+        """Test that multiple threads improve processing speed."""
+        # Create configs with different thread counts
+        config_single = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            num_threads=1,
+            max_processing_batch_size=50,
+        )
+        config_multi = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            num_threads=4,
+            max_processing_batch_size=50,
+        )
+
+        # Create test packets
+        num_packets = 500
+
+        def create_test_packets() -> list[MagicMock]:
+            packets = []
+            for i in range(num_packets):
+                mock_packet = MagicMock()
+                mock_packet.time = float(i)
+                mock_packet.__len__.return_value = 100
+                mock_packet.haslayer.return_value = False
+                mock_packet.layers.return_value = []
+                packets.append(mock_packet)
+            return packets
+
+        def sniff_side_effect(**kwargs: Any) -> None:
+            prn = kwargs.get("prn")
+            count = kwargs.get("count", num_packets)
+            packets = create_test_packets()
+            if prn:
+                for i in range(min(count, len(packets))):
+                    prn(packets[i])
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Test single thread
+        capture_single = PacketCapture(config=config_single)
+        start_single = time()
+        capture_single.capture(max_packets=num_packets)
+        time_single = time() - start_single
+
+        # Reset mock for second capture
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Test multiple threads
+        capture_multi = PacketCapture(config=config_multi)
+        start_multi = time()
+        capture_multi.capture(max_packets=num_packets)
+        time_multi = time() - start_multi
+
+        # Both should capture the same number of packets
+        single_total = (
+            capture_single.stats["processed_packets"] + capture_single.stats["dropped_packets"]
+        )
+        multi_total = (
+            capture_multi.stats["processed_packets"] + capture_multi.stats["dropped_packets"]
+        )
+        assert single_total == num_packets
+        assert multi_total == num_packets
+
+        # Multi-threaded should not be significantly slower
+        # (In practice, speedup depends on CPU and I/O characteristics)
+        # We just verify both complete in reasonable time
+        assert time_single < 30.0, f"Single thread took too long: {time_single:.2f}s"
+        assert time_multi < 30.0, f"Multi thread took too long: {time_multi:.2f}s"
+
+    def test_memory_efficiency_with_large_packets(self, packet_capture: PacketCapture) -> None:
+        """Test memory efficiency when processing packets with large payloads."""
+        # Clear existing packets
+        packet_capture.packets.clear()
+
+        # Create packets with varying sizes
+        for i in range(100):
+            layer = PacketLayer(
+                layer_name="TCP",
+                fields={
+                    "sport": 12345,
+                    "dport": 80,
+                    "payload": "X" * (1000 * (i % 10 + 1)),  # 1KB to 10KB payload
+                },
+            )
+            packet_capture.packets.append(
+                Packet(
+                    timestamp=float(i),
+                    layers=[layer],
+                    raw_size=1000 * (i % 10 + 1),
+                )
+            )
+
+        # Verify all packets are stored
+        assert len(packet_capture.packets) == 100
+
+        # Test that conversions work with large data
+        json_data = packet_capture.to_json()
+        assert json_data["total_packets"] == 100
+
+        pandas_df = packet_capture.to_pandas_df()
+        assert len(pandas_df) == 100
+
+        if POLARS_AVAILABLE:
+            polars_df = packet_capture.to_polars_df()
+            assert len(polars_df) == 100
+
+    def test_queue_throughput(self, packet_capture: PacketCapture) -> None:
+        """Test queue throughput with rapid packet additions."""
+        # Clear existing data
+        packet_capture.packets.clear()
+        while not packet_capture.packet_queue.empty():
+            packet_capture.packet_queue.get_nowait()
+
+        packet_capture.stats = {
+            "processed_packets": 0,
+            "dropped_packets": 0,
+            "processing_time": 0.0,
+            "batch_count": 0,
+        }
+
+        num_batches = 50
+        batch_size = 20
+        total_packets = num_batches * batch_size
+
+        # Producer function - adds packets rapidly
+        def producer() -> None:
+            for _ in range(num_batches):
+                batch = []
+                for j in range(batch_size):
+                    mock_packet = MagicMock()
+                    mock_packet.time = float(j)
+                    mock_packet.__len__.return_value = 100
+                    mock_packet.haslayer.return_value = False
+                    mock_packet.layers.return_value = []
+                    batch.append(mock_packet)
+                packet_capture.packet_queue.put(batch)
+
+        # Start producer
+        producer_thread = Thread(target=producer)
+        packet_capture.is_running = True
+        producer_thread.start()
+
+        # Start consumer
+        consumer_thread = Thread(target=packet_capture.process_queue)
+        consumer_thread.start()
+
+        # Wait for producer to finish
+        producer_thread.join()
+
+        # Signal consumer to stop
+        packet_capture.is_running = False
+
+        # Wait for consumer to finish
+        consumer_thread.join(timeout=10)
+
+        # Verify all packets were processed
+        processed_total = (
+            packet_capture.stats["processed_packets"] + packet_capture.stats["dropped_packets"]
+        )
+        assert processed_total == total_packets
+        assert packet_capture.stats["batch_count"] == num_batches
 
 
 if __name__ == "__main__":

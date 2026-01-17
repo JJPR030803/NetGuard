@@ -7,7 +7,11 @@ including all necessary fixtures and mocks.
 
 import tempfile
 from collections.abc import Generator
+from pathlib import Path
 from queue import Queue
+from threading import Thread
+from time import sleep
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -724,6 +728,515 @@ class TestPacketCapture:
         df = packet_capture.to_polars_df()
         assert isinstance(df, pl.DataFrame)
         assert df.is_empty()
+
+
+# ============================================================================
+# TEST CLASS: Boundary Conditions
+# ============================================================================
+
+
+class TestBoundaryConditions:
+    """Test boundary conditions and edge cases."""
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_zero_packets_captured(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture
+    ) -> None:
+        """Test handling of zero packets captured."""
+        # Configure sniff to not call the callback (no packets)
+        mock_sniff.return_value = []
+
+        # Capture with count=0
+        packet_capture.capture(max_packets=0)
+
+        # Verify no errors occurred
+        assert not packet_capture.is_running
+
+        # Verify empty packets list
+        assert len(packet_capture.packets) == 0
+
+        # Verify stats show 0 packets
+        assert packet_capture.stats["processed_packets"] == 0
+        assert packet_capture.stats["dropped_packets"] == 0
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_single_packet_capture(
+        self, mock_sniff: MagicMock, packet_capture: PacketCapture
+    ) -> None:
+        """Test capturing exactly one packet."""
+        # Create a single mock packet
+        single_packet = create_mock_scapy_packet(timestamp=1234567890.0, size=150)
+
+        def sniff_side_effect(**kwargs):
+            prn = kwargs.get("prn")
+            if prn:
+                prn(single_packet)
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Capture 1 packet
+        packet_capture.capture(max_packets=1)
+
+        # Verify packet processed correctly
+        assert len(packet_capture.packets) == 1
+        assert packet_capture.packets[0].timestamp == 1234567890.0
+        assert packet_capture.packets[0].raw_size == 150
+
+        # Verify stats accurate
+        total = packet_capture.stats["processed_packets"] + packet_capture.stats["dropped_packets"]
+        assert total == 1
+
+    @patch("netguard.capture.packet_capture.sniff")
+    def test_exact_memory_limit_packets(self, mock_sniff: MagicMock, temp_log_dir: str) -> None:
+        """Test capturing exactly max_memory_packets."""
+        # Create config with small max_memory_packets
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_memory_packets=100,  # Minimum allowed value
+            max_processing_batch_size=10,
+        )
+        capture = PacketCapture(config=config)
+
+        # Create exactly 100 packets
+        packets = [create_mock_scapy_packet(timestamp=float(i), size=100) for i in range(100)]
+
+        packet_index = [0]
+
+        def sniff_side_effect(**kwargs):
+            prn = kwargs.get("prn")
+            if prn:
+                for pkt in packets:
+                    prn(pkt)
+                    packet_index[0] += 1
+
+        mock_sniff.side_effect = sniff_side_effect
+
+        # Capture packets
+        capture.capture(max_packets=100)
+
+        # Verify behavior is correct at boundary
+        # Should have exactly 100 or less packets (trimming may occur)
+        assert len(capture.packets) <= 100
+
+        # Verify all packets were processed
+        total = capture.stats["processed_packets"] + capture.stats["dropped_packets"]
+        assert total == 100
+
+    def test_packet_with_maximum_layers(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with many layers."""
+        mock_packet = MagicMock()
+        mock_packet.time = 1234567890.0
+        mock_packet.__len__.return_value = 500
+
+        # Create packet with 10+ layers (all known layer types)
+        known_layers = [Ether, IP, TCP]
+        mock_packet.haslayer.side_effect = lambda x: x in known_layers
+
+        def get_layer(layer_type):
+            if layer_type == Ether:
+                return MagicMock(dst="00:11:22:33:44:55", src="aa:bb:cc:dd:ee:ff", type=0x0800)
+            elif layer_type == IP:
+                return MagicMock(
+                    version=4,
+                    ihl=5,
+                    tos=0,
+                    len=500,
+                    id=12345,
+                    flags=0,
+                    frag=0,
+                    ttl=64,
+                    proto=6,
+                    chksum=0xABCD,
+                    src="192.168.1.1",
+                    dst="10.0.0.1",
+                    options=[],
+                )
+            elif layer_type == TCP:
+                return MagicMock(
+                    sport=12345,
+                    dport=80,
+                    seq=1000,
+                    ack=2000,
+                    dataofs=5,
+                    reserved=0,
+                    flags="PA",
+                    window=8192,
+                    chksum=0x1234,
+                    urgptr=0,
+                    options=[],
+                )
+            return MagicMock()
+
+        mock_packet.__getitem__.side_effect = get_layer
+
+        # Create additional unknown layers to simulate 10+ layers
+        class UnknownLayer1:
+            __name__ = "Custom1"
+            fields_desc: ClassVar[list] = []
+
+        class UnknownLayer2:
+            __name__ = "Custom2"
+            fields_desc: ClassVar[list] = []
+
+        # Add more layers via the layers() method
+        mock_packet.layers.return_value = [
+            UnknownLayer1,
+            UnknownLayer2,
+        ]
+
+        # Process packet
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        # Verify all known layers captured
+        assert processed is not None
+        assert processed.timestamp == 1234567890.0
+        assert processed.raw_size == 500
+
+        # Should have at least the 3 known layers
+        assert len(processed.layers) >= 3
+
+        # Verify specific layers are present
+        layer_names = [layer.layer_name for layer in processed.layers]
+        assert "Ethernet" in layer_names
+        assert "IP" in layer_names
+        assert "TCP" in layer_names
+
+    def test_packet_with_very_large_payload(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with large payload (64KB)."""
+        mock_packet = MagicMock()
+        mock_packet.time = 1234567890.0
+        # 64KB packet size
+        large_size = 65535
+        mock_packet.__len__.return_value = large_size
+        mock_packet.haslayer.return_value = False
+        mock_packet.layers.return_value = []
+
+        # Process packet
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        # Verify handled correctly
+        assert processed is not None
+        assert processed.timestamp == 1234567890.0
+        assert processed.raw_size == large_size
+
+    def test_packet_with_empty_layers(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with no recognizable layers."""
+        mock_packet = MagicMock()
+        mock_packet.time = 1234567890.0
+        mock_packet.__len__.return_value = 64
+        mock_packet.haslayer.return_value = False
+        mock_packet.layers.return_value = []
+
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        assert processed is not None
+        assert processed.timestamp == 1234567890.0
+        assert processed.raw_size == 64
+        assert len(processed.layers) == 0
+
+    def test_packet_with_minimum_size(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with minimum size (1 byte)."""
+        mock_packet = MagicMock()
+        mock_packet.time = 1234567890.0
+        mock_packet.__len__.return_value = 1
+        mock_packet.haslayer.return_value = False
+        mock_packet.layers.return_value = []
+
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        assert processed is not None
+        assert processed.raw_size == 1
+
+    def test_packet_with_zero_timestamp(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with zero timestamp."""
+        mock_packet = MagicMock()
+        mock_packet.time = 0.0
+        mock_packet.__len__.return_value = 100
+        mock_packet.haslayer.return_value = False
+        mock_packet.layers.return_value = []
+
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        assert processed is not None
+        assert processed.timestamp == 0.0
+
+    def test_packet_with_negative_timestamp(self, packet_capture: PacketCapture) -> None:
+        """Test processing packet with negative timestamp (shouldn't happen, but handle it)."""
+        mock_packet = MagicMock()
+        mock_packet.time = -1.0
+        mock_packet.__len__.return_value = 100
+        mock_packet.haslayer.return_value = False
+        mock_packet.layers.return_value = []
+
+        processed = packet_capture.process_packet_layers(mock_packet)
+
+        assert processed is not None
+        assert processed.timestamp == -1.0
+
+    def test_batch_size_boundary(self, temp_log_dir: str) -> None:
+        """Test processing with batch size exactly equal to packet count."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=5,
+        )
+        capture = PacketCapture(config=config)
+
+        # Create exactly batch_size packets
+        packets = [create_mock_scapy_packet(timestamp=float(i)) for i in range(5)]
+
+        # Add batch to queue
+        capture.packet_queue.put(packets)
+        capture.is_running = False
+
+        capture.process_queue()
+
+        # Verify all packets processed
+        assert len(capture.packets) == 5
+        assert capture.stats["batch_count"] == 1
+
+    def test_empty_batch_in_queue(self, packet_capture: PacketCapture) -> None:
+        """Test processing an empty batch from queue."""
+        # Add empty batch to queue
+        packet_capture.packet_queue.put([])
+        packet_capture.is_running = False
+
+        # Should not raise
+        packet_capture.process_queue()
+
+        # Verify stats
+        assert packet_capture.stats["batch_count"] == 1
+        assert packet_capture.stats["processed_packets"] == 0
+
+
+# ============================================================================
+# TEST CLASS: Concurrent Access Edge Cases
+# ============================================================================
+
+
+class TestConcurrentAccessEdgeCases:
+    """Test edge cases in concurrent access scenarios."""
+
+    def test_stop_during_active_processing(self, temp_log_dir: str) -> None:
+        """Test stopping capture while packets are being processed."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=10,
+        )
+        capture = PacketCapture(config=config)
+
+        # Create a large batch of packets
+        large_batch = [create_mock_scapy_packet(timestamp=float(i)) for i in range(100)]
+
+        # Add multiple batches to queue
+        for i in range(5):
+            capture.packet_queue.put(large_batch[i * 20 : (i + 1) * 20])
+
+        capture.is_running = True
+
+        # Start processing in a separate thread
+        process_thread = Thread(target=capture.process_queue)
+        process_thread.start()
+
+        # Allow some processing to happen
+        sleep(0.1)
+
+        # Stop capture mid-processing
+        capture.is_running = False
+
+        # Wait for thread to finish (with timeout)
+        process_thread.join(timeout=5)
+
+        # Verify graceful shutdown - thread should have stopped
+        assert not process_thread.is_alive()
+
+        # Verify no deadlocks - we reached this point
+        # Some packets should have been processed
+        total = capture.stats["processed_packets"] + capture.stats["dropped_packets"]
+        assert total > 0
+
+    def test_save_during_active_capture(self, temp_log_dir: str) -> None:
+        """Test saving while capture is still active."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            max_processing_batch_size=5,
+        )
+        capture = PacketCapture(config=config)
+
+        # Add some packets directly to simulate active capture
+        for i in range(10):
+            layer = PacketLayer(layer_name="Test", fields={"id": i})
+            capture.packets.append(Packet(timestamp=float(i), layers=[layer], raw_size=100))
+
+        # Simulate active capture state
+        capture.is_running = True
+
+        # Save should succeed even while "capturing"
+        if POLARS_AVAILABLE:
+            save_path = Path(temp_log_dir) / "concurrent_save.parquet"
+            result_path = capture.save_to_parquet(str(save_path))
+
+            # Verify save succeeded
+            assert Path(result_path).exists()
+
+            # Verify capture state unchanged
+            assert capture.is_running is True
+
+            # Verify packets still in memory
+            assert len(capture.packets) == 10
+
+            # Cleanup
+            Path(result_path).unlink()
+
+        # Reset state
+        capture.is_running = False
+
+    def test_concurrent_stats_updates(self, packet_capture: PacketCapture) -> None:
+        """Test that stats updates are thread-safe."""
+        num_threads = 10
+        updates_per_thread = 100
+
+        def update_stats():
+            for _ in range(updates_per_thread):
+                packet_capture.update_stats(processing_time=0.001, batch_size=1)
+
+        threads = [Thread(target=update_stats) for _ in range(num_threads)]
+
+        # Start all threads
+        for t in threads:
+            t.start()
+
+        # Wait for all threads to finish
+        for t in threads:
+            t.join()
+
+        # Verify stats are consistent (no race conditions)
+        expected_processed = num_threads * updates_per_thread
+        assert packet_capture.stats["processed_packets"] == expected_processed
+        assert packet_capture.stats["batch_count"] == expected_processed
+
+    def test_multiple_queue_consumers(self, temp_log_dir: str) -> None:
+        """Test multiple threads consuming from the same queue."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            num_threads=4,
+            max_processing_batch_size=5,
+        )
+        capture = PacketCapture(config=config)
+
+        # Add packets to queue
+        num_batches = 20
+        packets_per_batch = 5
+        for i in range(num_batches):
+            batch = [
+                create_mock_scapy_packet(timestamp=float(i * packets_per_batch + j))
+                for j in range(packets_per_batch)
+            ]
+            capture.packet_queue.put(batch)
+
+        capture.is_running = False
+
+        # Start multiple consumer threads
+        threads = [Thread(target=capture.process_queue) for _ in range(4)]
+        for t in threads:
+            t.start()
+
+        # Wait for all threads
+        for t in threads:
+            t.join(timeout=10)
+
+        # Verify all packets were processed without duplicates or loss
+        total = capture.stats["processed_packets"] + capture.stats["dropped_packets"]
+        assert total == num_batches * packets_per_batch
+
+    def test_rapid_start_stop_cycles(self, temp_log_dir: str) -> None:
+        """Test rapid start/stop cycles don't cause issues."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+        )
+
+        for _ in range(5):
+            capture = PacketCapture(config=config)
+
+            # Add some packets
+            batch = [create_mock_scapy_packet(timestamp=float(i)) for i in range(10)]
+            capture.packet_queue.put(batch)
+
+            # Start processing
+            capture.is_running = True
+            thread = Thread(target=capture.process_queue)
+            thread.start()
+
+            # Immediately stop
+            sleep(0.01)
+            capture.is_running = False
+
+            # Wait for thread
+            thread.join(timeout=2)
+
+            # Verify clean state
+            assert not thread.is_alive()
+
+    def test_realtime_deque_concurrent_access(self, temp_log_dir: str) -> None:
+        """Test concurrent access to realtime_packets deque."""
+        config = SnifferConfig(
+            interface="lo",
+            log_dir=temp_log_dir,
+            export_dir=temp_log_dir,
+            enable_realtime_display=True,
+        )
+        capture = PacketCapture(config=config, realtime_display=True)
+
+        errors = []
+
+        def writer():
+            """Write packets to deque."""
+            try:
+                for i in range(100):
+                    layer = PacketLayer(layer_name="Test", fields={"id": i})
+                    packet = Packet(timestamp=float(i), layers=[layer], raw_size=100)
+                    capture.realtime_packets.append(packet)
+                    sleep(0.001)
+            except Exception as e:
+                errors.append(e)
+
+        def reader():
+            """Read packets from deque."""
+            try:
+                for _ in range(100):
+                    # Access deque safely
+                    _ = len(capture.realtime_packets)
+                    if capture.realtime_packets:
+                        _ = list(capture.realtime_packets)[-1]
+                    sleep(0.001)
+            except Exception as e:
+                errors.append(e)
+
+        writer_thread = Thread(target=writer)
+        reader_thread = Thread(target=reader)
+
+        writer_thread.start()
+        reader_thread.start()
+
+        writer_thread.join()
+        reader_thread.join()
+
+        # Verify no errors occurred
+        assert len(errors) == 0, f"Concurrent access errors: {errors}"
+
+        # Deque should have packets (up to maxlen=50)
+        assert len(capture.realtime_packets) <= 50
 
 
 if __name__ == "__main__":
