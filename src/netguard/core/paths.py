@@ -21,7 +21,7 @@ Example:
     from netguard.core.paths import NetGuardPaths
 
     paths = NetGuardPaths()
-    config_path = paths.get_config_dir() / "sniffer_config.yaml"
+    config_path = paths.get_config_dir() / "config.toml"
     log_path = paths.get_log_dir() / "application.log"
 """
 

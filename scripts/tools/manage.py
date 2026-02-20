@@ -34,7 +34,7 @@ app.add_typer(docker_app)
 
 def run_uv_command(cmd: list[str]) -> subprocess.CompletedProcess:
     """Run a command using 'uv run' to ensure it's executed in the virtual environment."""
-    return subprocess.run(["uv", "run"] + cmd)
+    return subprocess.run(["uv", "run", *cmd], check=False)
 
 
 # ============================================================================
@@ -125,7 +125,10 @@ def test_watch():
 @code_app.command("lint")
 def lint(
     fix: bool = typer.Option(False, "--fix", help="Fix lint errors"),
-    unsafe_fix:bool = typer.Option(False,"--unsafe-fixes",help="3 hidden fixes can be enabled with the '--unsafe-fixes' option")
+    unsafe_fix: bool = typer.Option(
+        False, "--unsafe-fixes",
+        help="3 hidden fixes can be enabled with the '--unsafe-fixes' option",
+    )
 ) -> None:
     """Run linting with ruff"""
     cmd = ["ruff", "check", "src/", "tests/"]
@@ -164,11 +167,21 @@ def format_code(
 @code_app.command("type_check")
 def type_check(
         # If ty fails for some reason use mypy (more tested)
-        relaxed:bool = typer.Option(False,"--relaxed-mode",help="Use mypy instead of ty (less strict and slower)"),
-        tests:bool = typer.Option(False,"--tests",help="Check type checking for tests"),
-        core:bool = typer.Option(False,"--netguard",help="Check type checking only for src/netguard"),
-        all: bool = typer.Option(False,"--all",help="Type check everything project wide")
-)->None:
+        relaxed: bool = typer.Option(
+            False, "--relaxed-mode",
+            help="Use mypy instead of ty (less strict and slower)",
+        ),
+        tests: bool = typer.Option(
+            False, "--tests", help="Check type checking for tests",
+        ),
+        core: bool = typer.Option(
+            False, "--netguard",
+            help="Check type checking only for src/netguard",
+        ),
+        all: bool = typer.Option(
+            False, "--all", help="Type check everything project wide",
+        ),
+) -> None:
     """Type check with mypy"""
     if relaxed:
         cmd:list[str] = ["mypy"]
@@ -295,7 +308,7 @@ def docs_main(ctx: typer.Context):
 def capture(
     interface: str = typer.Option("eth0", "--interface", "-i", help="Network interface"),
     count: int = typer.Option(100, "--count", "-c", help="Number of packets"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file"),
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file"),  # noqa: B008
 ):
     """[TODO] Capture network packets"""
     typer.secho("🚧 TODO: Packet capture not yet implemented", fg=typer.colors.YELLOW)
@@ -308,7 +321,7 @@ def capture(
 
 @app.command()
 def analyze(
-    input_file: Path = typer.Argument(..., help="Input parquet file"),
+    input_file: Path = typer.Argument(..., help="Input parquet file"),  # noqa: B008
     analyzer: str = typer.Option("tcp", "--analyzer", "-a", help="Analyzer type"),
 ):
     """[TODO] Analyze captured packets"""
@@ -326,7 +339,7 @@ def analyze(
 @app.command()
 def workflow(
     name: str = typer.Argument(..., help="Workflow name"),
-    input_file: Path = typer.Option(..., "--input", "-i", help="Input file"),
+    input_file: Path = typer.Option(..., "--input", "-i", help="Input file"),  # noqa: B008
 ):
     """[TODO] Run analysis workflow"""
     workflows = {
@@ -409,11 +422,11 @@ def clean(
 
     if cache or all_caches:
         typer.echo("Cleaning Python cache files...")
-        for p in Path(".").rglob("__pycache__"):
+        for p in Path().rglob("__pycache__"):
             rmtree(p)
-        for p in Path(".").rglob("*.pyc"):
+        for p in Path().rglob("*.pyc"):
             rmfile(p)
-        for p in Path(".").rglob("*.pyo"):
+        for p in Path().rglob("*.pyo"):
             rmfile(p)
 
     if coverage or all_caches:
@@ -493,7 +506,7 @@ def deps(
 
 @project_app.command("collect-context")
 def collect_context(
-    output: Path = typer.Option(
+    output: Path = typer.Option(  # noqa: B008
         Path("project_context.txt"), "--output", "-o", help="Output file path"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
@@ -520,9 +533,9 @@ def collect_context(
     if project_tree:
         cmd.append("--include-project-tree")
 
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd, check=False)
     if result.returncode == 0:
-        typer.secho(f"✅ Context collected successfully.", fg=typer.colors.GREEN)
+        typer.secho("✅ Context collected successfully.", fg=typer.colors.GREEN)
     else:
         typer.secho("❌ Context collection failed.", fg=typer.colors.RED)
         sys.exit(1)
@@ -554,7 +567,7 @@ def docker_up(
     if detach:
         cmd.append("-d")
     typer.echo(f"🐳 Starting services: {' '.join(cmd)}")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=False)
 
 
 @docker_app.command("down")
@@ -568,7 +581,7 @@ def docker_down(
     if volumes:
         cmd.append("-v")
     typer.echo(f"🐳 Stopping services: {' '.join(cmd)}")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=False)
 
 
 @docker_app.command("logs")
@@ -586,7 +599,7 @@ def docker_logs(
         cmd.extend(["--tail", str(tail)])
     typer.echo(f"📜 Viewing logs: {' '.join(cmd)}")
     try:
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=False)
     except KeyboardInterrupt:
         typer.echo("\n👋 Exiting log view.")
         sys.exit(0)
@@ -603,7 +616,7 @@ def docker_build(
     if no_cache:
         cmd.append("--no-cache")
     typer.echo(f"🏗️ Building services: {' '.join(cmd)}")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=False)
 
 
 # ============================================================================
@@ -614,8 +627,8 @@ def docker_build(
 @app.command()
 def shell():
     """Start an interactive Python shell with pre-imported modules."""
-    import code
-    from importlib.metadata import version
+    import code  # noqa: PLC0415
+    from importlib.metadata import version  # noqa: PLC0415
 
     typer.echo("🐍 Starting NetGuard interactive shell...")
 
@@ -638,7 +651,7 @@ def shell():
 
     try_import("polars", "pl")
     try:
-        from netguard.capture.packet_capture import PacketCapture
+        from netguard.capture.packet_capture import PacketCapture  # noqa: PLC0415
 
         context["PacketCapture"] = PacketCapture
         imports_successful.append("  - PacketCapture")
@@ -661,7 +674,7 @@ def shell():
 @app.command()
 def info():
     """Show project information and statistics."""
-    from importlib.metadata import PackageNotFoundError, version
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415
 
     typer.echo("=" * 60)
     typer.echo("📋 NetGuard Project Information")

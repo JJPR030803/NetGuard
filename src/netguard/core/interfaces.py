@@ -8,8 +8,8 @@ Network interface detection with two distinct modes:
 import platform
 import shutil
 import subprocess  # nosec B404
-from pathlib import Path
 from collections.abc import Iterator
+from pathlib import Path
 from typing import ClassVar, Optional, Union
 
 import netifaces  # type: ignore[import-untyped]

@@ -3,7 +3,6 @@ Tests for MLLogger class.
 """
 
 import unittest
-from unittest.mock import patch
 
 from netguard.ml.ml_logger import MLLogger
 

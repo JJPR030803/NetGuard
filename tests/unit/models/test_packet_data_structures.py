@@ -5,12 +5,9 @@ This module tests the Pydantic models defined in netguard.models.packet_data_str
 """
 
 import unittest
-from typing import Any
 
 import pandas as pd
-import pytest
 from pydantic import ValidationError
-from pydantic_extra_types.mac_address import MacAddress
 
 from netguard.models.packet_data_structures import (
     ARPPacket,

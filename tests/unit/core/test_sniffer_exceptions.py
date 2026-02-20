@@ -1,8 +1,8 @@
 """
-Tests for the sniffer exceptions.md module.
+Tests for the sniffer exceptions module.
 
 This module contains tests for the exception classes defined in the
-network_security_suite.sniffer.exceptions.md module.
+netguard.core.exceptions module.
 """
 
 import unittest

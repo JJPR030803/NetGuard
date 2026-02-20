@@ -9,6 +9,7 @@ including JSON, pandas DataFrames, and Polars DataFrames.
 import gc
 import os
 import platform
+import subprocess  # nosec B404
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -372,8 +373,9 @@ class PacketCapture:
     def _realtime_display_loop(self) -> None:
         """Real-time display loop that runs in a separate thread."""
         while self.display_running:
-            # Clear screen (Linux/Mac)
-            os.system("clear" if os.name == "posix" else "cls")
+            # Clear screen (Linux/Mac/Windows)
+            cmd = "clear" if os.name == "posix" else "cls"
+            subprocess.run([cmd], check=False)  # nosec B603
 
             print("=" * 80)
             print(f"REAL-TIME PACKET CAPTURE - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
