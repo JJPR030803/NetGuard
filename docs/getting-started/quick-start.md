@@ -1,3 +1,3 @@
-# Testing
+# Quick Start
 
 *In progress.*

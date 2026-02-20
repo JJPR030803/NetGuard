@@ -890,9 +890,11 @@ class SnifferConfig:
 
         Note:
             This method will overwrite the file if it already exists.
+            Should be used only once to generate the default configuration.
         """
         config = cls()
         config.to_yaml(yaml_file)
+        print("Default configuration file generated successfully.\nAt:", yaml_file, "\n")
 
     def __str__(self) -> str:
         """Return a human-readable string representation of the configuration."""

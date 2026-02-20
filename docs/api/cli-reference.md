@@ -1,3 +1,3 @@
-# Testing
+# CLI Reference
 
 *In progress.*

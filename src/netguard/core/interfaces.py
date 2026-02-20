@@ -1,22 +1,21 @@
 """
 interfaces.py
-This module contains the Interface class for detecting and managing network interfaces.
-Compatible with multiple operating systems.
+Network interface detection with two distinct modes:
+- Interface.scan: Quick, stateless operations (scripting/testing)
+- Interface(...): Full-featured manager (security audits/production)
 """
 
 import platform
 import shutil
-
-# B404: We need to use subprocess for system commands, but we've implemented
-# security measures to mitigate risks (full paths, no shell=True, input validation)
 import subprocess  # nosec B404
 from pathlib import Path
+from collections.abc import Iterator
 from typing import ClassVar, Optional, Union
 
 import netifaces  # type: ignore[import-untyped]
 
 from netguard.core.loggers import (
-    ConsoleLogger,  # Import ConsoleLogger
+    ConsoleLogger,
     DebugLogger,
     ErrorLogger,
     InfoLogger,
@@ -25,210 +24,174 @@ from netguard.core.loggers import (
 from .config import SnifferConfig
 
 
-class Interface:
-    # Valid characters for interface names (alphanumeric, dash, underscore, dot, colon)
+class _InterfaceScanner:
+    """
+    Stateless interface scanning utilities.
+
+    Access via Interface.scan for quick operations without logging.
+    Not meant to be instantiated directly.
+
+    Examples:
+        >>> # Quick scans (no logging, no configuration)
+        >>> interfaces = Interface.scan.all()
+        >>> is_valid = Interface.scan.validate_name("eth0")
+        >>> iface_type = Interface.scan.detect_type("wlan0")
+        >>> ethernet = Interface.scan.by_type(interfaces, "ethernet")
+    """
+
     VALID_IFACE_CHARS: ClassVar[set[str]] = set(
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:+"
     )
-    info_logger: Union[InfoLogger, ConsoleLogger]
-    debug_logger: Union[DebugLogger, ConsoleLogger]
-    error_logger: Union[ErrorLogger, ConsoleLogger]
 
-    def __init__(
-        self,
-        config: Optional[SnifferConfig] = None,
-        interface: Optional[str] = None,  # Legacy support
-        interface_detection_method: Optional[str] = None,  # Legacy support
-        log_dir: Optional[str] = None,  # Legacy support
-    ):
-        """Initialize the Interface class with configuration support."""
-        # Import here to avoid circular imports
-
-        # Use provided config or create default
-        self.config = config if config is not None else SnifferConfig()
-
-        # Legacy support - override config with direct parameters if provided
-        if interface is not None:
-            self.config.interface = interface  # type: ignore
-        if interface_detection_method is not None:
-            self.config.interface_detection_method = interface_detection_method  # type: ignore
-        if log_dir is not None:
-            self.config.log_dir = log_dir  # type: ignore
-
-        # Initialize loggers
-        self.info_logger = InfoLogger(log_dir=self.config.log_dir)
-        self.debug_logger = DebugLogger(log_dir=self.config.log_dir)
-        self.error_logger = ErrorLogger(log_dir=self.config.log_dir)
-
-        self.os_type = platform.system().lower()
-        self.interfaces = {}
-
-        try:
-            self.interfaces = self._get_interfaces()
-            self.info_logger.log(f"Detected {len(self.interfaces)} network interfaces")
-        except Exception as e:
-            self.error_logger.log(f"Error detecting interfaces: {e!s}")
-            self.interfaces = {}
-
-    def _setup_loggers(self) -> None:
-        """Setup loggers based on configuration."""
-        log_dir = self.config.log_dir if self.config.log_to_file else None
-
-        if self.config.log_to_file:
-            Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
-
-        self.info_logger = (
-            InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        )
-        self.debug_logger = (
-            DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        )
-        self.error_logger = (
-            ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
-        )
-
-    def _auto_select_interface(self) -> None:
-        """Auto-select best interface based on config preferences."""
-        for interface_type in self.config.preferred_interface_types:
-            interfaces = self.get_interface_by_type(interface_type)
-            if interfaces:
-                active_interfaces = [
-                    iface for iface in interfaces if self.interfaces[iface].get("state") == "UP"
-                ]
-                if active_interfaces:
-                    self.config.interface = active_interfaces[0]  # type: ignore
-                    self.info_logger.log(f"Auto-selected interface: {self.config.interface}")
-                    return
-
-        # Fallback to first available interface
-        if self.interfaces:
-            self.config.interface = next(iter(self.interfaces.keys()))  # type: ignore
-            self.info_logger.log(f"Fallback interface selected: {self.config.interface}")
-
-    def get_recommended_interface(self) -> Optional[str]:
+    @staticmethod
+    def all(os_type: Optional[str] = None) -> dict[str, dict]:
         """
-        Get a recommended interface based on configuration preferences.
+        Get all network interfaces (stateless scan).
+
+        Args:
+            os_type: Override OS detection (default: auto-detect)
 
         Returns:
-            str | None: The name of the recommended interface, or None if no
-                suitable interface is found.
+            Dictionary mapping interface names to their properties
+
+        Example:
+            >>> interfaces = Interface.scan.all()
+            >>> for name, info in interfaces.items():
+            ...     print(f"{name}: {info['ipv4']}")
         """
-        if not self.interfaces:
-            self.error_logger.log("No interfaces available for recommendation")
+        detected_os = os_type or platform.system().lower()
+
+        if detected_os == "linux":
+            return _InterfaceScanner._scan_linux()
+        elif detected_os == "darwin":
+            return _InterfaceScanner._scan_macos()
+        elif detected_os == "windows":
+            return _InterfaceScanner._scan_windows()
+        else:
+            raise NotImplementedError(f"OS {detected_os} not supported")
+
+    @staticmethod
+    def validate_name(iface: str) -> bool:
+        """
+        Validate interface name for security.
+
+        Args:
+            iface: Interface name to validate
+
+        Returns:
+            True if name contains only safe characters
+
+        Example:
+            >>> Interface.scan.validate_name("eth0")
+            True
+            >>> Interface.scan.validate_name("eth0; rm -rf /")
+            False
+        """
+        if not iface:
+            return False
+        return all(c in _InterfaceScanner.VALID_IFACE_CHARS for c in iface)
+
+    @staticmethod
+    def detect_type(iface: str) -> str:
+        """
+        Detect interface type from name.
+
+        Args:
+            iface: Interface name
+
+        Returns:
+            Type: 'loopback', 'ethernet', 'wireless', 'docker',
+                  'virtual', 'vpn', or 'unknown'
+
+        Example:
+            >>> Interface.scan.detect_type("eth0")
+            'ethernet'
+            >>> Interface.scan.detect_type("wlan0")
+            'wireless'
+        """
+        iface_lower = iface.lower()
+
+        if iface_lower in ("lo", "loopback"):
+            return "loopback"
+
+        prefix_mapping = [
+            (("eth", "en", "eno"), "ethernet"),
+            (("wlan", "wifi", "wl"), "wireless"),
+            (("docker", "br-"), "docker"),
+            (("veth",), "virtual"),
+            (("tun", "tap"), "vpn"),
+        ]
+
+        for prefixes, iface_type in prefix_mapping:
+            if iface_lower.startswith(prefixes):
+                return iface_type
+
+        return "unknown"
+
+    @staticmethod
+    def by_type(interfaces: dict[str, dict], type_name: str) -> list[str]:
+        """
+        Filter interfaces by type.
+
+        Args:
+            interfaces: Dictionary from Interface.scan.all()
+            type_name: Type to filter by
+
+        Returns:
+            List of interface names matching the type
+
+        Example:
+            >>> interfaces = Interface.scan.all()
+            >>> wireless = Interface.scan.by_type(interfaces, "wireless")
+        """
+        return [name for name, info in interfaces.items() if info.get("type") == type_name]
+
+    @staticmethod
+    def active(interfaces: dict[str, dict]) -> list[str]:
+        """
+        Filter to only active (UP) interfaces.
+
+        Args:
+            interfaces: Dictionary from Interface.scan.all()
+
+        Returns:
+            List of active interface names
+
+        Example:
+            >>> interfaces = Interface.scan.all()
+            >>> active = Interface.scan.active(interfaces)
+        """
+        return [name for name, info in interfaces.items() if info.get("state") == "UP"]
+
+    @staticmethod
+    def default() -> Optional[str]:
+        """
+        Get the default network interface.
+
+        Returns:
+            Name of default interface or None
+
+        Example:
+            >>> default = Interface.scan.default()
+            >>> print(f"Default: {default}")
+        """
+        try:
+            gateways = netifaces.gateways()
+            default_gateway = gateways.get("default", {}).get(netifaces.AF_INET)
+            return default_gateway[1] if default_gateway else None
+        except Exception:
             return None
 
-        # If a specific interface is configured and exists, use it
-        if (
-            self.config.interface
-            and self.config.interface in self.interfaces
-            and self.config.interface_detection_method == "manual"
-        ):
-            return self.config.interface
+    # ========================================================================
+    # Private implementation methods
+    # ========================================================================
 
-        # Auto-detection based on preferences
-        if self.config.interface_detection_method == "auto":
-            # Get active interfaces first
-            active_interfaces = self.get_active_interfaces()
-
-            # Filter by preferred types
-            for preferred_type in self.config.preferred_interface_types:
-                matching_interfaces = [
-                    iface
-                    for iface in active_interfaces
-                    if self.interfaces[iface].get("type") == preferred_type
-                ]
-                if matching_interfaces:
-                    selected = matching_interfaces[0]  # Take the first match
-                    self.info_logger.log(
-                        f"Auto-selected interface: {selected} (type: {preferred_type})"
-                    )
-                    return selected
-
-            # If no preferred type matches, return the first active interface
-            if active_interfaces:
-                selected = active_interfaces[0]
-                self.info_logger.log(f"Auto-selected interface: {selected} (fallback)")
-                return selected
-
-        self.error_logger.log("No suitable interface found")
-        return None
-
-    def validate_interface(self, interface_name: str) -> bool:
-        """Validate interface name based on config security settings."""
-        if not self.config.validate_interface_names:
-            return True
-
-        return self._is_valid_interface_name(interface_name)
-
-    """
-    A class for detecting and managing network interfaces across different operating systems.
-
-    This class provides methods to identify network interfaces on Linux, macOS, and Windows
-    systems, retrieve their properties (IP addresses, MAC addresses, etc.), and filter them
-    based on various criteria.
-
-    Attributes:
-        os_type (str): The lowercase name of the current operating system.
-        interfaces (dict): A dictionary of detected network interfaces and their properties.
-    """
-
-    def _get_interfaces(self) -> dict[str, dict]:
-        """
-        Get network interfaces based on the current operating system.
-
-        This method acts as a router to call the appropriate OS-specific method
-        for detecting network interfaces.
-
-        Returns:
-            Dict[str, dict]: A dictionary where keys are interface names and values are
-                dictionaries containing interface properties (name, MAC, IP addresses, etc.)
-
-        Raises:
-            NotImplementedError: If the current operating system is not supported.
-        """
-        self.debug_logger.log(f"Detecting network interfaces for {self.os_type}")
-        try:
-            if self.os_type == "linux":
-                self.debug_logger.log("Using Linux interface detection method")
-                return self._get_linux_interfaces()
-            if self.os_type == "darwin":  # macOS
-                self.debug_logger.log("Using macOS interface detection method")
-                return self._get_macos_interfaces()
-            if self.os_type == "windows":
-                self.debug_logger.log("Using Windows interface detection method")
-                return self._get_windows_interfaces()
-
-            error_msg = f"Operating system {self.os_type} not supported"
-            self.error_logger.log(error_msg)
-            raise NotImplementedError(error_msg)
-        except Exception as e:
-            self.error_logger.log(f"Error detecting network interfaces: {e!s}")
-            raise
-
-    def _get_linux_interfaces(self) -> dict[str, dict]:
-        """
-        Get network interfaces on Linux systems.
-
-        Uses the netifaces library for basic interface detection and the 'ip' command
-        for additional Linux-specific information.
-
-        Returns:
-            Dict[str, dict]: A dictionary where keys are interface names and values are
-                dictionaries containing interface properties including:
-                - name: The interface name
-                - mac: The MAC address
-                - ipv4: The IPv4 address
-                - ipv6: The IPv6 address (if available)
-                - type: The detected interface type
-                - state: The interface state (UP/DOWN) if available
-        """
-        self.debug_logger.log("Detecting Linux network interfaces")
+    @staticmethod
+    def _scan_linux() -> dict[str, dict]:
+        """Scan Linux interfaces."""
         interfaces = {}
         try:
-            # Using netifaces for basic interface detection
-            self.debug_logger.log("Using netifaces for basic interface detection")
             for iface in netifaces.interfaces():
-                self.debug_logger.log(f"Processing interface: {iface}")
                 addrs = netifaces.ifaddresses(iface)
                 interface_info = {
                     "name": iface,
@@ -239,20 +202,14 @@ class Interface:
                         if netifaces.AF_INET6 in addrs
                         else None
                     ),
-                    "type": self._detect_interface_type(iface),
+                    "type": _InterfaceScanner.detect_type(iface),
                 }
                 interfaces[iface] = interface_info
-                self.debug_logger.log(f"Added interface {iface} with type {interface_info['type']}")
 
-            # Additional Linux-specific information
+            # Add state information
             ip_path = shutil.which("ip")
             if ip_path:
-                self.debug_logger.log("Using 'ip' command for additional information")
                 try:
-                    # B603: This subprocess call is safe because:
-                    # 1. We use the full path to the executable (ip_path from shutil.which)
-                    # 2. We use a fixed list of arguments with no user input
-                    # 3. We don't use shell=True
                     ip_link = subprocess.run(  # nosec B603
                         [ip_path, "link", "show"],
                         capture_output=True,
@@ -263,46 +220,19 @@ class Interface:
                         if ":" in line:
                             iface_name = line.split(":")[1].strip()
                             if iface_name in interfaces:
-                                # Add state information
                                 state = "UP" if "UP" in line else "DOWN"
                                 interfaces[iface_name]["state"] = state
-                                self.debug_logger.log(
-                                    f"Updated interface {iface_name} state to {state}"
-                                )
                 except subprocess.CalledProcessError:
-                    self.error_logger.log("Failed to execute 'ip link show' command")
                     pass
-
-            self.info_logger.log(
-                f"Successfully detected {len(interfaces)} Linux network interfaces"
-            )
-        except Exception as e:
-            self.error_logger.log(f"Error detecting Linux interfaces: {e!s}")
-            # Log the error but return any interfaces we've found so far
-            # This allows the program to continue with partial interface information
+        except Exception:
             pass
         return interfaces
 
-    def _get_macos_interfaces(self) -> dict[str, dict]:
-        """
-        Get network interfaces on macOS systems.
-
-        Uses the netifaces library for basic interface detection and the 'ifconfig' command
-        for additional macOS-specific information.
-
-        Returns:
-            Dict[str, dict]: A dictionary where keys are interface names and values are
-                dictionaries containing interface properties including:
-                - name: The interface name
-                - mac: The MAC address
-                - ipv4: The IPv4 address
-                - ipv6: The IPv6 address (if available)
-                - type: The detected interface type
-                - state: The interface state (UP/DOWN/UNKNOWN)
-        """
+    @staticmethod
+    def _scan_macos() -> dict[str, dict]:
+        """Scan macOS interfaces."""
         interfaces = {}
         try:
-            # Basic interface detection using netifaces
             for iface in netifaces.interfaces():
                 addrs = netifaces.ifaddresses(iface)
                 interface_info = {
@@ -314,17 +244,12 @@ class Interface:
                         if netifaces.AF_INET6 in addrs
                         else None
                     ),
-                    "type": self._detect_interface_type(iface),
+                    "type": _InterfaceScanner.detect_type(iface),
                 }
 
-                # Additional macOS specific information using ifconfig
                 ifconfig_path = shutil.which("ifconfig")
-                if ifconfig_path and self._is_valid_interface_name(iface):
+                if ifconfig_path and _InterfaceScanner.validate_name(iface):
                     try:
-                        # B603: This subprocess call is safe because:
-                        # 1. Full path to executable (ifconfig_path from shutil.which)
-                        # 2. We validate the interface name with _is_valid_interface_name()
-                        # 3. We don't use shell=True
                         ifconfig = subprocess.run(  # nosec B603
                             [ifconfig_path, iface],
                             capture_output=True,
@@ -340,77 +265,39 @@ class Interface:
                     interface_info["state"] = "UNKNOWN"
 
                 interfaces[iface] = interface_info
-
         except Exception:
-            # Log the error but return any interfaces we've found so far
-            # This allows the program to continue with partial interface information
             pass
         return interfaces
 
-    def _get_windows_interfaces(self) -> dict[str, dict]:
-        """
-        Get network interfaces on Windows systems.
-
-        Uses the 'ipconfig /all' command to retrieve information about network interfaces
-        on Windows systems.
-
-        Returns:
-            Dict[str, dict]: A dictionary where keys are interface names and values are
-                dictionaries containing interface properties including:
-                - name: The interface name
-                - mac: The MAC address (Physical Address)
-                - ipv4: The IPv4 address (if available)
-                - ipv6: The IPv6 address (if available)
-                - type: The detected interface type
-                - state: The interface state (typically 'UNKNOWN' as Windows doesn't provide
-                  this information in the same way as Linux/macOS)
-        """
+    @staticmethod
+    def _scan_windows() -> dict[str, dict]:
+        """Scan Windows interfaces."""
         interfaces = {}
         try:
-            # Using Windows specific commands
-            # On Windows, we need to use the full path to ipconfig.exe
-            try:
-                ipconfig_path = Path(r"C:\Windows\System32\ipconfig.exe")
+            ipconfig_path = Path(r"C:\Windows\System32\ipconfig.exe")
 
-                # Use the safer subprocess.run instead of check_output
-                if ipconfig_path.exists():
-                    # B603: This subprocess call is safe because:
-                    # 1. We use the full path to the executable (hardcoded Windows system path)
-                    # 2. We use a fixed list of arguments with no user input
-                    # 3. We explicitly set shell=False for security
-                    netsh_output = subprocess.run(  # nosec B603
-                        [str(ipconfig_path), "/all"],
-                        capture_output=True,
-                        text=True,
-                        shell=False,  # Explicitly set shell=False for security
-                        check=True,
-                    ).stdout
-                else:
-                    # Fallback to PATH-based execution if the hardcoded path doesn't exist
-                    ipconfig_path_str = shutil.which("ipconfig")
-                    if not ipconfig_path_str:
-                        # Create but don't raise the exception - return empty dict instead
-                        # This would be a good place for logging in a production environment
-                        # InterfaceConfigurationError(config_issue="ipconfig command not found")
-                        return {}  # Return empty dict if ipconfig is not found
-                    ipconfig_path = Path(ipconfig_path_str)
+            if ipconfig_path.exists():
+                netsh_output = subprocess.run(  # nosec B603
+                    [str(ipconfig_path), "/all"],
+                    capture_output=True,
+                    text=True,
+                    shell=False,
+                    check=True,
+                ).stdout
+            else:
+                ipconfig_path_str = shutil.which("ipconfig")
+                if not ipconfig_path_str:
+                    return {}
+                ipconfig_path = Path(ipconfig_path_str)
 
-                    # B603: This subprocess call is safe because:
-                    # 1. We use the full path to the executable (ipconfig_path from shutil.which)
-                    # 2. We use a fixed list of arguments with no user input
-                    # 3. We explicitly set shell=False for security
-                    netsh_output = subprocess.run(  # nosec B603
-                        [ipconfig_path, "/all"],
-                        capture_output=True,
-                        text=True,
-                        shell=False,  # Explicitly set shell=False for security
-                        check=True,
-                    ).stdout
-            except subprocess.CalledProcessError:
-                # Return empty dict if ipconfig fails
-                # This would be a good place for logging in a production environment
-                # InterfaceConfigurationError(config_issue="Error running ipconfig")
-                return {}
+                netsh_output = subprocess.run(  # nosec B603
+                    [str(ipconfig_path), "/all"],
+                    capture_output=True,
+                    text=True,
+                    shell=False,
+                    check=True,
+                ).stdout
+
             current_interface = None
             interface_info = {}
 
@@ -420,16 +307,14 @@ class Interface:
                     continue
 
                 if not line.startswith(" "):
-                    # New interface found
                     if current_interface and interface_info:
                         interfaces[current_interface] = interface_info
                     current_interface = line.rstrip(":")
                     interface_info = {
                         "name": current_interface,
-                        "type": self._detect_interface_type(current_interface),
+                        "type": _InterfaceScanner.detect_type(current_interface),
                         "state": "UNKNOWN",
                     }
-                # Parse interface details
                 elif "Physical Address" in line:
                     interface_info["mac"] = line.split(":")[1].strip()
                 elif "IPv4 Address" in line:
@@ -437,85 +322,199 @@ class Interface:
                 elif "IPv6 Address" in line:
                     interface_info["ipv6"] = line.split(":")[1].strip().replace("(Preferred)", "")
 
-            # Add the last interface
             if current_interface and interface_info:
                 interfaces[current_interface] = interface_info
 
         except Exception:
-            # Log the error but return any interfaces we've found so far
-            # This allows the program to continue with partial interface information
             pass
         return interfaces
 
-    def _is_valid_interface_name(self, iface: str) -> bool:
-        """
-        Validate that an interface name contains only allowed characters.
 
-        This is a security measure to prevent command injection when using
-        interface names in subprocess calls.
+class Interface:
+    """
+    Full-featured interface manager with logging and configuration.
+
+    Two usage modes:
+
+    1. Quick scanning (no logging):
+        >>> interfaces = Interface.scan.all()
+        >>> default = Interface.scan.default()
+        >>> if Interface.scan.validate_name("eth0"):
+        ...     print("Valid")
+
+    2. Managed operations (with logging):
+        >>> manager = Interface(config=my_config)
+        >>> manager.show_available_interfaces()  # Logged
+        >>> recommended = manager.get_recommended_interface()  # Logged
+
+    Use Interface.scan for:
+    - Quick scripts and testing
+    - One-off queries
+    - Performance-critical operations
+
+    Use Interface(...) for:
+    - Security audits (logged operations)
+    - Production packet sniffing (compliance/legal)
+    - Complex workflows requiring configuration
+    - Operations needing audit trails
+    """
+
+    # Expose scanner as namespace
+    scan = _InterfaceScanner
+
+    def __init__(
+        self,
+        config: Optional[SnifferConfig] = None,
+        interface: Optional[str] = None,  # Legacy support
+        interface_detection_method: Optional[str] = None,  # Legacy support
+        log_dir: Optional[str] = None,  # Legacy support
+    ):
+        """
+        Initialize interface manager.
 
         Args:
-            iface (str): The interface name to validate
-
-        Returns:
-            bool: True if the interface name is valid, False otherwise
+            config: Configuration object
+            interface: (Legacy) Direct interface specification
+            interface_detection_method: (Legacy) Detection method
+            log_dir: (Legacy) Log directory
         """
-        if not iface:
-            return False
+        # Use provided config or create default
+        self.config = config if config is not None else SnifferConfig()
 
-        # Check that all characters in the interface name are valid
-        return all(c in self.VALID_IFACE_CHARS for c in iface)
+        # Legacy support
+        if interface is not None:
+            self.config.interface = interface  # type: ignore
+        if interface_detection_method is not None:
+            self.config.interface_detection_method = interface_detection_method  # type: ignore
+        if log_dir is not None:
+            self.config.log_dir = log_dir  # type: ignore
 
-    def _detect_interface_type(self, iface: str) -> str:
+        # Initialize loggers
+        self._setup_loggers()
+
+        self.os_type = platform.system().lower()
+        self.interfaces: dict[str, dict] = {}
+
+        try:
+            # Use the scan namespace internally
+            self.interfaces = self.scan.all(os_type=self.os_type)
+            self.info_logger.log(f"Detected {len(self.interfaces)} network interfaces")
+        except Exception as e:
+            self.error_logger.log(f"Error detecting interfaces: {e!s}")
+            self.interfaces = {}
+
+    def __repr__(self) -> str:
+        iface_names = list(self.interfaces.keys())
+        return f"Interface(os_type={self.os_type!r}, interfaces={iface_names!r})"
+
+    def __str__(self) -> str:
+        active = self.get_active_interfaces()
+        return f"Interface({self.os_type}): {len(self.interfaces)} detected, {len(active)} active"
+
+    def __len__(self) -> int:
+        return len(self.interfaces)
+
+    def __bool__(self) -> bool:
+        return bool(self.interfaces)
+
+    def __contains__(self, interface_name: object) -> bool:
+        return interface_name in self.interfaces
+
+    def __getitem__(self, interface_name: str) -> dict:
+        return self.interfaces[interface_name]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.interfaces)
+
+    def _setup_loggers(self) -> None:
+        """Setup loggers based on configuration."""
+        log_dir = self.config.log_dir if self.config.log_to_file else None
+
+        if self.config.log_to_file:
+            Path(self.config.log_dir).mkdir(parents=True, exist_ok=True)
+
+        self.info_logger: Union[InfoLogger, ConsoleLogger] = (
+            InfoLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
+        self.debug_logger: Union[DebugLogger, ConsoleLogger] = (
+            DebugLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
+        self.error_logger: Union[ErrorLogger, ConsoleLogger] = (
+            ErrorLogger(log_dir=log_dir) if self.config.enable_file_logging else ConsoleLogger()
+        )
+
+    def validate_interface(self, interface_name: str) -> bool:
         """
-        Detect the type of network interface based on its name.
-
-        Uses common naming conventions to determine the interface type.
+        Validate interface name (with logging).
 
         Args:
-            iface (str): The name of the network interface.
+            interface_name: Name to validate
 
         Returns:
-            str: The detected interface type, one of:
-                - 'loopback': For loopback interfaces
-                - 'ethernet': For Ethernet interfaces
-                - 'wireless': For WiFi interfaces
-                - 'docker': For Docker network interfaces
-                - 'virtual': For virtual interfaces
-                - 'vpn': For VPN tunnel interfaces
-                - 'unknown': If the type cannot be determined
+            True if valid according to config
         """
-        iface_lower = iface.lower()
+        self.debug_logger.log(f"Validating interface: {interface_name}")
 
-        # Exact matches (checked first for performance)
-        if iface_lower in ("lo", "loopback"):
-            return "loopback"
+        if not self.config.validate_interface_names:
+            self.debug_logger.log("Validation disabled by config")
+            return True
 
-        # Prefix-based detection
-        prefix_mapping = [
-            (("eth", "en", "eno"), "ethernet"),
-            (("wlan", "wifi", "wl"), "wireless"),
-            (("docker", "br-"), "docker"),
-            (("veth",), "virtual"),
-            (("tun", "tap"), "vpn"),
-        ]
+        is_valid = self.scan.validate_name(interface_name)
 
-        for prefixes, iface_type in prefix_mapping:
-            if iface_lower.startswith(prefixes):
-                return iface_type
+        if is_valid:
+            self.debug_logger.log(f"Interface {interface_name} is valid")
+        else:
+            self.error_logger.log(f"Interface {interface_name} contains invalid characters")
 
-        return "unknown"
+        return is_valid
+
+    def get_recommended_interface(self) -> Optional[str]:
+        """
+        Get recommended interface based on config preferences (with logging).
+
+        Returns:
+            Interface name or None
+        """
+        if not self.interfaces:
+            self.error_logger.log("No interfaces available for recommendation")
+            return None
+
+        # Manual mode - use configured interface
+        if (
+            self.config.interface
+            and self.config.interface in self.interfaces
+            and self.config.interface_detection_method == "manual"
+        ):
+            self.info_logger.log(f"Using manually configured interface: {self.config.interface}")
+            return self.config.interface
+
+        # Auto mode - use preferences
+        if self.config.interface_detection_method == "auto":
+            active_interfaces = self.get_active_interfaces()
+
+            for preferred_type in self.config.preferred_interface_types:
+                matching = [
+                    iface
+                    for iface in active_interfaces
+                    if self.interfaces[iface].get("type") == preferred_type
+                ]
+                if matching:
+                    selected = matching[0]
+                    self.info_logger.log(
+                        f"Auto-selected interface: {selected} (type: {preferred_type})"
+                    )
+                    return selected
+
+            if active_interfaces:
+                selected = active_interfaces[0]
+                self.info_logger.log(f"Auto-selected interface: {selected} (fallback)")
+                return selected
+
+        self.error_logger.log("No suitable interface found")
+        return None
 
     def show_available_interfaces(self) -> None:
-        """
-        Display all available network interfaces with their details.
-
-        Prints a formatted list of all detected network interfaces and their properties
-        to the console, including name, MAC address, IP addresses, interface type, and state.
-
-        Returns:
-            None
-        """
+        """Display all interfaces (with logging)."""
         self.info_logger.log(f"Displaying {len(self.interfaces)} network interfaces")
         print(f"\nNetwork Interfaces on {self.os_type.capitalize()}:")
         print("-" * 60)
@@ -530,56 +529,47 @@ class Interface:
 
     def get_interface_by_type(self, type_name: str) -> list[str]:
         """
-        Get all interfaces of a specific type.
+        Get interfaces by type (with logging).
 
         Args:
-            type_name (str): The type of interface to filter by. Valid values include:
-                'loopback', 'ethernet', 'wireless', 'docker', 'virtual', 'vpn', 'unknown'.
+            type_name: Type to filter by
 
         Returns:
-            List[str]: A list of interface names that match the specified type.
-                Returns an empty list if no interfaces of the specified type are found.
+            List of matching interface names
         """
         self.debug_logger.log(f"Filtering interfaces by type: {type_name}")
-        interfaces = [name for name, info in self.interfaces.items() if info["type"] == type_name]
+        interfaces = self.scan.by_type(self.interfaces, type_name)
         self.info_logger.log(f"Found {len(interfaces)} interfaces of type '{type_name}'")
         return interfaces
 
     def get_active_interfaces(self) -> list[str]:
         """
-        Get all active network interfaces.
-
-        Returns a list of interface names that have their state set to 'UP'.
-        Note that this may not be accurate on all systems, particularly Windows,
-        where the state information might not be available.
+        Get active interfaces (with logging).
 
         Returns:
-            List[str]: A list of active interface names.
-                Returns an empty list if no active interfaces are found.
+            List of active interface names
         """
         self.debug_logger.log("Filtering interfaces by active state (UP)")
-        active_interfaces = [
-            name for name, info in self.interfaces.items() if info.get("state") == "UP"
-        ]
-        self.info_logger.log(f"Found {len(active_interfaces)} active interfaces")
-        return active_interfaces
+        active = self.scan.active(self.interfaces)
+        self.info_logger.log(f"Found {len(active)} active interfaces")
+        return active
 
     def get_interface_info(self, interface_name: str) -> dict:
         """
-        Get detailed information about a specific network interface.
+        Get interface details (with logging).
 
         Args:
-            interface_name (str): The name of the interface to retrieve information for.
+            interface_name: Interface to query
 
         Returns:
-            dict: A dictionary containing the interface properties including name, MAC address,
-                IP addresses, type, and state (if available). Returns an empty dictionary
-                if the specified interface is not found.
+            Dictionary of interface properties
         """
         self.debug_logger.log(f"Retrieving information for interface: {interface_name}")
         interface_info = self.interfaces.get(interface_name, {})
+
         if interface_info:
             self.info_logger.log(f"Found interface information for {interface_name}")
         else:
             self.error_logger.log(f"Interface not found: {interface_name}")
+
         return interface_info

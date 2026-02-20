@@ -89,5 +89,5 @@ config/local.env
 #Misc
 site/
 *.coverage
-.coverage
 *context.txt
+error.log

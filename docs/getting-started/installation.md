@@ -1,3 +1,3 @@
-# Testing
+# Installation
 
 *In progress.*

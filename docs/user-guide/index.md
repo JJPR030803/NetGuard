@@ -1,3 +1,3 @@
-# Testing
+# User Guide
 
 *In progress.*

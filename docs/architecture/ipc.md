@@ -1,3 +1,3 @@
-# Testing
+# IPC Protocol
 
 *In progress.*
