@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check*)",
+      "Bash(cargo test*)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo doc*)",
+      "Bash(cargo build*)",
+      "Bash(just check*)",
+      "Bash(just test*)",
+      "Bash(just lint*)",
+      "Bash(just fmt*)",
+      "Bash(just doctor*)",
+      "Bash(just bench*)",
+      "Bash(uv run pytest*)",
+      "Bash(uv run mypy*)",
+      "Bash(uv run ruff*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)"
+    ],
+    "deny": [
+      "Bash(sudo*)",
+      "Bash(rm -rf*)",
+      "Bash(setcap*)",
+      "Bash(pip install*)",
+      "Bash(cargo install*)"
+    ]
+  }
+}

@@ -126,9 +126,10 @@ def test_watch():
 def lint(
     fix: bool = typer.Option(False, "--fix", help="Fix lint errors"),
     unsafe_fix: bool = typer.Option(
-        False, "--unsafe-fixes",
+        False,
+        "--unsafe-fixes",
         help="3 hidden fixes can be enabled with the '--unsafe-fixes' option",
-    )
+    ),
 ) -> None:
     """Run linting with ruff"""
     cmd = ["ruff", "check", "src/", "tests/"]
@@ -159,46 +160,53 @@ def format_code(
     cmd.extend(["src/", "tests/"])
     result = run_uv_command(cmd)
     if result.returncode == 0:
-        typer.secho(f"Correctly formatted: {result.returncode}",color=True,fg='green')
+        typer.secho(f"Correctly formatted: {result.returncode}", color=True, fg="green")
     elif result.returncode == 1:
-        typer.secho(f"Error while formatting: {result.returncode}",fg='red')
+        typer.secho(f"Error while formatting: {result.returncode}", fg="red")
     sys.exit(result.returncode)
+
 
 @code_app.command("type_check")
 def type_check(
-        # If ty fails for some reason use mypy (more tested)
-        relaxed: bool = typer.Option(
-            False, "--relaxed-mode",
-            help="Use mypy instead of ty (less strict and slower)",
-        ),
-        tests: bool = typer.Option(
-            False, "--tests", help="Check type checking for tests",
-        ),
-        core: bool = typer.Option(
-            False, "--netguard",
-            help="Check type checking only for src/netguard",
-        ),
-        all: bool = typer.Option(
-            False, "--all", help="Type check everything project wide",
-        ),
+    # If ty fails for some reason use mypy (more tested)
+    relaxed: bool = typer.Option(
+        False,
+        "--relaxed-mode",
+        help="Use mypy instead of ty (less strict and slower)",
+    ),
+    tests: bool = typer.Option(
+        False,
+        "--tests",
+        help="Check type checking for tests",
+    ),
+    core: bool = typer.Option(
+        False,
+        "--netguard",
+        help="Check type checking only for src/netguard",
+    ),
+    all: bool = typer.Option(
+        False,
+        "--all",
+        help="Type check everything project wide",
+    ),
 ) -> None:
     """Type check with mypy"""
     if relaxed:
-        cmd:list[str] = ["mypy"]
+        cmd: list[str] = ["mypy"]
     else:
-        cmd:list[str] = ["uv","run","ty","check","src/netguard"]
+        cmd: list[str] = ["uv", "run", "ty", "check", "src/netguard"]
     if tests:
         cmd.append("tests/")
     elif core:
         cmd.append("src/netguard")
     elif all:
         cmd.append(".")
-    typer.secho("Checking type annotations",color=True,fg='green')
+    typer.secho("Checking type annotations", color=True, fg="green")
     result = run_uv_command(cmd)
     if result.returncode == 0:
-        typer.secho("Correctly typed annotations",fg='green')
+        typer.secho("Correctly typed annotations", fg="green")
     elif result.returncode == 1:
-        typer.secho("Error while typed annotations", fg='red')
+        typer.secho("Error while typed annotations", fg="red")
     sys.exit(result.returncode)
 
 
@@ -217,7 +225,7 @@ def check_all() -> None:
     results.append(("Linting", lint_result.returncode == 0))
 
     typer.echo("\n3. Type checking code...")
-    type_check_result = run_uv_command(["uv","run","ty","check","src/netguard"])
+    type_check_result = run_uv_command(["uv", "run", "ty", "check", "src/netguard"])
     results.append(("Type Checking", type_check_result.returncode == 0))
 
     typer.echo("\n4. Running unit tests...")
