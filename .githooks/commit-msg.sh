@@ -16,7 +16,7 @@ if echo "$COMMIT_MSG" | grep -qE "^(Merge|Revert|fixup!|squash!)"; then
   exit 0
 fi
 
-TYPES="feat|fix|docs|test|refactor|perf|chore|wip|build|ci"
+TYPES="feat|fix|docs|test|refactor|perf|chore|wip|build|ci|qol"
 SCOPES="orchestrator|ipc|sidecar|cli|tui|config|docs|validation|permissions|all|state|supervisor|env|infra"
 
 PATTERN="^(${TYPES})(\((${SCOPES})\))?(!)?: .{1,100}$"
