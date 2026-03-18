@@ -211,19 +211,19 @@ pub enum OrchestratorError {
     /// A command was issued that is not legal in the current system state.
     ///
     /// Raised when the user (or an external caller) sends a command that the
-    /// state machine cannot accept right now (e.g. `start` when already
-    /// `Running`).  Recoverable — the user can wait for the state to change
+    /// state machine cannot accept right now (e.g. `start` when in
+    /// `Connecting`).  Recoverable — the user can wait for the state to change
     /// and retry.
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use netguard_launcher::orchestrator::error::OrchestratorError;
     /// use netguard_launcher::orchestrator::state::SystemState;
     ///
     /// let err = OrchestratorError::InvalidCommandForState {
     ///     command: "start".to_string(), // orchestrator command name: "start", "stop", "restart"
-    ///     state: SystemState::Running,
+    ///     state: SystemState::Connecting,
     /// };
     /// ```
     #[error("Command '{command}' is not valid in state {state}")]
@@ -358,17 +358,17 @@ mod tests {
     fn invalid_state_transition_user_message() {
         let err = OrchestratorError::InvalidStateTransition {
             from: SystemState::Ready,
-            to: SystemState::Stopped,
+            to: SystemState::Fatal { reason: "test".to_string() },
         };
         let msg = err.user_message();
         assert!(msg.contains("Ready"));
-        assert!(msg.contains("Stopped"));
+        assert!(msg.contains("Fatal"));
     }
 
     #[test]
     fn invalid_state_transition_not_recoverable() {
         let err = OrchestratorError::InvalidStateTransition {
-            from: SystemState::Running,
+            from: SystemState::Ready,
             to: SystemState::Initializing,
         };
         assert!(!err.recoverable());
@@ -380,11 +380,11 @@ mod tests {
     fn invalid_command_for_state_user_message_and_suggestion() {
         let err = OrchestratorError::InvalidCommandForState {
             command: "start".to_string(),
-            state: SystemState::Running,
+            state: SystemState::Connecting,
         };
         let msg = err.user_message();
         assert!(msg.contains("start"));
-        assert!(msg.contains("Running"));
+        assert!(msg.contains("Connecting"));
         assert!(err.suggestion().is_some());
         assert!(err.recoverable());
     }

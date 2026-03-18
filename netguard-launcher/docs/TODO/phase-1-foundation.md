@@ -19,26 +19,30 @@
 - [x] `DisplayError` — terminal/rendering errors
 - [x] All variants implement `user_message()`, `suggestion()`, `severity()`, `recoverable()`
 - [x] `IntoIpcError` trait for Python serialization
-- [x] 53 unit tests passing
+- [x] 96 unit tests passing
 - [x] Zero clippy warnings
 
 ## State Machine
 
-- [ ] Redesign `SystemState` enum to match spec:
-  - [ ] `Initializing`
-  - [ ] `CheckingEnvironment`
-  - [ ] `Connecting`
-  - [ ] `Ready`
-  - [ ] `Operating { operation: ActiveOperation }`
-  - [ ] `Degraded { reason: DegradedReason, recovering: bool }`
-  - [ ] `ShuttingDown`
-  - [ ] `Fatal { reason: String }`
-- [ ] Implement `ActiveOperation` enum
-- [ ] Implement `DegradedReason` enum (6 variants)
-- [ ] Implement `can_transition_to()` guard function
-- [ ] Implement `allowed_commands()` per-state function
-- [ ] Write transition tests (valid transitions)
-- [ ] Write transition tests (invalid transitions — must be blocked)
+- [x] Redesign `SystemState` enum to match spec:
+  - [x] `Initializing`
+  - [x] `CheckingEnvironment`
+  - [x] `Connecting`
+  - [x] `Ready`
+  - [x] `Operating { operation: ActiveOperation }`
+  - [x] `Degraded { reason: DegradedReason, recovering: bool }`
+  - [x] `ShuttingDown`
+  - [x] `Fatal { reason: String }`
+- [x] Implement `ActiveOperation` enum
+- [x] Implement `DegradedReason` enum (6 variants)
+- [x] Implement `can_transition_to()` guard function
+- [x] Implement `allowed_commands()` per-state function
+- [x] Implement `Display` for `SystemState`
+- [x] Implement convenience predicates (`is_terminal()`, `is_degraded()`)
+- [x] Write transition tests (valid transitions)
+- [x] Write transition tests (invalid transitions — must be blocked)
+- [x] Write `allowed_commands()` tests per state
+- [x] Fix stale `SystemState` references in `orchestrator/error.rs`
 - [ ] Update `ARCHITECTURE.md` if any changes to transition table
 
 ## Configuration

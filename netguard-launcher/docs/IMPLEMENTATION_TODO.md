@@ -1,6 +1,6 @@
 # NetGuard Launcher — Implementation TODO
-**Date:** February 2026
-**Status:** Pre-implementation — scaffold exists, no logic written yet
+**Date:** March 2026
+**Status:** Phase 1 in progress (~40% complete)
 
 This document defines the phases for building the `netguard-launcher` Rust crate
 from its current scaffold state into a working MVP. Each phase has a clear start
@@ -14,10 +14,22 @@ gate passes. A working foundation is worth more than half-working features.
 
 ## Current State
 
-The project scaffold is complete: all directories, module files, `Cargo.toml`,
-`deny.toml`, and `rustfmt.toml` exist. No logic has been implemented — source
-files are stubs. The existing Python core (Scapy, Polars, TensorFlow, workflows)
-is unchanged and working independently.
+The error handling system and state machine are complete. 96 unit tests passing.
+Configuration, validation, and environment checker remain to be built.
+The existing Python core (Scapy, Polars, TensorFlow, workflows) is unchanged
+and working independently.
+
+**Completed:**
+- Full error hierarchy (8 domain error modules, all with 4 required methods)
+- `SystemState` enum (8 variants with structured data), `ActiveOperation`,
+  `DegradedReason`, `can_transition_to()`, `allowed_commands()`, `Display` impl
+- 96 unit tests, all passing
+
+**Remaining in Phase 1:**
+- Configuration system (`UserPreferences`, TOML read/write)
+- Validation layer (input validators)
+- Environment checker (pre-flight checks)
+- `main.rs` panic hook + minimal CLI wiring
 
 ---
 
