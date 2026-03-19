@@ -41,6 +41,7 @@ message to the orchestrator instead.
 | Ready | Operating { .. } | command received |
 | Operating { .. } | Ready | operation complete |
 | Operating { .. } | Degraded { recovering: true } | sidecar crash mid-op |
+| Degraded { CapabilitiesMissing } | Operating { .. } | analysis command received |
 | Any | ShuttingDown | shutdown signal |
 | ShuttingDown | (terminal) | — |
 | Fatal | (terminal) | — |
@@ -57,6 +58,7 @@ Log it at `error!()` level and block it — do not allow it.
 | Ready | StartCapture, RunWorkflow, ListInterfaces, LoadFile |
 | Operating { .. } | StopCapture, GetStats |
 | Degraded(CapabilitiesMissing) | RunWorkflow, LoadFile |
+| Degraded(IpcSocketUnavailable) | RunWorkflow, LoadFile |
 | Degraded(other) | none |
 | Connecting | none |
 | Initializing | none |

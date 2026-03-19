@@ -43,7 +43,9 @@
 - [x] Write transition tests (invalid transitions — must be blocked)
 - [x] Write `allowed_commands()` tests per state
 - [x] Fix stale `SystemState` references in `orchestrator/error.rs`
-- [ ] Update `ARCHITECTURE.md` if any changes to transition table
+- [x] Fix spec inconsistency: add `Degraded(CapabilitiesMissing) → Operating` transition
+- [x] Fix spec inconsistency: add `IpcSocketUnavailable` to `allowed_commands()`
+- [x] Update `ARCHITECTURE.md` with state machine transition table
 
 ## Configuration
 

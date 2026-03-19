@@ -260,6 +260,14 @@ impl SystemState {
 
             // ── Degraded / recovery path ──────────────────────────────────
             (Self::Operating { .. }, Self::Degraded { .. }) => true,
+            // Analysis commands in CapabilitiesMissing need Operating state
+            (
+                Self::Degraded {
+                    reason: DegradedReason::CapabilitiesMissing,
+                    ..
+                },
+                Self::Operating { .. },
+            ) => true,
             (Self::Degraded { .. }, Self::Connecting) => true,
             (Self::Degraded { .. }, Self::Fatal { .. }) => true,
 
@@ -279,9 +287,10 @@ impl SystemState {
     /// The rejection is surfaced to the frontend as an error snapshot, not a
     /// panic.
     ///
-    /// Note that [`DegradedReason::CapabilitiesMissing`] is the only degraded
-    /// reason that permits any commands — analysis of existing files does not
-    /// require capture permissions.
+    /// Note that [`DegradedReason::CapabilitiesMissing`] and
+    /// [`DegradedReason::IpcSocketUnavailable`] are the only degraded reasons
+    /// that permit commands — analysis of existing files does not require
+    /// capture permissions or a UDS socket.
     #[must_use]
     pub(crate) fn allowed_commands(&self) -> &[CommandKind] {
         match self {
@@ -295,7 +304,8 @@ impl SystemState {
             Self::Operating { .. } => &[CommandKind::StopCapture, CommandKind::GetStats],
 
             Self::Degraded {
-                reason: DegradedReason::CapabilitiesMissing,
+                reason: DegradedReason::CapabilitiesMissing
+                    | DegradedReason::IpcSocketUnavailable,
                 ..
             } => &[CommandKind::RunWorkflow, CommandKind::LoadFile],
 
@@ -370,20 +380,17 @@ mod tests {
 
     #[test]
     fn given_initializing_when_to_checking_environment_then_allowed() {
-        assert!(SystemState::Initializing
-            .can_transition_to(&SystemState::CheckingEnvironment));
+        assert!(SystemState::Initializing.can_transition_to(&SystemState::CheckingEnvironment));
     }
 
     #[test]
     fn given_checking_environment_when_to_connecting_then_allowed() {
-        assert!(SystemState::CheckingEnvironment
-            .can_transition_to(&SystemState::Connecting));
+        assert!(SystemState::CheckingEnvironment.can_transition_to(&SystemState::Connecting));
     }
 
     #[test]
     fn given_checking_environment_when_to_degraded_then_allowed() {
-        assert!(SystemState::CheckingEnvironment
-            .can_transition_to(&degraded_crashed()));
+        assert!(SystemState::CheckingEnvironment.can_transition_to(&degraded_crashed()));
     }
 
     #[test]
@@ -430,20 +437,17 @@ mod tests {
 
     #[test]
     fn given_initializing_when_to_shutting_down_then_allowed() {
-        assert!(SystemState::Initializing
-            .can_transition_to(&SystemState::ShuttingDown));
+        assert!(SystemState::Initializing.can_transition_to(&SystemState::ShuttingDown));
     }
 
     #[test]
     fn given_checking_environment_when_to_shutting_down_then_allowed() {
-        assert!(SystemState::CheckingEnvironment
-            .can_transition_to(&SystemState::ShuttingDown));
+        assert!(SystemState::CheckingEnvironment.can_transition_to(&SystemState::ShuttingDown));
     }
 
     #[test]
     fn given_connecting_when_to_shutting_down_then_allowed() {
-        assert!(SystemState::Connecting
-            .can_transition_to(&SystemState::ShuttingDown));
+        assert!(SystemState::Connecting.can_transition_to(&SystemState::ShuttingDown));
     }
 
     #[test]
@@ -465,15 +469,13 @@ mod tests {
 
     #[test]
     fn given_ready_when_to_initializing_then_blocked() {
-        assert!(!SystemState::Ready
-            .can_transition_to(&SystemState::Initializing));
+        assert!(!SystemState::Ready.can_transition_to(&SystemState::Initializing));
     }
 
     #[test]
     fn given_ready_when_to_connecting_then_blocked() {
         // Ready → Connecting is not in the table; recovery goes via Degraded
-        assert!(!SystemState::Ready
-            .can_transition_to(&SystemState::Connecting));
+        assert!(!SystemState::Ready.can_transition_to(&SystemState::Connecting));
     }
 
     #[test]
@@ -500,8 +502,7 @@ mod tests {
 
     #[test]
     fn given_shutting_down_when_to_ready_then_blocked() {
-        assert!(!SystemState::ShuttingDown
-            .can_transition_to(&SystemState::Ready));
+        assert!(!SystemState::ShuttingDown.can_transition_to(&SystemState::Ready));
     }
 
     #[test]
@@ -587,6 +588,36 @@ mod tests {
     #[test]
     fn given_shutting_down_state_then_no_commands_allowed() {
         assert!(SystemState::ShuttingDown.allowed_commands().is_empty());
+    }
+
+    // ── Degraded → Operating transitions ─────────────────────────────────
+
+    #[test]
+    fn given_degraded_caps_missing_when_to_operating_then_allowed() {
+        let workflow_op = SystemState::Operating {
+            operation: ActiveOperation::RunningWorkflow {
+                name: "daily-audit".to_string(),
+            },
+        };
+        assert!(degraded_caps_missing().can_transition_to(&workflow_op));
+    }
+
+    #[test]
+    fn given_degraded_crashed_when_to_operating_then_blocked() {
+        // Only CapabilitiesMissing gets Degraded → Operating; other reasons must recover first
+        assert!(!degraded_crashed().can_transition_to(&operating_capture()));
+    }
+
+    #[test]
+    fn given_degraded_ipc_unavailable_then_workflow_and_load_allowed() {
+        let deg = SystemState::Degraded {
+            reason: DegradedReason::IpcSocketUnavailable,
+            recovering: false,
+        };
+        let allowed = deg.allowed_commands();
+        assert!(allowed.contains(&CommandKind::RunWorkflow));
+        assert!(allowed.contains(&CommandKind::LoadFile));
+        assert!(!allowed.contains(&CommandKind::StartCapture));
     }
 
     // ── Convenience predicates ────────────────────────────────────────────────

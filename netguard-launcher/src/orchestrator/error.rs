@@ -358,7 +358,9 @@ mod tests {
     fn invalid_state_transition_user_message() {
         let err = OrchestratorError::InvalidStateTransition {
             from: SystemState::Ready,
-            to: SystemState::Fatal { reason: "test".to_string() },
+            to: SystemState::Fatal {
+                reason: "test".to_string(),
+            },
         };
         let msg = err.user_message();
         assert!(msg.contains("Ready"));

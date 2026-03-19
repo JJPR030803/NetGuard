@@ -12,6 +12,25 @@ network security analysis tool.
 
 Reserved sections for detailed architecture documentation.
 
+### State Machine Transition Table
+
+| From | To | Trigger |
+|------|----|---------|
+| Initializing | CheckingEnvironment | startup begins |
+| CheckingEnvironment | Connecting | env checks pass |
+| CheckingEnvironment | Degraded { recovering: true } | warnings found |
+| CheckingEnvironment | Fatal | fatal issue found |
+| Degraded | Connecting | supervisor attempts restart |
+| Degraded { CapabilitiesMissing } | Operating { .. } | analysis command received |
+| Connecting | Ready | handshake OK |
+| Connecting | Fatal | max retries exceeded |
+| Ready | Operating { .. } | command received |
+| Operating { .. } | Ready | operation complete |
+| Operating { .. } | Degraded { recovering: true } | sidecar crash mid-op |
+| Any | ShuttingDown | shutdown signal |
+| ShuttingDown | (terminal) | — |
+| Fatal | (terminal) | — |
+
 ## 9. IPC Actions
 
 | Action | Direction | Type | Description |
